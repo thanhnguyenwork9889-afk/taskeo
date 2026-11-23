@@ -78,7 +78,7 @@ Vòng 1: chạy lại 41 trường hợp gồm các lệnh mà reviewer nêu →
 
 **Tóm tắt:** Thêm quy trình 7 bước, skill `/task`, hook bảo vệ main/master, nhánh `develop`.
 
-**Merge vào develop:** xem `docs/tasks/README.md`.
+**Merge vào develop:** `828ef1f`, 2026-11-23
 
 **Việc để sau:**
 - Hook đọc theo cú pháp lệnh nên vẫn có thể bị lách (ví dụ chạy script chứa lệnh git). Đây là lưới an toàn, không phải hàng rào tuyệt đối.
