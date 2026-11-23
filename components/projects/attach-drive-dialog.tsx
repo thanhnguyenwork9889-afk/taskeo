@@ -1,0 +1,87 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
+import { useUI } from "@/components/shell/ui-context";
+import { Modal } from "@/components/ui/modal";
+import type { Project } from "@/lib/types";
+import { driveUrlSchema } from "@/lib/validation";
+import { createFile, kindFromDriveUrl } from "@/lib/workspace-actions";
+import { updateWorkspace, useWorkspace } from "@/lib/workspace-store";
+import { control, cx, field, primaryButton } from "@/lib/ui";
+
+/**
+ * Gắn file Drive có sẵn bằng cách dán liên kết. Giai đoạn 3 thay bằng Google Picker
+ * (Picker chạy trên trình duyệt nên cần một access token ngắn hạn chỉ có scope drive.file).
+ */
+export function AttachDriveDialog({ project, onClose }: { project: Project; onClose: () => void }) {
+  const { files } = useWorkspace();
+  const { notify } = useUI();
+  const [name, setName] = useState("");
+  const [link, setLink] = useState("");
+  const [error, setError] = useState("");
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    const parsed = driveUrlSchema.safeParse(link);
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Liên kết không hợp lệ.");
+      return;
+    }
+    const url = new URL(parsed.data).href;
+    const typedName = name.trim();
+    const displayName = typedName || "Tài liệu từ Google Drive";
+    // Tên mặc định được phép trùng; chỉ chặn trùng URL hoặc trùng tên người dùng tự đặt.
+    if (files.some((f) => f.projectId === project.id && (f.url === url || (typedName && f.name === typedName)))) {
+      setError("Tệp hoặc tên này đã được gắn vào dự án.");
+      return;
+    }
+    updateWorkspace((s) =>
+      createFile(s, { name: displayName, kind: kindFromDriveUrl(url), spaceId: project.spaceId, projectId: project.id, url }, new Date()),
+    );
+    notify("Đã gắn liên kết Drive vào dự án.");
+    onClose();
+  };
+
+  return (
+    <Modal title="Gắn file từ Drive" onClose={onClose} size="lg">
+      <p className="mb-5 rounded-lg bg-[#F5F1FB] p-3 text-sm leading-6 text-muted">
+        Google Picker chưa được kết nối. Dán liên kết tệp Google để gắn vào dự án; app không đọc nội dung hay đổi quyền chia sẻ.
+      </p>
+      <form onSubmit={submit} className="space-y-4">
+        <label className="block text-sm font-medium">
+          Tên hiển thị
+          <input value={name} maxLength={200} onChange={(event) => setName(event.target.value)} placeholder="Ví dụ: Bản nháp bài viết" className={cx(field, "mt-2")} />
+        </label>
+        <label className="block text-sm font-medium">
+          Liên kết Google Drive
+          <input
+            required
+            type="url"
+            value={link}
+            onChange={(event) => {
+              setLink(event.target.value);
+              setError("");
+            }}
+            placeholder="https://docs.google.com/..."
+            aria-describedby={error ? "drive-error" : undefined}
+            aria-invalid={Boolean(error)}
+            className={cx(field, "mt-2")}
+          />
+        </label>
+        {error && (
+          <p id="drive-error" role="alert" className="text-sm text-red-700">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-3">
+          <button type="button" onClick={onClose} className={cx(control, "border border-[#E5DFED] px-4 text-sm")}>
+            Hủy
+          </button>
+          <button type="submit" className={primaryButton}>
+            Gắn liên kết
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}

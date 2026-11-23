@@ -1,0 +1,181 @@
+// Schema theo bản kế hoạch, đã chỉnh:
+// - Task.space: onDelete Cascade (xoá không gian thì xoá luôn công việc của nó).
+// - Task.project: onDelete SetNull (xoá dự án thì công việc rơi về thẳng không gian).
+// - Thêm TaskFile để gắn file Drive vào công việc.
+// - Activity có thêm meta để lưu nội dung thay đổi (nhật ký từng công việc).
+// - Không có trạng thái "Quá hạn": quá hạn = dueDate < hôm nay và status != DONE.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Bảng chuẩn của Auth.js ----------
+
+model User {
+  id            String     @id @default(cuid())
+  name          String?
+  email         String?    @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  spaces        Space[]
+  tasks         Task[]
+  activities    Activity[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+// access_token / refresh_token / id_token được mã hoá (lib/crypto.ts) trước khi lưu.
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+// ---------- Bảng của app ----------
+
+model Space {
+  id            String    @id @default(cuid())
+  userId        String
+  name          String
+  description   String?
+  color         String?
+  icon          String?
+  driveFolderId String? // thư mục Drive của không gian
+  order         Int       @default(0)
+  createdAt     DateTime  @default(now())
+  projects      Project[]
+  tasks         Task[]
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ON_HOLD
+  DONE
+  ARCHIVED
+}
+
+model Project {
+  id            String        @id @default(cuid())
+  userId        String
+  spaceId       String
+  name          String
+  description   String?
+  status        ProjectStatus @default(ACTIVE)
+  dueDate       DateTime?
+  driveFolderId String? // thư mục con trong thư mục không gian
+  order         Int           @default(0)
+  createdAt     DateTime      @default(now())
+  tasks         Task[]
+  space         Space         @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  @@unique([spaceId, name])
+  @@index([userId])
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  PAUSED
+  DONE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// API phải kiểm tra: nếu có projectId thì spaceId phải trùng project.spaceId.
+model Task {
+  id              String     @id @default(cuid())
+  userId          String
+  spaceId         String?
+  projectId       String? // null = công việc thẳng trong không gian
+  title           String
+  description     String?
+  status          TaskStatus @default(TODO)
+  priority        Priority   @default(MEDIUM)
+  dueDate         DateTime?
+  completedAt     DateTime?
+  calendarEventId String? // nếu đẩy hạn chót lên Google Calendar
+  order           Int        @default(0)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  files           TaskFile[]
+  space           Space?     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  project         Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([userId, dueDate])
+  @@index([projectId])
+}
+
+// File Drive gắn vào công việc. Chỉ lưu id + tên để hiển thị, nội dung lấy từ Drive.
+model TaskFile {
+  taskId      String
+  driveFileId String
+  name        String
+  mimeType    String
+  createdAt   DateTime @default(now())
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, driveFileId])
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String // task_created | task_done | task_updated | project_created | doc_created ...
+  entityId  String?
+  meta      Json? // ví dụ { "message": "Đặt ưu tiên: Cao" }
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([entityId])
+}
