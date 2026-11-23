@@ -6,6 +6,34 @@
 
 Đừng xoá khối này. Xoá đi thì lần chạy `next dev` sau sẽ thêm lại, tạo ra thay đổi chưa commit.
 
+## Subagent của repo
+
+Định nghĩa trong `.claude/agents/`. Claude Code tự chọn agent theo mô tả, hoặc gọi đích danh ("dùng api-builder để…").
+
+| Agent | Việc | Sửa code? | Model |
+|---|---|---|---|
+| `feature-builder` | Trang, màn hình trong `features/`, hàm thuần trong `domain/` (TDD) | Có | theo phiên |
+| `api-builder` | Giai đoạn 2: API route + Prisma + Zod, hàm truy vấn trong `server/`, thay store bằng TanStack Query | Có | theo phiên |
+| `google-integrator` | Auth.js, scope theo giai đoạn, mã hoá token, Drive (GĐ 3), Calendar (GĐ 4) | Có | theo phiên |
+| `layer-reviewer` | Review diff theo quy ước riêng của repo (ranh giới lớp, server-only, chế độ demo, docs đi kèm) | Không | sonnet |
+| `verifier` | Chạy typecheck, lint, test, build và báo kết quả | Không | haiku |
+
+Ba agent viết code chia theo vùng file nên không giẫm lên nhau. Review chung về TypeScript và bảo mật vẫn dùng agent ECC toàn cục (`typescript-reviewer`, `security-reviewer`); `layer-reviewer` chỉ lo phần riêng của repo này.
+
+Luồng thường dùng:
+
+```
+feature-builder / api-builder / google-integrator   viết code + test
+        ↓
+verifier                                            bốn lệnh kiểm tra
+        ↓
+layer-reviewer  (+ security-reviewer nếu đụng auth, token, API route)
+        ↓
+commit
+```
+
+Sửa quy tắc trong `docs/04-architecture.md` thì rà lại các file trong `.claude/agents/` cho khớp: agent đọc tài liệu trước, nhưng danh sách kiểm tra trong `layer-reviewer.md` cũng ghi lại các luật.
+
 ## Khi giao việc cho agent
 
 Cho agent đọc theo thứ tự:
