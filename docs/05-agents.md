@@ -34,6 +34,8 @@ commit
 
 Sửa quy tắc trong `docs/04-architecture.md` thì rà lại các file trong `.claude/agents/` cho khớp: agent đọc tài liệu trước, nhưng danh sách kiểm tra trong `layer-reviewer.md` cũng ghi lại các luật.
 
+Với việc có nhiều bước, dùng `/task` để chạy luồng này kèm nhánh riêng và file ghi nhận: xem [07-workflow.md](07-workflow.md).
+
 ## Khi giao việc cho agent
 
 Cho agent đọc theo thứ tự:

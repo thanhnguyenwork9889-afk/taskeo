@@ -22,6 +22,7 @@ Mở http://localhost:3000. Chưa có `.env.local` thì app chạy **chế độ
 | 04 | [Kiến trúc](docs/04-architecture.md) | Cấu trúc `src/`, quy tắc import giữa các lớp, đặt file mới ở đâu |
 | 05 | [AI agents](docs/05-agents.md) | AGENTS.md, cách giao việc và kiểm tra code của agent |
 | 06 | [API](docs/06-api.md) | Route hiện có, kế hoạch Giai đoạn 2 |
+| 07 | [Quy trình nhiệm vụ](docs/07-workflow.md) | Nhánh theo nhiệm vụ, 7 bước, `/task`, merge vào develop |
 
 ## Cấu trúc tóm tắt
 
