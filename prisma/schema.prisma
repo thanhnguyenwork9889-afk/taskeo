@@ -11,7 +11,9 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url       = env("DATABASE_URL")
+  // Kết nối trực tiếp (không qua pooler) cho Prisma CLI: migrate, studio.
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------- Bảng chuẩn của Auth.js ----------

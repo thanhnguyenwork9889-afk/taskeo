@@ -27,7 +27,7 @@ Taskeo có ba môi trường. Mỗi môi trường dùng **database, OAuth clien
 | Nhánh git | bất kỳ | `develop` (và nhánh nhiệm vụ) | `main` |
 | `NEXT_PUBLIC_APP_ENV` | `development` | `staging` | `production` |
 | Biến đặt ở | `.env.local` (mẫu: `.env.example`) | Vercel → Environment Variables → Preview (mẫu: `.env.staging.example`) | Vercel → Environment Variables → Production (mẫu: `.env.production.example`) |
-| Database | `taskeo_dev` (hoặc Neon branch `dev`) | `taskeo_staging` (Neon branch `staging`) | `taskeo` (Neon branch `main`) |
+| Database | Neon branch `dev` | Neon branch `staging` | Neon branch `main` |
 | OAuth redirect URI | `http://localhost:3000/api/auth/callback/google` | `https://<domain-staging>/api/auth/callback/google` | `https://<domain-production>/api/auth/callback/google` |
 | Chế độ demo | Được (chỉ `npm run dev`, khi không có biến auth nào) | **Không** — thiếu biến là bị chặn | **Không** — thiếu biến là bị chặn |
 | Nhận biết | Tiêu đề `Taskeo · Dev`, nhãn "Dev" ở sidebar | Tiêu đề `Taskeo · Staging`, nhãn "Staging" | Tiêu đề `Taskeo`, không nhãn |
@@ -52,7 +52,8 @@ Sao chép `.env.example` thành `.env.local` rồi điền giá trị. **Không 
 | Biến | Dùng cho | Hướng dẫn |
 |---|---|---|
 | `NEXT_PUBLIC_APP_ENV` | Môi trường: `development` / `staging` / `production` | Mục *Ba môi trường* ở trên |
-| `DATABASE_URL` | Postgres (Neon / Supabase) | [03-database.md](03-database.md) |
+| `DATABASE_URL` | Postgres trên Neon, chuỗi có pooling (app dùng khi chạy) | [03-database.md](03-database.md) |
+| `DIRECT_URL` | Postgres trên Neon, chuỗi trực tiếp (chỉ Prisma CLI: migrate, studio). Không tính vào 5 biến auth | [03-database.md](03-database.md) |
 | `AUTH_SECRET` | Auth.js | `npx auth secret` |
 | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | OAuth Google | [02-google-cloud.md](02-google-cloud.md) |
 | `TOKEN_ENCRYPTION_KEY` | Mã hoá token Google trong DB (32 byte, base64) | `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` |
