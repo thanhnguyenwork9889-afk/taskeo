@@ -23,6 +23,7 @@ Mở http://localhost:3000. Chưa có `.env.local` thì `npm run dev` chạy **c
 | 05 | [AI agents](docs/05-agents.md) | AGENTS.md, cách giao việc và kiểm tra code của agent |
 | 06 | [API](docs/06-api.md) | Route hiện có, kế hoạch Giai đoạn 2 |
 | 07 | [Quy trình nhiệm vụ](docs/07-workflow.md) | Nhánh theo nhiệm vụ, 7 bước, `/task`, merge vào develop |
+| 08 | [Deploy](docs/08-deploy.md) | Checklist dựng staging / production trên Vercel: domain, OAuth client, biến, migration, kiểm tra |
 
 ## Cấu trúc tóm tắt
 

@@ -31,7 +31,7 @@ Quyết định với người dùng (2026-11-24, trong chat):
 
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
 - [ ] `docs/08-deploy.md` có checklist đủ các bước ở *Phạm vi*; README liệt kê 08.
-- [ ] `npm run db:deploy` có trong `package.json`; `package.json` có `engines.node`.
+- [ ] `npm run db:deploy` có trong `package.json`; `package.json` có `engines.node` (`24.x`).
 - [ ] Neon branch `staging` và `main`: `prisma migrate status` báo "Database schema is up to date" (người dùng chạy, dán kết quả).
 - [ ] URL staging (alias nhánh `develop`) mở được, tiêu đề `Taskeo · Staging`, `/login` hiện nút đăng nhập Google (chế độ `configured`, không phải thông báo chặn).
 - [ ] Bấm đăng nhập ở staging chuyển tới `accounts.google.com` với `redirect_uri=https://<domain-staging>/api/auth/callback/google`, Google không báo `redirect_uri_mismatch`.
@@ -58,7 +58,7 @@ Rủi ro / phụ thuộc:
 - P4 kiểm production sau khi merge vào `develop`, nên dòng nghiệm thu production được đánh dấu bổ sung trong mục 7 sau release.
 - Auth.js v5 tự tin host khi chạy trên Vercel (biến `VERCEL`), không cần `AUTH_URL` / `AUTH_TRUST_HOST`.
 
-Duyệt kế hoạch: ☑ chờ · ☐ người dùng đã duyệt (ngày) · ☐ bỏ qua (`--yes`)
+Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-24, trong chat: "Approve plan") · ☐ bỏ qua (`--yes`)
 
 Kế hoạch tự viết, không qua `planner` (như T002): việc chủ yếu là tài liệu, cấu hình nhỏ và thao tác của người dùng trên giao diện web.
 
@@ -66,7 +66,10 @@ Kế hoạch tự viết, không qua `planner` (như T002): việc chủ yếu l
 
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
-| P1 | | | | | | |
+| P1 | (commit này) | không; `npm run db:deploy` khi shell không có `DATABASE_URL` / `DIRECT_URL` → Prisma báo lỗi validate và dừng, không chạm database | ✅ | ✅ | ✅ 61/61 | ✅ |
+| P2 | | người dùng làm theo `docs/08-deploy.md` | | | | |
+
+Ghi chú P1: `engines.node` đặt `24.x` thay cho `>=20.9` như mục 1: Vercel coi khoảng mở là "bản mới nhất" và cảnh báo; `24.x` khớp Node của máy dev (24.11.1). Next.js vẫn chỉ cần 20.9+ (docs/01).
 
 ## 4. Review code
 

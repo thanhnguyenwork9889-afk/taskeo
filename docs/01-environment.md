@@ -2,7 +2,7 @@
 
 ## Node
 
-Cần **Node 20.9+**. Máy này đang mặc định Node 16 qua nvm-windows, chuyển bằng:
+Cần **Node 20.9+** (Next.js); `package.json` khai báo `engines.node` = `24.x` để Vercel build bằng Node 24, khớp máy dev. Máy này đang mặc định Node 16 qua nvm-windows, chuyển bằng:
 
 ```powershell
 nvm use 24.11.1
@@ -43,7 +43,7 @@ Lưu ý:
 - `NEXT_PUBLIC_*` được nhúng vào bundle **lúc build**. Đổi môi trường trên Vercel thì phải deploy lại.
 - **Đặt `NEXT_PUBLIC_APP_ENV` tường minh trên Vercel** cho từng scope (Preview = `staging`, Production = `production`). Bước 2 chỉ chạy khi Vercel bật *Automatically expose System Environment Variables*; nếu không, Preview bị suy thành production (vẫn chặn truy cập, nhưng sai nhãn).
 - `npm run build && npm start` chạy với `NODE_ENV=production`. Bản build production **không bao giờ** vào chế độ demo, kể cả khi `NEXT_PUBLIC_APP_ENV=development` (chống đặt nhầm biến trên bản deploy): thiếu biến auth là bị chặn. Muốn xem demo thì dùng `npm run dev`.
-- Thiết lập Vercel (người dùng tự làm): Settings → Git → Production Branch = `main`; thêm biến cho Preview với Branch = `develop` nếu muốn tách staging khỏi preview của nhánh khác.
+- Thiết lập Vercel (người dùng tự làm) theo checklist [08-deploy.md](08-deploy.md): Production Branch = `main`, biến Preview chỉ gán cho Branch = `develop`, domain staging là alias cố định của nhánh `develop`.
 
 ## Biến môi trường
 
@@ -79,3 +79,4 @@ Chế độ tính bằng hàm thuần `resolveAuthMode` trong `src/config/env.ts
 | `npm run typecheck` | Kiểm tra TypeScript |
 | `npm run lint` | ESLint (gồm cả luật ranh giới giữa các lớp) |
 | `npm test` | Unit test (Vitest) cho `src/**/*.test.ts` |
+| `npm run db:*` | Prisma: migrate / status / studio (branch `dev`), deploy (staging / production) — xem [03-database.md](03-database.md#script) |
