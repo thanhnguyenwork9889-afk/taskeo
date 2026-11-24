@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `chore/T001-taskeo-environments` |
 | Tạo từ | `develop` @ `809201f` |
-| Trạng thái | 3-build |
+| Trạng thái | 4-review |
 | Ngày tạo | 2026-11-24 |
 
 ## 1. Docs – yêu cầu
@@ -60,7 +60,10 @@ Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-24) 
 
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
-| P1 | | | | | | |
+| P1 | `8e79c34` | `src/config/app.test.ts` (16), `src/config/env.test.ts` (9) | ✅ | ✅ | ✅ 47/47 | ✅ |
+| P2 | `5d7bb2b` | — (logic ở P1); kiểm dev server: title `Taskeo · Dev`, nhãn "Dev", breadcrumb `Taskeo / Công việc`, demo vẫn chạy | ✅ | ✅ | ✅ 47/47 | ✅ |
+| P3 | `cf46db4` | `git check-ignore`: 3 file mẫu không bị bỏ qua, `.env.local` vẫn bị bỏ qua | ✅ | ✅ | ✅ | ✅ |
+| P4 | `806bf75` | — | — | — | — | — |
 
 ## 4. Review code
 
