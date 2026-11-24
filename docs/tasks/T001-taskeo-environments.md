@@ -115,7 +115,7 @@ Vòng 1 (`git diff 7c357bb..eb40e84`, một reviewer gộp vai security + TypeSc
 
 **Tài liệu đã cập nhật:** 01 (ba môi trường, biến, chế độ chạy), 02 (OAuth client + redirect URI mỗi môi trường), 03 (DB mỗi môi trường, migrate), 04 (`src/config/app.ts`), README.
 
-**Merge vào develop:** commit `<hash>`, 2026-11-24
+**Merge vào develop:** commit `d3f97b9`, 2026-11-24
 
 **Việc để sau:**
 - Người dùng tự làm: tạo project Vercel (Production Branch = `main`), đặt biến cho Preview / Production; tạo 3 DB (Neon branch) và 3 OAuth client theo docs/01–03.
