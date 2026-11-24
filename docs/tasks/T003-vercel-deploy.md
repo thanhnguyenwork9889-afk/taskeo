@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `chore/T003-vercel-deploy` |
 | Tạo từ | `develop` @ `17790f6` |
-| Trạng thái | 4-review |
+| Trạng thái | 5-fix |
 | Ngày tạo | 2026-11-24 |
 
 Sheet nhiệm vụ: T08 (deploy bản trống lên Vercel, thêm redirect URI production). Chạm tới T63 (tách Preview / Production + 2 database) ở mức đặt biến; phần migrate tự động khi deploy vẫn là T67.
@@ -85,11 +85,19 @@ Ghi chú P1: `engines.node` đặt `24.x` thay cho `>=20.9` như mục 1: Vercel
 
 ## 4. Review code
 
-Reviewer đã chạy:
+Reviewer đã chạy (song song, trên `git diff develop...HEAD` @ `0253bf0`): `layer-reviewer`, `typescript-reviewer`, `security-reviewer`. Không có CRITICAL / HIGH. Quét secret trên mọi commit của nhánh (`GOCSPX`, `neondb_owner`, `apps.googleusercontent.com`, `npg_`): 0 kết quả.
 
 | # | Mức | File:dòng | Vấn đề | Reviewer |
 |---|---|---|---|---|
-| R1 | | | | |
+| R1 | MEDIUM | `docs/tasks/T003-vercel-deploy.md:14-26, 52-62` | Mục tiêu, quyết định, phạm vi, P2/P3 và rủi ro còn nói staging (`.env.staging.example`, `Taskeo Staging`, `<domain-staging>`, "code vẫn hỗ trợ ba môi trường"), mâu thuẫn với đổi phạm vi lần 2 | layer |
+| R2 | MEDIUM | `docs/tasks/T003-vercel-deploy.md:42` | Tiêu chí bỏ staging chưa tick dù đã làm; câu "hai điều sau" sai (phải là "hai điều trên") | layer |
+| R3 | LOW | `docs/08-deploy.md` §4, `docs/01-environment.md:35` | "Preview luôn bị chặn" chỉ đúng khi không ai đặt biến cho Environment Preview; đặt biến Preview = đưa secret production lên Preview, chạy `configured` không nhãn | security + layer |
+| R4 | LOW | `docs/08-deploy.md` §5 | Gõ `$env:DATABASE_URL = "<chuỗi>"` thì PSReadLine lưu chuỗi kết nối (có mật khẩu) vào file lịch sử PowerShell | security |
+| R5 | LOW | `src/config/app.test.ts` | Mapping preview → production được kiểm ở 3 test (trùng) | typescript |
+| R6 | LOW | `src/config/app.test.ts` | Không có test `vercelEnv: "staging"` ném lỗi | typescript |
+| R7 | LOW | `src/config/app.ts:38` | Thông báo lỗi `NEXT_PUBLIC_VERCEL_ENV` liệt kê "production, preview, development" — chỉ thẩm mỹ | typescript |
+| R8 | LOW | `docs/03-database.md:39` vs `docs/08-deploy.md` | "khi release" và "trước khi release" — cách viết khác nhau | layer |
+| R9 | LOW | `.env.local:2-5`, `.env.staging.secrets` (git bỏ qua) | Chú thích `.env.local` còn nhắc staging; file `.env.staging.secrets` còn trên máy | typescript |
 
 ## 5. Fix bug
 
