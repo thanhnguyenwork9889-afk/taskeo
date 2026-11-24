@@ -1,29 +1,51 @@
 # 03 · Database
 
-1. Tạo Postgres trên Neon hoặc Supabase, điền chuỗi kết nối vào `DATABASE_URL`.
-2. Tạo bảng:
+Postgres trên [Neon](https://neon.tech): một project `taskeo` (region `aws-ap-southeast-1`, Singapore), ba branch `main` (production), `staging`, `dev`. Development, staging và production **không dùng chung database**; mỗi branch có chuỗi kết nối riêng đặt vào biến của môi trường đó ([01-environment.md](01-environment.md#ba-môi-trường)).
+
+## Thiết lập lần đầu (development)
+
+1. Neon → project `taskeo` → branch `dev` → **Connect**. Lấy hai chuỗi:
+   - `DATABASE_URL`: bật *Connection pooling* (host có `-pooler`). App dùng chuỗi này khi chạy.
+   - `DIRECT_URL`: tắt *Connection pooling*. Prisma CLI dùng chuỗi này để migrate (migrate qua pooler dễ lỗi).
+2. Dán cả hai vào `.env.local` (mẫu: `.env.example`).
+3. Tạo bảng:
 
 ```powershell
-npx prisma migrate dev --name init
+npm run db:migrate
 ```
 
-## Mỗi môi trường một database
+## Script
 
-development, staging và production **không dùng chung database**. Với Neon: một project `taskeo`, ba branch `main` (production), `staging`, `dev`; mỗi branch một chuỗi kết nối đặt vào `DATABASE_URL` của môi trường đó ([01-environment.md](01-environment.md#ba-môi-trường)).
+Prisma CLI chỉ tự đọc file `.env`, không đọc `.env.local`, nên các script dưới đây chạy CLI qua `node --env-file=.env.local`. Chúng **chỉ dành cho branch `dev`**:
 
-| Môi trường | Tạo / áp migration |
-|---|---|
-| development | `npx prisma migrate dev` (tạo migration mới) |
-| staging | `npx prisma migrate deploy` với `DATABASE_URL` của staging, trước khi merge vào `develop` được deploy |
-| production | `npx prisma migrate deploy` với `DATABASE_URL` của production, khi release `develop` → `main` |
+- Cần có `.env.local`; thiếu file thì Node báo lỗi và dừng.
+- Biến đã có sẵn trong shell **thắng** giá trị trong `.env.local`. Trước khi chạy, đảm bảo shell không còn `DATABASE_URL` / `DIRECT_URL` của staging hay production (`Get-ChildItem Env:*_URL` để kiểm tra).
 
-Không chạy `migrate dev` hay `migrate reset` trên staging / production.
+| Script | Lệnh Prisma | Khi nào |
+|---|---|---|
+| `npm run db:migrate -- --name <tên>` | `migrate dev` | Sửa `schema.prisma` xong, tạo migration mới trên branch `dev` |
+| `npm run db:status` | `migrate status` | Xem database có khớp migration trong repo không |
+| `npm run db:studio` | `studio` | Xem / sửa dữ liệu trên trình duyệt |
+
+Không có script `migrate deploy`: lệnh đó dành cho staging / production và chạy với biến của môi trường đó (bảng dưới).
 
 `npm install` tự chạy `prisma generate` (script `postinstall`).
 
+## Mỗi môi trường một database
+
+| Môi trường | Neon branch | Tạo / áp migration |
+|---|---|---|
+| development | `dev` | `npm run db:migrate` (tạo migration mới) |
+| staging | `staging` | `npx prisma migrate deploy` với `DATABASE_URL` / `DIRECT_URL` của staging, trước khi merge vào `develop` được deploy |
+| production | `main` | `npx prisma migrate deploy` với `DATABASE_URL` / `DIRECT_URL` của production, khi release `develop` → `main` |
+
+`npx prisma migrate deploy` không đọc `.env.local`: nó lấy `DATABASE_URL` / `DIRECT_URL` từ biến môi trường của shell (hoặc của CI / Vercel khi build — tự động hoá ở T67). Chạy tay thì đặt hai biến của đúng branch trong shell, chạy xong mở shell mới.
+
+Không chạy `migrate dev` hay `migrate reset` trên staging / production.
+
 ## Schema
 
-File: `prisma/schema.prisma`. Prisma client dùng chung ở `src/server/db.ts` (giữ một instance duy nhất khi hot reload).
+File: `prisma/schema.prisma`. Migration: `prisma/migrations/` (commit vào repo). Prisma client dùng chung ở `src/server/db.ts` (giữ một instance duy nhất khi hot reload).
 
 Mô hình dữ liệu: **Không gian → Dự án → Công việc**. Enum trong `src/domain/types.ts` trùng với enum Prisma.
 
