@@ -14,7 +14,7 @@ develop         nhánh tích hợp. Nhiệm vụ xong thì merge vào đây.
 
 - Tên nhánh: `<loại>/T<số>-<slug>`, loại theo conventional commits: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`. Ví dụ `feat/T003-task-api`.
 - Luôn tạo nhánh từ `develop` mới nhất. Không commit thẳng lên `develop`, `main`, `master`.
-- Nhiệm vụ xong (qua bước 7) thì `git merge --no-ff` vào `develop`.
+- Nhiệm vụ xong (qua bước 7) thì `git merge --no-ff` vào `develop`, rồi xoá nhánh nhiệm vụ (`git branch -d`, và trên GitHub nếu đã push). Lịch sử vẫn còn trong `develop`; file ở `docs/tasks/` thì giữ lại.
 - **Không** merge, rebase, push hay commit vào `main` / `master` khi chưa được người dùng cho phép. Hook `.claude/hooks/protect-main.mjs` chặn các lệnh này và bắt hỏi lại người dùng (sửa hook thì chạy `node .claude/hooks/protect-main.test.mjs`). Hook là lưới an toàn cho Claude trên máy này; bảo vệ thật nằm ở branch protection trên GitHub.
 - Push lên GitHub là việc ra ngoài: hỏi người dùng trước. `develop` không track `origin/main`; lần push đầu dùng `git push -u origin develop`.
 
