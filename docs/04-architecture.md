@@ -4,8 +4,9 @@ Code ứng dụng nằm trong `src/`, file cấu hình nằm ở gốc. Thư m�
 
 ```
 src/
-├── config/            1. Biến môi trường, chế độ chạy (demo / configured / misconfigured)
-│   └── env.ts
+├── config/            1. Tên app, môi trường, biến môi trường, chế độ chạy
+│   ├── app.ts            APP_NAME ("Taskeo"), môi trường development / staging / production
+│   └── env.ts            Chế độ chạy demo / configured / misconfigured (demo chỉ ở development)
 ├── server/            2. Chỉ chạy trên server ("server-only")
 │   ├── db.ts             Prisma client
 │   ├── crypto.ts         Mã hoá token Google (AES-256-GCM)
@@ -57,4 +58,5 @@ Lớp trên được import lớp dưới, **không có chiều ngược lại**
 | Component dùng ở nhiều feature, không biết gì về nghiệp vụ | `src/components/ui/` |
 | Hàm tính toán, lọc, validate | `src/domain/` (kèm `*.test.ts`) |
 | Code đụng DB, token, API Google | `src/server/` (đầu file có `import "server-only"`) |
-| Biến môi trường mới | `src/config/env.ts` + `.env.example` + [01-environment.md](01-environment.md) |
+| Biến môi trường mới | `src/config/env.ts` + cả ba file `.env*.example` + [01-environment.md](01-environment.md) |
+| Hiện tên app | `APP_NAME` từ `@/config/app`, không viết cứng "Taskeo" |
