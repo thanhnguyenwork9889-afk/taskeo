@@ -2,18 +2,18 @@
 
 export const APP_NAME = "Taskeo";
 
-export const APP_ENVS = ["development", "staging", "production"] as const;
+export const APP_ENVS = ["development", "production"] as const;
 export type AppEnv = (typeof APP_ENVS)[number];
 
+// Vercel Preview được coi là production (chế độ chặt nhất: không demo, thông báo chặn chung chung, không nhãn).
 const VERCEL_ENV_MAP: Record<string, AppEnv> = {
   production: "production",
-  preview: "staging",
+  preview: "production",
   development: "development",
 };
 
 const APP_ENV_LABELS: Record<AppEnv, string | null> = {
   development: "Dev",
-  staging: "Staging",
   production: null,
 };
 
@@ -24,7 +24,7 @@ function isAppEnv(value: string): value is AppEnv {
 /**
  * Xác định môi trường, theo thứ tự ưu tiên:
  * 1. NEXT_PUBLIC_APP_ENV (phải là một trong APP_ENVS).
- * 2. NEXT_PUBLIC_VERCEL_ENV: production → production, preview → staging, development → development.
+ * 2. NEXT_PUBLIC_VERCEL_ENV: production → production, preview → production, development → development.
  * 3. NODE_ENV === "production" → production, còn lại development.
  * Giá trị sai → ném lỗi ngay (fail fast), không đoán.
  */
@@ -62,7 +62,7 @@ export function appEnvLabel(env: AppEnv): string | null {
   return APP_ENV_LABELS[env];
 }
 
-/** Tiêu đề trang: "Taskeo" ở production, "Taskeo · Dev" / "Taskeo · Staging" ở môi trường khác. */
+/** Tiêu đề trang: "Taskeo" ở production, "Taskeo · Dev" ở development. */
 export function appTitle(env: AppEnv): string {
   const label = appEnvLabel(env);
   return label ? `${APP_NAME} · ${label}` : APP_NAME;
