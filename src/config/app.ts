@@ -37,8 +37,8 @@ export function resolveAppEnv(input: { appEnv?: string; vercelEnv?: string; node
     );
   }
   if (vercelEnv) {
-    const mapped = VERCEL_ENV_MAP[vercelEnv];
-    if (mapped) return mapped;
+    // Object.hasOwn: chặn "constructor", "toString", "__proto__"… lấy nhầm thuộc tính kế thừa của Object.
+    if (Object.hasOwn(VERCEL_ENV_MAP, vercelEnv)) return VERCEL_ENV_MAP[vercelEnv];
     throw new Error(
       `NEXT_PUBLIC_VERCEL_ENV không hợp lệ: "${vercelEnv}". Giá trị hợp lệ: ${Object.keys(VERCEL_ENV_MAP).join(", ")}.`,
     );

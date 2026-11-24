@@ -10,7 +10,7 @@ npm install
 npm run dev
 ```
 
-Mở http://localhost:3000. Chưa có `.env.local` thì app chạy **chế độ demo** (dữ liệu mẫu, không cần đăng nhập).
+Mở http://localhost:3000. Chưa có `.env.local` thì `npm run dev` chạy **chế độ demo** (dữ liệu mẫu, không cần đăng nhập). Demo chỉ có ở môi trường development; staging / production thiếu biến là bị chặn — xem [ba môi trường](docs/01-environment.md#ba-môi-trường).
 
 ## Tài liệu (đọc theo thứ tự)
 

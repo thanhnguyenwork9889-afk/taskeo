@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { APP_ENVS, APP_NAME, appEnvLabel, appTitle, resolveAppEnv } from "./app";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { APP_ENVS, APP_NAME, appEnvLabel, appTitle, getAppEnv, resolveAppEnv } from "./app";
 
 describe("resolveAppEnv", () => {
   it.each(APP_ENVS)("returns %s when NEXT_PUBLIC_APP_ENV is set to it", (env) => {
@@ -95,6 +95,65 @@ describe("resolveAppEnv", () => {
     // Assert
     expect(act).toThrow(/NEXT_PUBLIC_VERCEL_ENV/);
     expect(act).toThrow(/"qa"/);
+  });
+
+  it.each(["constructor", "toString", "__proto__", "hasOwnProperty"])(
+    "throws for NEXT_PUBLIC_VERCEL_ENV=%s instead of reading an inherited Object property",
+    (vercelEnv) => {
+      // Arrange
+      const input = { vercelEnv };
+
+      // Act
+      const act = () => resolveAppEnv(input);
+
+      // Assert
+      expect(act).toThrow(/NEXT_PUBLIC_VERCEL_ENV/);
+    },
+  );
+});
+
+describe("getAppEnv (reads process.env)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("reads NEXT_PUBLIC_APP_ENV", () => {
+    // Arrange
+    vi.stubEnv("NEXT_PUBLIC_APP_ENV", "staging");
+    vi.stubEnv("NEXT_PUBLIC_VERCEL_ENV", "production");
+    vi.stubEnv("NODE_ENV", "production");
+
+    // Act
+    const result = getAppEnv();
+
+    // Assert
+    expect(result).toBe("staging");
+  });
+
+  it("falls back to NEXT_PUBLIC_VERCEL_ENV when NEXT_PUBLIC_APP_ENV is empty", () => {
+    // Arrange
+    vi.stubEnv("NEXT_PUBLIC_APP_ENV", "");
+    vi.stubEnv("NEXT_PUBLIC_VERCEL_ENV", "preview");
+    vi.stubEnv("NODE_ENV", "production");
+
+    // Act
+    const result = getAppEnv();
+
+    // Assert
+    expect(result).toBe("staging");
+  });
+
+  it("falls back to NODE_ENV when both public variables are empty", () => {
+    // Arrange
+    vi.stubEnv("NEXT_PUBLIC_APP_ENV", "");
+    vi.stubEnv("NEXT_PUBLIC_VERCEL_ENV", "");
+    vi.stubEnv("NODE_ENV", "production");
+
+    // Act
+    const result = getAppEnv();
+
+    // Assert
+    expect(result).toBe("production");
   });
 });
 
