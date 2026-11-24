@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { DOC_KIND_LABEL } from "@/domain/labels";
 import type { DocKind } from "@/domain/types";
 import { docKindSchema } from "@/domain/validation";
+import { APP_NAME } from "@/config/app";
 import { useWorkspace } from "@/store/workspace-store";
 import { card, cx, primaryButton } from "@/components/ui/styles";
 import { FileRow } from "./file-row";
@@ -27,7 +28,7 @@ export function DocsView() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="mb-2 text-xs text-muted">Workspace / {title}</p>
+          <p className="mb-2 text-xs text-muted">{APP_NAME} / {title}</p>
           <h1 className="text-[28px] font-semibold tracking-tight">{title}</h1>
           <p className="mt-2 text-sm text-muted">Tài liệu Google của bạn, sắp xếp theo từng không gian.</p>
         </div>

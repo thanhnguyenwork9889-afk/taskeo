@@ -4,10 +4,18 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { LayoutGrid, Plus } from "lucide-react";
+import { APP_NAME, appEnvLabel, getAppEnv } from "@/config/app";
 import { useWorkspace } from "@/store/workspace-store";
 import { control, cx } from "@/components/ui/styles";
 import { isNavActive, NAV_ITEMS } from "./navigation";
 import { useUI, useViewer } from "./ui-context";
+
+// NEXT_PUBLIC_* được inline lúc build nên server và client cho cùng giá trị (không lệch hydration).
+const ENV_LABEL = appEnvLabel(getAppEnv());
+const ENV_PILL_CLASS: Record<string, string> = {
+  Staging: "bg-amber-100 text-amber-800",
+  Dev: "bg-slate-100 text-slate-700",
+};
 
 interface SidebarProps {
   open: boolean;
@@ -32,7 +40,18 @@ export function Sidebar({ open, onNavigate }: SidebarProps) {
         <span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-brand text-white">
           <LayoutGrid className="h-5 w-5" aria-hidden />
         </span>
-        Workspace
+        {APP_NAME}
+        {ENV_LABEL && (
+          <span
+            aria-label={`Môi trường: ${ENV_LABEL}`}
+            className={cx(
+              "rounded-full px-2 py-0.5 text-[11px] font-semibold tracking-normal",
+              ENV_PILL_CLASS[ENV_LABEL] ?? "bg-slate-100 text-slate-700",
+            )}
+          >
+            {ENV_LABEL}
+          </span>
+        )}
       </Link>
 
       <nav aria-label="Điều hướng chính" className="space-y-1">

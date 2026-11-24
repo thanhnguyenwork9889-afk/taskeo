@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FileSpreadsheet, FileText, FolderOpen, LayoutGrid } from "lucide-react";
 import { signInWithGoogle } from "@/server/auth/actions";
+import { APP_NAME, getAppEnv } from "@/config/app";
 import { getAuthMode, missingAuthEnvVars } from "@/config/env";
 import { control, cx } from "@/components/ui/styles";
 
@@ -23,7 +24,7 @@ export default function LoginPage() {
         <span className="rounded-xl bg-brand p-3 text-white">
           <LayoutGrid className="h-6 w-6" aria-hidden />
         </span>
-        Workspace
+        {APP_NAME}
       </div>
       <section className="w-full max-w-[460px] rounded-2xl border border-[#E8E1F1] bg-white px-6 py-9 text-center md:px-10">
         <div aria-hidden className="relative mx-auto mb-8 flex h-32 w-48 items-center justify-center">
@@ -50,7 +51,14 @@ export default function LoginPage() {
 
         {mode === "misconfigured" && (
           <p role="alert" className="rounded-lg bg-red-50 p-3 text-left text-sm leading-6 text-red-700">
-            Cấu hình đăng nhập chưa đủ. Thiếu biến: <code>{missingAuthEnvVars().join(", ")}</code>. Điền đủ trong <code>.env.local</code> rồi khởi động lại.
+            Cấu hình đăng nhập chưa đủ. Thiếu biến: <code>{missingAuthEnvVars().join(", ")}</code>.{" "}
+            {getAppEnv() === "development" ? (
+              <>
+                Điền đủ trong <code>.env.local</code> rồi khởi động lại.
+              </>
+            ) : (
+              <>Đặt các biến này trong Vercel → Settings → Environment Variables cho đúng môi trường này rồi deploy lại.</>
+            )}
           </p>
         )}
         {mode === "configured" && (
