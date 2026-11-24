@@ -1,10 +1,10 @@
-# T003 · Deploy lên Vercel (staging + production)
+# T003 · Deploy lên Vercel (production)
 
 | | |
 |---|---|
 | Nhánh | `chore/T003-vercel-deploy` |
 | Tạo từ | `develop` @ `17790f6` |
-| Trạng thái | 3-build |
+| Trạng thái | 4-review |
 | Ngày tạo | 2026-11-24 |
 
 Sheet nhiệm vụ: T08 (deploy bản trống lên Vercel, thêm redirect URI production). Chạm tới T63 (tách Preview / Production + 2 database) ở mức đặt biến; phần migrate tự động khi deploy vẫn là T67.
@@ -16,6 +16,7 @@ Sheet nhiệm vụ: T08 (deploy bản trống lên Vercel, thêm redirect URI pr
 Quyết định với người dùng (2026-11-24, trong chat):
 - Domain: dùng domain miễn phí `*.vercel.app` (production = domain chính của project, staging = alias cố định của nhánh `develop`). Domain riêng để sau (T71 cần domain đã xác minh).
 - Làm cả staging và production. Production cần merge `develop` → `main`: chỉ làm qua `/task release` khi người dùng cho phép trong chat ở thời điểm đó.
+- **Đổi phạm vi (2026-11-24, người dùng: "Bỏ luôn staing"):** bỏ dựng staging trên Vercel trong nhiệm vụ này. Code vẫn hỗ trợ ba môi trường (T001); checklist staging giữ trong `docs/08-deploy.md` để dùng khi cần. P4 (release `develop` → `main`) cũng bỏ: production đã chạy từ `main` hiện tại, thay đổi của T003 chỉ là tài liệu + `engines`, sẽ lên `main` ở lần release sau.
 - Các bước trên Vercel / Google Cloud Console / Neon do người dùng tự bấm theo checklist; Claude không nhập secret, không tạo tài khoản. Claude kiểm tra URL đã deploy sau đó.
 
 **Phạm vi:**
@@ -32,11 +33,11 @@ Quyết định với người dùng (2026-11-24, trong chat):
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
 - [ ] `docs/08-deploy.md` có checklist đủ các bước ở *Phạm vi*; README liệt kê 08.
 - [ ] `npm run db:deploy` có trong `package.json`; `package.json` có `engines.node` (`24.x`).
-- [ ] Neon branch `staging` và `main`: `prisma migrate status` báo "Database schema is up to date" (người dùng chạy, dán kết quả).
-- [ ] URL staging (alias nhánh `develop`) mở được, tiêu đề `Taskeo · Staging`, `/login` hiện nút đăng nhập Google (chế độ `configured`, không phải thông báo chặn).
-- [ ] Bấm đăng nhập ở staging chuyển tới `accounts.google.com` với `redirect_uri=https://<domain-staging>/api/auth/callback/google`, Google không báo `redirect_uri_mismatch`.
-- [ ] Như hai dòng trên cho production: tiêu đề `Taskeo`, `redirect_uri` là domain production.
-- [ ] Không còn chuỗi `<domain-staging>` / `<domain-production>` trong repo.
+- [ ] Neon branch `main`: `prisma migrate status` báo "Database schema is up to date" (người dùng chạy, dán kết quả).
+- ~~URL staging (alias nhánh `develop`) mở được, tiêu đề `Taskeo · Staging`, `/login` hiện nút đăng nhập Google (chế độ `configured`, không phải thông báo chặn).~~ bỏ: staging ngoài phạm vi.
+- ~~Bấm đăng nhập ở staging chuyển tới `accounts.google.com` với `redirect_uri=https://<domain-staging>/api/auth/callback/google`, Google không báo `redirect_uri_mismatch`.~~ bỏ: staging ngoài phạm vi.
+- [x] Production `taskeo-zeta.vercel.app`: tiêu đề `Taskeo`, `/login` hiện nút đăng nhập Google; bấm thì sang `accounts.google.com` với `redirect_uri` là domain production, không có `redirect_uri_mismatch`.
+- [x] Không còn chuỗi `<domain-production>` trong repo (`<domain-staging>` giữ lại vì chưa có staging).
 - [ ] typecheck, lint, test, build xanh.
 
 **Tài liệu bị ảnh hưởng:** 01 môi trường · 02 Google · 03 DB (lệnh `db:deploy`) · 08 mới
@@ -48,7 +49,7 @@ Quyết định với người dùng (2026-11-24, trong chat):
 | P1 | Checklist deploy + script `db:deploy` + `engines` + README | `docs/08-deploy.md`, `package.json`, `README.md`, `docs/01`, `docs/03` | tự làm (docs + cấu hình nhỏ) | không (cấu hình); kiểm `npm run db:deploy -- --help` chạy được |
 | P2 | Người dùng làm theo checklist: project Vercel, biến Preview + Production, 2 OAuth client, `db:deploy` lên Neon `staging` + `main`; báo lại 2 domain và kết quả `migrate status` | ngoài repo | người dùng | — |
 | P3 | Điền domain thật vào docs + file env mẫu; kiểm URL staging bằng trình duyệt (tiêu đề, `/login`, `redirect_uri`) | `docs/01`, `docs/02`, `.env.staging.example`, `.env.production.example` | tự làm | không; kiểm tay trên URL staging |
-| P4 | Production: sau bước 7 và merge vào `develop`, chạy `/task release` (hỏi người dùng trước khi merge vào `main` và trước khi push), rồi kiểm URL production như P3 | — | tự làm + người dùng cho phép | không; kiểm tay trên URL production |
+| ~~P4~~ | bỏ (xem *Đổi phạm vi*). Production: sau bước 7 và merge vào `develop`, chạy `/task release` (hỏi người dùng trước khi merge vào `main` và trước khi push), rồi kiểm URL production như P3 | — | tự làm + người dùng cho phép | không; kiểm tay trên URL production |
 
 Rủi ro / phụ thuộc:
 - Staging deploy từ `develop` trên GitHub: nhánh này cần được push (hỏi người dùng trước). Mọi bản deploy chỉ có code đã push.
