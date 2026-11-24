@@ -17,7 +17,7 @@ export function isAuthConfigured(): boolean {
 
 /**
  * Người dùng hiện tại.
- * - Demo (không có biến auth nào): người dùng mẫu.
+ * - Demo (chỉ ở development, không có biến auth nào): người dùng mẫu.
  * - Đã cấu hình: null nếu chưa đăng nhập.
  * - Cấu hình thiếu: trả null (bị chặn) thay vì lặng lẽ rơi về demo.
  */
