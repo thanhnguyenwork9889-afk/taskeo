@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `chore/T003-vercel-deploy` |
 | Tạo từ | `develop` @ `17790f6` |
-| Trạng thái | 7-final |
+| Trạng thái | done |
 | Ngày tạo | 2026-11-24 |
 
 Sheet nhiệm vụ: T08 (deploy bản trống lên Vercel, thêm redirect URI production). Chạm tới T63 (tách Preview / Production + 2 database) ở mức đặt biến; phần migrate tự động khi deploy vẫn là T67.
@@ -34,7 +34,7 @@ Quyết định với người dùng (2026-11-24, trong chat), theo thứ tự t
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
 - [x] `docs/08-deploy.md` có checklist đủ các bước ở *Phạm vi*; README liệt kê 08.
 - [x] `npm run db:deploy` có trong `package.json`; `package.json` có `engines.node` (`24.x`).
-- [ ] Neon branch `main`: `prisma migrate status` báo "Database schema is up to date" (người dùng chạy, dán kết quả).
+- [x] Neon branch `main`: `prisma migrate status` báo "Database schema is up to date" (Claude chạy với `.env.production.secrets` khi người dùng đồng ý, 2026-11-24).
 - [x] Production `taskeo-zeta.vercel.app`: tiêu đề `Taskeo`, `/login` hiện nút đăng nhập Google; bấm thì sang `accounts.google.com` với `redirect_uri` là domain production, không có `redirect_uri_mismatch`.
 - [x] Không còn chuỗi `<domain-production>` / `<domain-staging>` trong repo.
 - [x] Không còn môi trường staging trong `src/`: `APP_ENVS` = development / production, `preview` → production, `NEXT_PUBLIC_APP_ENV=staging` ném lỗi; có test cho hai điều trên; docs và file env mẫu chỉ nói hai môi trường.
@@ -118,13 +118,17 @@ Vòng 1 (`git diff 4fb38b4..9a773c0`, cùng ba reviewer): không còn CRITICAL /
 
 ## 7. Final
 
-**Tóm tắt:**
+**Tóm tắt:** Taskeo chạy trên Vercel production tại `https://taskeo-zeta.vercel.app` (nhánh `main`, Neon `main`, OAuth client `Taskeo`): `/login` ở chế độ `configured`, nút Google gửi đúng `redirect_uri`. Database production đã có bảng: `migrate status` lúc đầu báo `20261124072351_init` chưa áp → `migrate deploy` (host `ep-proud-math`, đã đối chiếu khác host dev `ep-dawn-sea`) → "Database schema is up to date". App bỏ hẳn môi trường staging: chỉ còn development / production, Vercel Preview được coi là production và bị chặn vì không có biến. Thêm `docs/08-deploy.md`, script `db:deploy`, `engines.node` 24.x.
 
-**Tiêu chí nghiệm thu:** (đánh dấu ở mục 1)
+**Tiêu chí nghiệm thu:** đạt cả 7 tiêu chí hiện hành ở mục 1; hai tiêu chí staging bị bỏ theo quyết định của người dùng.
 
-**Tài liệu đã cập nhật:**
+**Tài liệu đã cập nhật:** README, `docs/01-environment.md` (hai môi trường, Preview), `docs/02-google-cloud.md`, `docs/03-database.md` (`db:deploy`, `Read-Host`), `docs/04-architecture.md`, `docs/08-deploy.md` (mới), `.env.example`, `.env.production.example`; xoá `.env.staging.example`. Bốn lệnh lần cuối: typecheck ✅ · lint ✅ · test ✅ 59/59 · build ✅.
 
-**Merge vào develop:** commit `<hash>`, ngày
+**Merge vào develop:** commit `<hash>`, 2026-11-24
 
 **Việc để sau:**
--
+- Người dùng: đổi `AUTH_SECRET` / `TOKEN_ENCRYPTION_KEY` production (đã hiện trong Terminal panel và log phiên) và Google Client Secret của `Taskeo` (từng nằm trong file mẫu chưa commit), rồi Redeploy.
+- Người dùng: xoá Neon branch `staging`, OAuth client `Taskeo Staging`; sửa chú thích staging ở đầu `.env.local`; cân nhắc xoá `.env.production.secrets` sau khi đã cất secret vào trình quản lý mật khẩu.
+- Thay đổi của T003 lên `main` ở lần `/task release` sau (production hiện chạy code `main` cũ, vẫn hỗ trợ staging nhưng không dùng).
+- T15: đăng nhập Google trọn vòng (thử được cả trên production vì database đã có bảng). T67: migrate tự động khi deploy. T71: domain riêng + consent screen In production.
+- Sheet nhiệm vụ: T08 có thể chuyển "Xong" khi người dùng yêu cầu.
