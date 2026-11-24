@@ -54,7 +54,7 @@ Rủi ro / phụ thuộc:
 - Vercel Preview cũng là production build: khuyến nghị đặt `NEXT_PUBLIC_APP_ENV` tường minh cho từng môi trường trên Vercel.
 - `getAppEnv()` ném lỗi khi giá trị sai → lỗi ở proxy, SSR và client; thông báo phải rõ ràng.
 
-Duyệt kế hoạch: ☑ chờ · ☐ người dùng đã duyệt (ngày) · ☐ bỏ qua (`--yes`)
+Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-24) · ☐ bỏ qua (`--yes`)
 
 ## 3. Thực hiện + kiểm thử
 
