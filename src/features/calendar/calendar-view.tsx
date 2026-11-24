@@ -5,6 +5,7 @@ import { useUI } from "@/components/layout/ui-context";
 import { TaskListRow } from "@/features/tasks/task-list-row";
 import { formatLongToday } from "@/domain/dates";
 import { SAMPLE_EVENTS } from "@/domain/seed";
+import { APP_NAME } from "@/config/app";
 import { useWorkspace } from "@/store/workspace-store";
 import { card, cx } from "@/components/ui/styles";
 
@@ -16,7 +17,7 @@ export function CalendarView() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="mb-2 text-xs text-muted">Workspace / Lịch làm việc</p>
+        <p className="mb-2 text-xs text-muted">{APP_NAME} / Lịch làm việc</p>
         <h1 className="text-[28px] font-semibold tracking-tight">Lịch làm việc</h1>
         <p className="mt-2 text-sm capitalize text-muted">{formatLongToday(now)}</p>
       </div>

@@ -1,6 +1,6 @@
-# Workspace
+# Taskeo
 
-Web app cá nhân bọc Google Workspace: gom công việc, tài liệu và lịch về một màn Tổng quan, chia theo không gian (Không gian → Dự án → Công việc). Giao diện port từ prototype Figma Make (`../Workspace App Shell Design`).
+**Taskeo** — web app cá nhân bọc Google Workspace: gom công việc, tài liệu và lịch về một màn Tổng quan, chia theo không gian (Không gian → Dự án → Công việc). Giao diện port từ prototype Figma Make (`../Workspace App Shell Design`).
 
 ## Bắt đầu nhanh
 
@@ -10,13 +10,13 @@ npm install
 npm run dev
 ```
 
-Mở http://localhost:3000. Chưa có `.env.local` thì app chạy **chế độ demo** (dữ liệu mẫu, không cần đăng nhập).
+Mở http://localhost:3000. Chưa có `.env.local` thì `npm run dev` chạy **chế độ demo** (dữ liệu mẫu, không cần đăng nhập). Demo chỉ có ở môi trường development; staging / production thiếu biến là bị chặn — xem [ba môi trường](docs/01-environment.md#ba-môi-trường).
 
 ## Tài liệu (đọc theo thứ tự)
 
 | # | Tài liệu | Nội dung |
 |---|---|---|
-| 01 | [Môi trường](docs/01-environment.md) | Node, biến môi trường, ba chế độ chạy, các lệnh |
+| 01 | [Môi trường](docs/01-environment.md) | Node, ba môi trường (dev / staging / production), biến môi trường, ba chế độ chạy, các lệnh |
 | 02 | [Google Cloud](docs/02-google-cloud.md) | OAuth client, scope theo giai đoạn, bảo mật token |
 | 03 | [Database](docs/03-database.md) | Postgres, Prisma migrate, khác biệt so với kế hoạch |
 | 04 | [Kiến trúc](docs/04-architecture.md) | Cấu trúc `src/`, quy tắc import giữa các lớp, đặt file mới ở đâu |

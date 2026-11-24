@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { LayoutGrid, List, Plus } from "lucide-react";
 import { useUI } from "@/components/layout/ui-context";
 import { EMPTY_FILTERS, filterTasks, type TaskFilters } from "@/domain/task-filters";
+import { APP_NAME } from "@/config/app";
 import { useWorkspace } from "@/store/workspace-store";
 import { control, cx, primaryButton } from "@/components/ui/styles";
 import { TaskDrawer } from "./task-drawer";
@@ -50,7 +51,7 @@ function TasksBoard({ initialDue }: { initialDue: TaskFilters["due"] }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="mb-2 text-xs text-muted">Workspace / Công việc</p>
+          <p className="mb-2 text-xs text-muted">{APP_NAME} / Công việc</p>
           <h1 className="text-[28px] font-semibold tracking-tight">Công việc</h1>
           <p className="mt-2 text-sm text-muted">Từ ý tưởng đến hoàn thành, từng việc một.</p>
         </div>

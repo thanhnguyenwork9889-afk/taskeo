@@ -8,6 +8,7 @@ import { FileRow } from "@/features/docs/file-row";
 import { TaskListRow } from "@/features/tasks/task-list-row";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { isOverdue } from "@/domain/dates";
+import { APP_NAME } from "@/config/app";
 import { useWorkspace } from "@/store/workspace-store";
 import { card, control, cx, primaryButton, secondaryButton } from "@/components/ui/styles";
 import { ProjectCard } from "./project-card";
@@ -52,7 +53,7 @@ export function SpaceDetail() {
   return (
     <div className="space-y-6">
       <p className="text-xs text-muted">
-        Workspace / Không gian / <span className="text-brand-ink">{space.name}</span>
+        {APP_NAME} / Không gian / <span className="text-brand-ink">{space.name}</span>
       </p>
       <header className={cx(card, "relative overflow-hidden p-6 md:p-8")}>
         <div className="absolute inset-x-0 top-0 h-1" style={{ background: space.color }} />
