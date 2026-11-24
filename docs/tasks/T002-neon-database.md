@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `chore/T002-neon-database` |
 | Tạo từ | `develop` @ `b37b633` |
-| Trạng thái | 3-build |
+| Trạng thái | 4-review |
 | Ngày tạo | 2026-11-24 |
 
 Sheet nhiệm vụ: T07 (một phần B1 trong backlog: migration; phần đăng nhập Google thật để T15).
@@ -53,8 +53,10 @@ Kế hoạch tự viết, không qua `planner`: hai phần cấu hình nhỏ, đ
 
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
-| P1 | | | | | | |
-| P2 | | | | | | |
+| P1 | `d596dd5` | không; `prisma validate` qua | ✅ | ✅ | ✅ 61/61 | ✅ |
+| P2 | (commit này) | không; `db:status` "Database schema is up to date", truy vấn thử qua pooler: 10 bảng (9 model + `_prisma_migrations`), 0 user | ✅ | ✅ | ✅ | ✅ |
+
+Ghi chú P2: `migrate dev` áp migration `20261124072351_init` thành công nhưng bước `prisma generate` chạy kèm báo `EPERM` vì `npm run dev` của người dùng đang giữ file query engine. Client đã sinh trước đó vẫn đúng (không đổi model); chạy `npx prisma generate` sau khi tắt dev server.
 
 ## 4. Review code
 
