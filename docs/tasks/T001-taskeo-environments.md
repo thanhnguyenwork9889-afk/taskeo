@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `chore/T001-taskeo-environments` |
 | Tạo từ | `develop` @ `809201f` |
-| Trạng thái | 4-review |
+| Trạng thái | 5-fix |
 | Ngày tạo | 2026-11-24 |
 
 ## 1. Docs – yêu cầu
@@ -67,11 +67,21 @@ Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-24) 
 
 ## 4. Review code
 
-Reviewer đã chạy:
+Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewer` trên `git diff develop...HEAD` @ `9166e2d`.
 
 | # | Mức | File:dòng | Vấn đề | Reviewer |
 |---|---|---|---|---|
-| R1 | | | | |
+| R1 | HIGH | `docs/tasks/README.md` | Commit `9166e2d` làm file rỗng (script mở ghi trước khi đọc) → mất bảng nhiệm vụ và backlog | layer |
+| R2 | MEDIUM | `src/config/app.ts:32`, `env.ts:22` | `NEXT_PUBLIC_APP_ENV=development` đặt nhầm trên bản deploy (production build) + thiếu biến auth → chạy demo, không đăng nhập (fail open) | typescript, security |
+| R3 | MEDIUM | `src/config/app.ts:41` | `VERCEL_ENV_MAP[vercelEnv]` tra object thường: `"constructor"` / `"toString"` trả hàm kế thừa, không ném lỗi | typescript |
+| R4 | MEDIUM | `src/app/(auth)/login/page.tsx:19` | `/login` prerender tĩnh: chế độ auth và danh sách biến thiếu bị đóng băng lúc build, có thể lệch với proxy (đọc lúc chạy) | typescript |
+| R5 | MEDIUM | `README.md:14` | "Chưa có `.env.local` thì chạy demo" — giờ chỉ đúng ở development | layer |
+| R6 | LOW | `src/app/(auth)/login/page.tsx:52` | Ở staging/production, trang `/login` công khai liệt kê tên biến secret còn thiếu | security |
+| R7 | LOW | `src/components/layout/sidebar.tsx:13` | `ENV_PILL_CLASS` khoá theo chuỗi nhãn (`Record<string,string>`), đổi nhãn sẽ lặng lẽ rơi về mặc định | layer, typescript |
+| R8 | LOW | `src/config/env.ts:19` | `missing: readonly string[]` có thể thu hẹp về tên biến auth | typescript |
+| R9 | LOW | `src/config/*.test.ts` | Chưa test `getAppEnv()` / `getAuthMode()` đọc đúng biến; thiếu case khoá prototype | typescript |
+| R10 | LOW | `docs/01-environment.md` | Nói rõ Preview phải đặt `NEXT_PUBLIC_APP_ENV=staging` tường minh; chuỗi rỗng coi như không đặt | security, typescript |
+| R11 | LOW | `src/components/layout/sidebar.tsx:13` | `getAppEnv()` ở cấp module: giá trị sai ném lỗi lúc import — đúng fail-fast | layer |
 
 ## 5. Fix bug
 
