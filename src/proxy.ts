@@ -4,7 +4,7 @@ import { getAuthMode } from "@/config/env";
 // Kiểm tra lạc quan: chưa có cookie phiên của Auth.js thì chuyển về /login.
 // Kiểm tra thật nằm ở getViewer() và ở từng API route (auth()).
 // Chế độ demo (chỉ ở development, không có biến auth nào) bỏ qua; cấu hình thiếu thì luôn về /login
-// (trang đó báo thiếu biến nào). Ở staging / production thiếu biến luôn là misconfigured.
+// (ở development trang đó liệt kê biến còn thiếu). Ở staging / production thiếu biến luôn là misconfigured.
 const SESSION_COOKIES = ["authjs.session-token", "__Secure-authjs.session-token"];
 
 export function proxy(request: NextRequest) {
