@@ -67,7 +67,14 @@ Kế hoạch tự viết, không qua `planner` (như T002): việc chủ yếu l
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
 | P1 | (commit này) | không; `npm run db:deploy` khi shell không có `DATABASE_URL` / `DIRECT_URL` → Prisma báo lỗi validate và dừng, không chạm database | ✅ | ✅ | ✅ 61/61 | ✅ |
-| P2 | | người dùng làm theo `docs/08-deploy.md` | | | | |
+| P2 | — | người dùng: project Vercel `taskeo`, domain production `taskeo-zeta.vercel.app` (đổi từ `taskeo-sigma`), 6 biến Production, client `Taskeo`, Redeploy. Staging: chưa xong | | | | |
+| P3a (production) | (commit này) | kiểm tay trên `taskeo-zeta.vercel.app` | ✅ | ✅ | ✅ | ✅ |
+
+Ghi chú P2/P3a (2026-11-24):
+- Bản build đầu chạy trước khi có biến: `/login` báo chặn. Đặt biến xong vẫn báo chặn vì `/login` được dựng sẵn lúc build (`x-nextjs-prerender: 1`, `x-vercel-cache: HIT`, `age` 1990 s) → phải Redeploy. Đã ghi vào `docs/08-deploy.md` bước 6: đổi biến nào cũng phải build lại.
+- Sau Redeploy: tiêu đề `Taskeo`, `/login` có nút "Đăng nhập bằng Google"; bấm thì sang `accounts.google.com` với `redirect_uri=https://taskeo-zeta.vercel.app/api/auth/callback/google`, `scope=openid email profile`, `access_type=offline`, `prompt=consent`, không có `redirect_uri_mismatch`. Không đăng nhập tiếp (T15).
+- Người dùng đã dán giá trị thật (chuỗi Neon, Google Client ID / Secret) vào `.env.production.example` / `.env.staging.example` (chưa commit). Đã chuyển sang `.env.production.secrets` / `.env.staging.secrets` (git bỏ qua theo `.env*`, Next.js không tự đọc) và trả hai file mẫu về placeholder.
+- Thêm vào `docs/08-deploy.md`: tắt Vercel Authentication cho Preview (bước 1.6).
 
 Ghi chú P1: `engines.node` đặt `24.x` thay cho `>=20.9` như mục 1: Vercel coi khoảng mở là "bản mới nhất" và cảnh báo; `24.x` khớp Node của máy dev (24.11.1). Next.js vẫn chỉ cần 20.9+ (docs/01).
 

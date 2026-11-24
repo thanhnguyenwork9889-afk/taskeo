@@ -28,7 +28,7 @@ Taskeo có ba môi trường. Mỗi môi trường dùng **database, OAuth clien
 | `NEXT_PUBLIC_APP_ENV` | `development` | `staging` | `production` |
 | Biến đặt ở | `.env.local` (mẫu: `.env.example`) | Vercel → Environment Variables → Preview (mẫu: `.env.staging.example`) | Vercel → Environment Variables → Production (mẫu: `.env.production.example`) |
 | Database | Neon branch `dev` | Neon branch `staging` | Neon branch `main` |
-| OAuth redirect URI | `http://localhost:3000/api/auth/callback/google` | `https://<domain-staging>/api/auth/callback/google` | `https://<domain-production>/api/auth/callback/google` |
+| OAuth redirect URI | `http://localhost:3000/api/auth/callback/google` | `https://<domain-staging>/api/auth/callback/google` | `https://taskeo-zeta.vercel.app/api/auth/callback/google` |
 | Chế độ demo | Được (chỉ `npm run dev`, khi không có biến auth nào) | **Không** — thiếu biến là bị chặn | **Không** — thiếu biến là bị chặn |
 | Nhận biết | Tiêu đề `Taskeo · Dev`, nhãn "Dev" ở sidebar | Tiêu đề `Taskeo · Staging`, nhãn "Staging" | Tiêu đề `Taskeo`, không nhãn |
 

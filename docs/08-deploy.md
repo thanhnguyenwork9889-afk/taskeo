@@ -5,7 +5,7 @@ Checklist dựng staging và production lần đầu (nhiệm vụ T003). Ba mô
 | | staging | production |
 |---|---|---|
 | Vercel | Preview, nhánh `develop` | Production, nhánh `main` |
-| Domain | `<domain-staging>` (alias cố định gán cho nhánh `develop`) | `<domain-production>` (domain chính của project) |
+| Domain | `<domain-staging>` (alias cố định gán cho nhánh `develop`) | `taskeo-zeta.vercel.app` (domain chính của project) |
 | Neon | branch `staging` | branch `main` |
 | OAuth client | `Taskeo Staging` | `Taskeo` |
 | Mẫu biến | `.env.staging.example` | `.env.production.example` |
@@ -19,12 +19,13 @@ Mỗi môi trường dùng **secret riêng**: không chép `AUTH_SECRET`, `TOKEN
 3. **Settings → Git → Production Branch** = `main`.
 4. **Settings → Build and Deployment → Node.js Version** = `24.x` (khớp `engines` trong `package.json`).
 5. **Settings → Environment Variables**: kiểm tra *Automatically expose System Environment Variables* đang bật.
+6. **Settings → Deployment Protection → Vercel Authentication**: tắt. Gói Hobby mặc định bật cho mọi bản Preview; khi bật, Google không gọi được callback của staging và người ngoài Vercel không mở được staging. Preview của nhánh khác `develop` không có biến nên app vẫn tự chặn.
 
 ## 2. Chốt domain
 
 1. **Settings → Domains**: domain production là domain `*.vercel.app` Vercel đã cấp (đổi tên được nếu còn trống, ví dụ `taskeo.vercel.app`).
 2. Thêm một domain `*.vercel.app` cho staging (ví dụ `taskeo-staging.vercel.app`), mục *Git Branch* chọn `develop`. Alias này luôn trỏ tới bản deploy mới nhất của `develop`.
-3. Ghi lại hai domain: chúng là `<domain-production>` và `<domain-staging>` trong các bước sau.
+3. Ghi lại hai domain: chúng là `taskeo-zeta.vercel.app` và `<domain-staging>` trong các bước sau.
 
 URL ngẫu nhiên theo từng commit (`taskeo-abc123-….vercel.app`) **không đăng nhập Google được** vì redirect URI phải khớp chính xác. Luôn dùng hai domain ở trên.
 
@@ -35,7 +36,7 @@ Google Cloud Console → **APIs & Services → Credentials → Create Credential
 | Tên | Authorized redirect URI |
 |---|---|
 | `Taskeo Staging` | `https://<domain-staging>/api/auth/callback/google` |
-| `Taskeo` | `https://<domain-production>/api/auth/callback/google` |
+| `Taskeo` | `https://taskeo-zeta.vercel.app/api/auth/callback/google` |
 
 Không cần *Authorized JavaScript origins*. Ghi lại Client ID / Secret của từng client. Consent screen đang ở chế độ Testing: chỉ test user đăng nhập được, refresh token hết hạn sau 7 ngày (hết khi làm T71).
 
@@ -78,7 +79,7 @@ npx prisma migrate status
 
 ## 6. Deploy lại và kiểm tra
 
-Biến `NEXT_PUBLIC_*` được nhúng lúc build, nên phải build lại sau khi đặt biến:
+Đổi **bất kỳ** biến nào cũng phải build lại, không riêng `NEXT_PUBLIC_*`: trang `/login` được dựng sẵn lúc build (header `x-nextjs-prerender: 1`) và giữ nguyên chế độ `misconfigured` / `configured` của lúc build. Redeploy thì bỏ tick *Use existing Build Cache*.
 
 - Staging: **Deployments → Create Deployment** → nhánh `develop` (hoặc push lên `develop`).
 - Production: **Redeploy** bản mới nhất của `main` (hoặc khi release `develop` → `main`).

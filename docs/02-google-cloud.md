@@ -9,7 +9,7 @@
    |---|---|
    | development | `http://localhost:3000/api/auth/callback/google` |
    | staging | `https://<domain-staging>/api/auth/callback/google` (domain cố định của nhánh `develop` trên Vercel) |
-   | production | `https://<domain-production>/api/auth/callback/google` |
+   | production | `https://taskeo-zeta.vercel.app/api/auth/callback/google` |
 
    URL preview ngẫu nhiên của Vercel cho từng commit không đăng nhập Google được; dùng domain cố định của nhánh.
 5. Điền Client ID / Secret vào `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`: development trong `.env.local`, staging / production trên Vercel (xem [01-environment.md](01-environment.md#ba-môi-trường)).
