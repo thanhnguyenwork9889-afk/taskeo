@@ -104,7 +104,7 @@ Chạy lại đúng các reviewer ở bước 4 trên diff của bước 5 (`git
    ```
    Xung đột → `git merge --abort`, quay về nhánh nhiệm vụ, báo người dùng; không tự giải quyết xung đột ở file người khác đang sửa.
 6. Ghi hash commit merge vào mục 7 và vào cột *Merge vào develop* của README (commit nhỏ trên `develop`: `docs(T<số>): record merge` — ngoại lệ duy nhất cho luật "không commit thẳng lên develop").
-7. Giữ nhánh nhiệm vụ (không xoá). Hỏi người dùng có muốn push `develop` và nhánh nhiệm vụ lên GitHub không.
+7. Xoá nhánh nhiệm vụ ở máy: `git branch -d <nhánh>` (dùng `-d`, không dùng `-D`: git từ chối xoá nếu nhánh chưa merge). Commit vẫn còn trong `develop` qua commit merge; file `docs/tasks/T<số>-*.md` thì giữ lại. Hỏi người dùng có muốn push `develop` lên GitHub không; nếu nhánh nhiệm vụ đã có trên `origin`, sau khi `develop` đã push thì hỏi luôn việc xoá nhánh trên GitHub (`git push origin --delete <nhánh>`).
 
 ## Release (`develop` → `main`)
 
