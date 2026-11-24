@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `chore/T002-neon-database` |
 | Tạo từ | `develop` @ `b37b633` |
-| Trạng thái | 6-rereview |
+| Trạng thái | done |
 | Ngày tạo | 2026-11-24 |
 
 Sheet nhiệm vụ: T07 (một phần B1 trong backlog: migration; phần đăng nhập Google thật để T15).
@@ -16,7 +16,7 @@ Sheet nhiệm vụ: T07 (một phần B1 trong backlog: migration; phần đăng
 **Phạm vi:**
 - Người dùng đã tạo Neon project `taskeo` (region `aws-ap-southeast-1`), branch `main` / `staging` / `dev`, dán chuỗi kết nối của branch `dev` vào `.env.local` (`DATABASE_URL` qua pooler, `DIRECT_URL` trực tiếp).
 - `prisma/schema.prisma`: thêm `directUrl = env("DIRECT_URL")` để Prisma CLI (migrate, studio) không đi qua pooler.
-- `package.json`: script `db:migrate`, `db:deploy`, `db:studio`, `db:status` đọc `.env.local` bằng `node --env-file` (Prisma CLI chỉ tự đọc `.env`).
+- `package.json`: script `db:migrate`, `db:studio`, `db:status` đọc `.env.local` bằng `node --env-file` (Prisma CLI chỉ tự đọc `.env`).
 - Chạy migration `init` trên branch `dev`, commit `prisma/migrations/`.
 - Cập nhật `.env.example`, `.env.staging.example`, `.env.production.example`, docs 01 và 03.
 
@@ -25,12 +25,12 @@ Sheet nhiệm vụ: T07 (một phần B1 trong backlog: migration; phần đăng
 - Đặt biến trên Vercel, migrate staging / production (T08, T63, T67).
 
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
-- [ ] `schema.prisma` có `directUrl`; `npx prisma validate` qua.
-- [ ] `prisma/migrations/<timestamp>_init/migration.sql` có trong repo và tạo đủ bảng của schema.
-- [ ] `npm run db:status` báo database `dev` khớp migration ("Database schema is up to date").
-- [ ] Truy vấn thử qua `DATABASE_URL` (pooler) bằng Prisma Client chạy được.
-- [ ] Ba file `.env*.example` có `DIRECT_URL`; docs 01 và 03 nói rõ hai chuỗi và các script `db:*`.
-- [ ] typecheck, lint, test, build xanh.
+- [x] `schema.prisma` có `directUrl`; `npx prisma validate` qua.
+- [x] `prisma/migrations/<timestamp>_init/migration.sql` có trong repo và tạo đủ bảng của schema.
+- [x] `npm run db:status` báo database `dev` khớp migration ("Database schema is up to date").
+- [x] Truy vấn thử qua `DATABASE_URL` (pooler) bằng Prisma Client chạy được.
+- [x] Ba file `.env*.example` có `DIRECT_URL`; docs 01 và 03 nói rõ hai chuỗi và các script `db:*`.
+- [x] typecheck, lint, test, build xanh.
 
 **Tài liệu bị ảnh hưởng:** 01 môi trường · 03 DB
 
@@ -54,7 +54,7 @@ Kế hoạch tự viết, không qua `planner`: hai phần cấu hình nhỏ, đ
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
 | P1 | `d596dd5` | không; `prisma validate` qua | ✅ | ✅ | ✅ 61/61 | ✅ |
-| P2 | (commit này) | không; `db:status` "Database schema is up to date", truy vấn thử qua pooler: 10 bảng (9 model + `_prisma_migrations`), 0 user | ✅ | ✅ | ✅ | ✅ |
+| P2 | `873c5b6` | không; `db:status` "Database schema is up to date", truy vấn thử qua pooler: 10 bảng (9 model + `_prisma_migrations`), 0 user | ✅ | ✅ | ✅ | ✅ |
 
 Ghi chú P2: `migrate dev` áp migration `20261124072351_init` thành công nhưng bước `prisma generate` chạy kèm báo `EPERM` vì `npm run dev` của người dùng đang giữ file query engine. Client đã sinh trước đó vẫn đúng (không đổi model); chạy `npx prisma generate` sau khi tắt dev server.
 
@@ -76,10 +76,10 @@ Reviewer đã chạy: `layer-reviewer`, `security-reviewer` (diff đụng Prisma
 
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
-| R1 | đã sửa: bỏ script `db:deploy` (dev dùng `migrate dev`); docs 03 ghi các script `db:*` chỉ cho branch `dev` và biến trong shell thắng `.env.local` | (commit này) |
-| R2 | đã sửa: docs 03 nói `migrate deploy` lấy biến từ shell / CI, mở shell mới sau khi chạy | (commit này) |
-| R3 | đã sửa: docs 03 ghi cần `.env.local` | (commit này) |
-| R4 | đã sửa: thêm `channel_binding=require` vào ba file `.env*.example` (`.env.local` của người dùng đã có sẵn) | (commit này) |
+| R1 | đã sửa: bỏ script `db:deploy` (dev dùng `migrate dev`); docs 03 ghi các script `db:*` chỉ cho branch `dev` và biến trong shell thắng `.env.local` | `d983689` |
+| R2 | đã sửa: docs 03 nói `migrate deploy` lấy biến từ shell / CI, mở shell mới sau khi chạy | `d983689` |
+| R3 | đã sửa: docs 03 ghi cần `.env.local` | `d983689` |
+| R4 | đã sửa: thêm `channel_binding=require` vào ba file `.env*.example` (`.env.local` của người dùng đã có sẵn) | `d983689` |
 | R5 | bỏ qua: không tái hiện được — `src/server/auth/auth.ts` `withEncryptedTokens` mã hoá cả 3 token trong `linkAccount`, `persistReSignInTokens` và `server/google/client.ts` mã hoá khi ghi lại | — |
 | R6 | bỏ qua: schema chuẩn của Auth.js adapter, không cần đổi | — |
 | R7 | để sau: kiểm tra quyền sở hữu space/project ở tầng ứng dụng thuộc B2 / T22 (đã ghi trong backlog B2) | — |
@@ -88,17 +88,20 @@ Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 61/61 
 
 ## 6. Review lại
 
-Vòng 1:
+Vòng 1 (`bed5166..HEAD`): `security-reviewer` không có phát hiện, R1 đã xử lý. `layer-reviewer`: 1 MEDIUM — dòng phạm vi ở mục 1 còn ghi `db:deploy`; đã sửa trong commit final (chỉ là tài liệu). Không còn CRITICAL / HIGH.
 
 ## 7. Final
 
-**Tóm tắt:**
+**Tóm tắt:** Neon project `taskeo` (Singapore, branch `main` / `staging` / `dev`) đã nối vào app. `schema.prisma` có `directUrl`; script `db:migrate` / `db:status` / `db:studio` chạy Prisma CLI với `.env.local`; migration `20261124072351_init` đã áp lên branch `dev` (9 bảng). File env mẫu và docs 01 / 03 cập nhật theo.
 
-**Tiêu chí nghiệm thu:** (đánh dấu ở mục 1)
+**Tiêu chí nghiệm thu:** đạt cả 6 (đánh dấu ở mục 1).
 
-**Tài liệu đã cập nhật:**
+**Tài liệu đã cập nhật:** `docs/01-environment.md`, `docs/03-database.md`, `.env.example`, `.env.staging.example`, `.env.production.example`.
 
 **Merge vào develop:** commit `<hash>`, ngày
 
 **Việc để sau:**
--
+- Chạy `npx prisma generate` sau khi tắt `npm run dev` (lần này bị khoá file engine; client cũ vẫn đúng).
+- Đặt `DATABASE_URL` / `DIRECT_URL` của branch `staging` / `main` lên Vercel và `migrate deploy` (T08, T63, T67).
+- Tuỳ chọn: script chặn `db:migrate` khi host không phải branch `dev` (phát hiện LOW còn lại của security review).
+- R7: kiểm tra quyền sở hữu space / project ở API (B2 / T22).
