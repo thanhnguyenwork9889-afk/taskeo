@@ -5,7 +5,7 @@ Quy trình: [07-workflow.md](../07-workflow.md). Mẫu: [_template.md](_template
 | Mã | Nhiệm vụ | Nhánh | Trạng thái | Merge vào develop |
 |---|---|---|---|---|
 | T000 | [Thiết lập quy trình nhiệm vụ](T000-task-workflow.md) | `chore/T000-task-workflow` | done | `828ef1f` |
-| T001 | [Đặt tên Taskeo + ba môi trường](T001-taskeo-environments.md) | `chore/T001-taskeo-environments` | 5-fix | |
+| T001 | [Đặt tên Taskeo + ba môi trường](T001-taskeo-environments.md) | `chore/T001-taskeo-environments` | 6-rereview | |
 
 ## Việc chờ làm (backlog)
 

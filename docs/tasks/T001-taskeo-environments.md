@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `chore/T001-taskeo-environments` |
 | Tạo từ | `develop` @ `809201f` |
-| Trạng thái | 5-fix |
+| Trạng thái | 6-rereview |
 | Ngày tạo | 2026-11-24 |
 
 ## 1. Docs – yêu cầu
@@ -87,9 +87,19 @@ Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewe
 
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
-| R1 | đã sửa / bỏ qua: lý do | |
+| R1 | đã sửa: khôi phục từ `3f9beaa`, thêm lại dòng T001 | `7c357bb` |
+| R2 | đã sửa: `resolveAuthMode(appEnv, missing, nodeEnv)` — demo cần development **và** `NODE_ENV` ≠ production; test thêm | `eb40e84` |
+| R3 | đã sửa: `Object.hasOwn` khi tra `VERCEL_ENV_MAP`; test `constructor` / `toString` / `__proto__` / `hasOwnProperty` | `eb40e84` |
+| R4 | đã sửa: phần phụ thuộc chế độ auth tách sang `login-auth-panel.tsx`, `await connection()` trong `<Suspense>`; build: `◐ /login` | `eb40e84` |
+| R5 | đã sửa: README nêu demo chỉ ở development (`npm run dev`) | `eb40e84` |
+| R6 | đã sửa: tên biến thiếu chỉ hiện ở development, staging/production hiện thông báo chung | `eb40e84` |
+| R7 | đã sửa: `ENV_PILL_CLASS` khoá theo `AppEnv`, bỏ fallback | `eb40e84` |
+| R8 | đã sửa: kiểu `AuthEnvVar` | `eb40e84` |
+| R9 | đã sửa: test wiring `getAppEnv()` / `getAuthMode()` bằng `vi.stubEnv` | `eb40e84` |
+| R10 | đã sửa: docs/01 — Preview phải đặt `NEXT_PUBLIC_APP_ENV=staging` tường minh, chuỗi rỗng coi như không đặt, bản build production không bao giờ vào demo | `eb40e84` |
+| R11 | bỏ qua: đúng fail-fast theo spec | — |
 
-Kết quả 4 lệnh sau khi sửa:
+Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 61/61 · build ✅. Dev server: `/login` hiện logo Taskeo + lối vào demo sau khung chờ, không lỗi console.
 
 ## 6. Review lại
 
