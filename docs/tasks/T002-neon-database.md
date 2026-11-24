@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `chore/T002-neon-database` |
 | Tạo từ | `develop` @ `b37b633` |
-| Trạng thái | 4-review |
+| Trạng thái | 5-fix |
 | Ngày tạo | 2026-11-24 |
 
 Sheet nhiệm vụ: T07 (một phần B1 trong backlog: migration; phần đăng nhập Google thật để T15).
@@ -60,11 +60,17 @@ Ghi chú P2: `migrate dev` áp migration `20261124072351_init` thành công như
 
 ## 4. Review code
 
-Reviewer đã chạy:
+Reviewer đã chạy: `layer-reviewer`, `security-reviewer` (diff đụng Prisma). Không chạy `typescript-reviewer`: không có file `.ts` / `.tsx` đổi.
 
 | # | Mức | File:dòng | Vấn đề | Reviewer |
 |---|---|---|---|---|
-| R1 | | | | |
+| R1 | MEDIUM | `package.json:14` | `db:deploy` luôn đọc `.env.local`, nhưng biến có sẵn trong shell thắng `--env-file`: còn sót `DATABASE_URL` của staging/production thì `migrate deploy` chạy nhầm database | security |
+| R2 | LOW | `docs/03-database.md:35-36` | Không nói `npx prisma migrate deploy` (staging/production) lấy biến từ shell, không đọc `.env.local` | layer |
+| R3 | LOW | `package.json:13-16` | Script `db:*` cần `.env.local`; thiếu file thì Node báo lỗi, docs chưa nói | layer |
+| R4 | LOW | `.env*.example` | `sslmode=require` không kiểm chứng chứng chỉ; Neon khuyên thêm `channel_binding=require` | security |
+| R5 | LOW | `migration.sql:28-30` | Token trong `Account` là TEXT thường; an toàn chỉ khi mọi đường ghi đều mã hoá | security |
+| R6 | LOW | `migration.sql:46-53` | `Session` không có khoá chính, chỉ unique `sessionToken` (Prisma sinh như vậy) | security |
+| R7 | LOW | `migration.sql:174-190` | DB không kiểm `Task.userId` khớp chủ của space/project; xoá User/Space cascade | security |
 
 ## 5. Fix bug
 
