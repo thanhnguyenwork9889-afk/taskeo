@@ -98,7 +98,7 @@ Vòng 1 (`bed5166..HEAD`): `security-reviewer` không có phát hiện, R1 đã 
 
 **Tài liệu đã cập nhật:** `docs/01-environment.md`, `docs/03-database.md`, `.env.example`, `.env.staging.example`, `.env.production.example`.
 
-**Merge vào develop:** commit `<hash>`, ngày
+**Merge vào develop:** commit `81ccd2d`, 2026-11-24
 
 **Việc để sau:**
 - Chạy `npx prisma generate` sau khi tắt `npm run dev` (lần này bị khoá file engine; client cũ vẫn đúng).
