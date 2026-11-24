@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `chore/T003-vercel-deploy` |
 | Tạo từ | `develop` @ `17790f6` |
-| Trạng thái | 6-rereview |
+| Trạng thái | 7-final |
 | Ngày tạo | 2026-11-24 |
 
 Sheet nhiệm vụ: T08 (deploy bản trống lên Vercel, thêm redirect URI production). Chạm tới T63 (tách Preview / Production + 2 database) ở mức đặt biến; phần migrate tự động khi deploy vẫn là T67.
@@ -32,13 +32,13 @@ Quyết định với người dùng (2026-11-24, trong chat), theo thứ tự t
 - Domain riêng, consent screen In production (T71); `/api/health`, Sentry (T64, T65); merge qua PR + CI (T72, T52); release `develop` → `main`.
 
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
-- [ ] `docs/08-deploy.md` có checklist đủ các bước ở *Phạm vi*; README liệt kê 08.
-- [ ] `npm run db:deploy` có trong `package.json`; `package.json` có `engines.node` (`24.x`).
+- [x] `docs/08-deploy.md` có checklist đủ các bước ở *Phạm vi*; README liệt kê 08.
+- [x] `npm run db:deploy` có trong `package.json`; `package.json` có `engines.node` (`24.x`).
 - [ ] Neon branch `main`: `prisma migrate status` báo "Database schema is up to date" (người dùng chạy, dán kết quả).
 - [x] Production `taskeo-zeta.vercel.app`: tiêu đề `Taskeo`, `/login` hiện nút đăng nhập Google; bấm thì sang `accounts.google.com` với `redirect_uri` là domain production, không có `redirect_uri_mismatch`.
 - [x] Không còn chuỗi `<domain-production>` / `<domain-staging>` trong repo.
 - [x] Không còn môi trường staging trong `src/`: `APP_ENVS` = development / production, `preview` → production, `NEXT_PUBLIC_APP_ENV=staging` ném lỗi; có test cho hai điều trên; docs và file env mẫu chỉ nói hai môi trường.
-- [ ] typecheck, lint, test, build xanh.
+- [x] typecheck, lint, test, build xanh (59/59, sau commit `9a773c0`).
 
 **Tài liệu bị ảnh hưởng:** 01 môi trường · 02 Google · 03 DB (lệnh `db:deploy`) · 04 kiến trúc (`app.ts`) · 08 mới
 
@@ -70,7 +70,7 @@ Kế hoạch tự viết, không qua `planner` (như T002): việc chủ yếu l
 | P1 | `315f4e8` | không; `npm run db:deploy` khi shell không có `DATABASE_URL` / `DIRECT_URL` → Prisma báo lỗi validate và dừng, không chạm database | ✅ | ✅ | ✅ 61/61 | ✅ |
 | P2 | — | người dùng: project Vercel `taskeo`, domain production `taskeo-zeta.vercel.app` (đổi từ `taskeo-sigma`), 6 biến Production, client `Taskeo`, Redeploy. Staging: chưa xong | | | | |
 | P3a (production) | `04fd3a9` | kiểm tay trên `taskeo-zeta.vercel.app` | ✅ | ✅ | ✅ | ✅ |
-| P4 | (commit này) | 2 test mới trong `app.test.ts` (viết trước: 5 test đỏ với code cũ, xanh sau khi sửa); bỏ 5 test staging → 58 test | ✅ | ✅ | ✅ 58/58 | ✅ |
+| P4 | (commit này) | 2 test mới trong `app.test.ts` (viết trước: 5 test đỏ với code cũ, xanh sau khi sửa); bỏ 5 test staging → 58 test (+1 test R6 ở bước 5 → 59) | ✅ | ✅ | ✅ 58/58 | ✅ |
 
 Ghi chú P2/P3a (2026-11-24, trước khi bỏ staging):
 - Bản build đầu chạy trước khi có biến: `/login` báo chặn. Đặt biến xong vẫn báo chặn vì `/login` được dựng sẵn lúc build (`x-nextjs-prerender: 1`, `x-vercel-cache: HIT`, `age` 1990 s) → phải Redeploy. Đã ghi vào `docs/08-deploy.md` bước 6: đổi biến nào cũng phải build lại.
@@ -114,7 +114,7 @@ Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 59/59 
 
 ## 6. Review lại
 
-Vòng 1:
+Vòng 1 (`git diff 4fb38b4..9a773c0`, cùng ba reviewer): không còn CRITICAL / HIGH / MEDIUM. `layer-reviewer`: R1–R4, R6, R8 đã sửa đúng, anchor khớp; LOW: số test P4 lệch (58 → 59 sau R6) và tiêu chí 4 lệnh chưa tick — sửa ở bước 7. `typescript-reviewer`: sạch. `security-reviewer`: sạch; xác nhận `Read-Host` không đưa giá trị vào lịch sử PSReadLine (giá trị vẫn hiện trên màn hình đến khi đóng cửa sổ — chấp nhận); không có secret trong diff.
 
 ## 7. Final
 
