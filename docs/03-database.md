@@ -1,6 +1,6 @@
 # 03 · Database
 
-Postgres trên [Neon](https://neon.tech): một project `taskeo` (region `aws-ap-southeast-1`, Singapore), ba branch `main` (production), `staging`, `dev`. Development, staging và production **không dùng chung database**; mỗi branch có chuỗi kết nối riêng đặt vào biến của môi trường đó ([01-environment.md](01-environment.md#ba-môi-trường)).
+Postgres trên [Neon](https://neon.tech): một project `taskeo` (region `aws-ap-southeast-1`, Singapore), hai branch `main` (production) và `dev` (development). Hai môi trường **không dùng chung database**; mỗi branch có chuỗi kết nối riêng đặt vào biến của môi trường đó ([01-environment.md](01-environment.md#hai-môi-trường)).
 
 ## Thiết lập lần đầu (development)
 
@@ -19,7 +19,7 @@ npm run db:migrate
 Prisma CLI chỉ tự đọc file `.env`, không đọc `.env.local`, nên ba script `db:migrate` / `db:status` / `db:studio` chạy CLI qua `node --env-file=.env.local`. Chúng **chỉ dành cho branch `dev`**:
 
 - Cần có `.env.local`; thiếu file thì Node báo lỗi và dừng.
-- Biến đã có sẵn trong shell **thắng** giá trị trong `.env.local`. Trước khi chạy, đảm bảo shell không còn `DATABASE_URL` / `DIRECT_URL` của staging hay production (`Get-ChildItem Env:*_URL` để kiểm tra).
+- Biến đã có sẵn trong shell **thắng** giá trị trong `.env.local`. Trước khi chạy, đảm bảo shell không còn `DATABASE_URL` / `DIRECT_URL` của production (`Get-ChildItem Env:*_URL` để kiểm tra).
 
 | Script | Lệnh Prisma | Khi nào |
 |---|---|---|
@@ -27,7 +27,7 @@ Prisma CLI chỉ tự đọc file `.env`, không đọc `.env.local`, nên ba sc
 | `npm run db:status` | `migrate status` | Xem database có khớp migration trong repo không |
 | `npm run db:studio` | `studio` | Xem / sửa dữ liệu trên trình duyệt |
 
-`npm run db:deploy` (`prisma migrate deploy`) thì ngược lại: **không** đọc `.env.local`, chỉ lấy `DATABASE_URL` / `DIRECT_URL` từ biến của shell. Nó dành cho staging / production (bảng dưới); thiếu biến thì Prisma báo lỗi và dừng.
+`npm run db:deploy` (`prisma migrate deploy`) thì ngược lại: **không** đọc `.env.local`, chỉ lấy `DATABASE_URL` / `DIRECT_URL` từ biến của shell. Nó dành cho production (bảng dưới); thiếu biến thì Prisma báo lỗi và dừng.
 
 `npm install` tự chạy `prisma generate` (script `postinstall`).
 
@@ -36,12 +36,11 @@ Prisma CLI chỉ tự đọc file `.env`, không đọc `.env.local`, nên ba sc
 | Môi trường | Neon branch | Tạo / áp migration |
 |---|---|---|
 | development | `dev` | `npm run db:migrate` (tạo migration mới) |
-| staging | `staging` | `npm run db:deploy` với `DATABASE_URL` / `DIRECT_URL` của staging, trước khi merge vào `develop` được deploy |
 | production | `main` | `npm run db:deploy` với `DATABASE_URL` / `DIRECT_URL` của production, khi release `develop` → `main` |
 
-`npm run db:deploy` không đọc `.env.local`: nó lấy `DATABASE_URL` / `DIRECT_URL` từ biến môi trường của shell (hoặc của CI / Vercel khi build — tự động hoá ở T67). Chạy tay thì đặt hai biến của đúng branch trong shell, chạy xong mở shell mới. Từng bước: [08-deploy.md](08-deploy.md#5-áp-migration-lên-neon-staging-và-main).
+`npm run db:deploy` không đọc `.env.local`: nó lấy `DATABASE_URL` / `DIRECT_URL` từ biến môi trường của shell (hoặc của CI / Vercel khi build — tự động hoá ở T67). Chạy tay thì đặt hai biến của đúng branch trong shell, chạy xong mở shell mới. Từng bước: [08-deploy.md](08-deploy.md#5-áp-migration-lên-neon-main).
 
-Không chạy `migrate dev` hay `migrate reset` trên staging / production.
+Không chạy `migrate dev` hay `migrate reset` trên production.
 
 ## Schema
 

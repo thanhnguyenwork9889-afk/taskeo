@@ -9,7 +9,7 @@ export type AuthEnvVar = (typeof AUTH_ENV_VARS)[number];
  *   (NODE_ENV !== "production") → dữ liệu mẫu, không đăng nhập. Hai điều kiện cùng lúc để một bản
  *   build production lỡ đặt NEXT_PUBLIC_APP_ENV=development không mở toang app.
  * - "configured": đủ cả 5 biến → bật đăng nhập Google.
- * - "misconfigured": thiếu một phần, hoặc thiếu toàn bộ ở staging / production / bản build production
+ * - "misconfigured": thiếu một phần, hoặc thiếu toàn bộ ở production / bản build production
  *   → chặn truy cập (fail closed), không bao giờ rơi về demo.
  */
 export type AuthMode = "demo" | "configured" | "misconfigured";

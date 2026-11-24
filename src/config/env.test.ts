@@ -13,7 +13,6 @@ describe("resolveAuthMode", () => {
 
   it.each([
     ["development", "demo"],
-    ["staging", "misconfigured"],
     ["production", "misconfigured"],
   ] as const)("in %s returns %s when every auth variable is missing (non-production build)", (appEnv, expected) => {
     // Arrange

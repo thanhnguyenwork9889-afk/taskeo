@@ -5,7 +5,7 @@ Code ứng dụng nằm trong `src/`, file cấu hình nằm ở gốc. Thư m�
 ```
 src/
 ├── config/            1. Tên app, môi trường, biến môi trường, chế độ chạy
-│   ├── app.ts            APP_NAME ("Taskeo"), môi trường development / staging / production
+│   ├── app.ts            APP_NAME ("Taskeo"), môi trường development / production
 │   └── env.ts            Chế độ chạy demo / configured / misconfigured (demo chỉ ở development)
 ├── server/            2. Chỉ chạy trên server ("server-only")
 │   ├── db.ts             Prisma client

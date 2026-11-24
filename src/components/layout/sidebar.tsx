@@ -15,7 +15,6 @@ const APP_ENV = getAppEnv();
 const ENV_LABEL = appEnvLabel(APP_ENV);
 // Production không có nhãn nên không cần màu.
 const ENV_PILL_CLASS: Record<Exclude<AppEnv, "production">, string> = {
-  staging: "bg-amber-100 text-amber-800",
   development: "bg-slate-100 text-slate-700",
 };
 const ENV_PILL = APP_ENV !== "production" && ENV_LABEL ? { label: ENV_LABEL, className: ENV_PILL_CLASS[APP_ENV] } : null;

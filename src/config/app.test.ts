@@ -15,18 +15,18 @@ describe("resolveAppEnv", () => {
 
   it("prefers NEXT_PUBLIC_APP_ENV over NEXT_PUBLIC_VERCEL_ENV", () => {
     // Arrange
-    const input = { appEnv: "staging", vercelEnv: "production", nodeEnv: "production" };
+    const input = { appEnv: "development", vercelEnv: "production", nodeEnv: "production" };
 
     // Act
     const result = resolveAppEnv(input);
 
     // Assert
-    expect(result).toBe("staging");
+    expect(result).toBe("development");
   });
 
   it.each([
     ["production", "production"],
-    ["preview", "staging"],
+    ["preview", "production"],
     ["development", "development"],
   ] as const)("maps NEXT_PUBLIC_VERCEL_ENV=%s to %s when APP_ENV is absent", (vercelEnv, expected) => {
     // Arrange
@@ -82,7 +82,31 @@ describe("resolveAppEnv", () => {
     // Assert
     expect(act).toThrow(/NEXT_PUBLIC_APP_ENV/);
     expect(act).toThrow(/"prod"/);
-    expect(act).toThrow(/development, staging, production/);
+    expect(act).toThrow(/development, production/);
+  });
+
+  it("treats a Vercel Preview deployment as production (strictest mode)", () => {
+    // Arrange
+    const input = { vercelEnv: "preview" };
+
+    // Act
+    const result = resolveAppEnv(input);
+
+    // Assert
+    expect(result).toBe("production");
+  });
+
+  it("throws for NEXT_PUBLIC_APP_ENV=staging because staging is no longer a valid environment", () => {
+    // Arrange
+    const input = { appEnv: "staging" };
+
+    // Act
+    const act = () => resolveAppEnv(input);
+
+    // Assert
+    expect(act).toThrow(/NEXT_PUBLIC_APP_ENV/);
+    expect(act).toThrow(/"staging"/);
+    expect(act).toThrow(/Giá trị hợp lệ: development, production./);
   });
 
   it("throws an error naming NEXT_PUBLIC_VERCEL_ENV when VERCEL_ENV is invalid", () => {
@@ -119,7 +143,7 @@ describe("getAppEnv (reads process.env)", () => {
 
   it("reads NEXT_PUBLIC_APP_ENV", () => {
     // Arrange
-    vi.stubEnv("NEXT_PUBLIC_APP_ENV", "staging");
+    vi.stubEnv("NEXT_PUBLIC_APP_ENV", "development");
     vi.stubEnv("NEXT_PUBLIC_VERCEL_ENV", "production");
     vi.stubEnv("NODE_ENV", "production");
 
@@ -127,20 +151,20 @@ describe("getAppEnv (reads process.env)", () => {
     const result = getAppEnv();
 
     // Assert
-    expect(result).toBe("staging");
+    expect(result).toBe("development");
   });
 
   it("falls back to NEXT_PUBLIC_VERCEL_ENV when NEXT_PUBLIC_APP_ENV is empty", () => {
     // Arrange
     vi.stubEnv("NEXT_PUBLIC_APP_ENV", "");
     vi.stubEnv("NEXT_PUBLIC_VERCEL_ENV", "preview");
-    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NODE_ENV", "development");
 
     // Act
     const result = getAppEnv();
 
     // Assert
-    expect(result).toBe("staging");
+    expect(result).toBe("production");
   });
 
   it("falls back to NODE_ENV when both public variables are empty", () => {
@@ -160,7 +184,6 @@ describe("getAppEnv (reads process.env)", () => {
 describe("appEnvLabel and appTitle", () => {
   it.each([
     ["development", "Dev", `${APP_NAME} · Dev`],
-    ["staging", "Staging", `${APP_NAME} · Staging`],
     ["production", null, APP_NAME],
   ] as const)("for %s returns label %s and title %s", (env, label, title) => {
     // Act
@@ -174,6 +197,7 @@ describe("appEnvLabel and appTitle", () => {
 
   it("uses Taskeo as the app name", () => {
     expect(APP_NAME).toBe("Taskeo");
-    expect(appTitle("staging")).toBe("Taskeo · Staging");
+    expect(appTitle("development")).toBe("Taskeo · Dev");
+    expect(appTitle("production")).toBe("Taskeo");
   });
 });

@@ -1,4 +1,4 @@
-# T003 · Deploy lên Vercel (production)
+# T003 · Deploy lên Vercel (production) + bỏ môi trường staging
 
 | | |
 |---|---|
@@ -17,6 +17,7 @@ Quyết định với người dùng (2026-11-24, trong chat):
 - Domain: dùng domain miễn phí `*.vercel.app` (production = domain chính của project, staging = alias cố định của nhánh `develop`). Domain riêng để sau (T71 cần domain đã xác minh).
 - Làm cả staging và production. Production cần merge `develop` → `main`: chỉ làm qua `/task release` khi người dùng cho phép trong chat ở thời điểm đó.
 - **Đổi phạm vi (2026-11-24, người dùng: "Bỏ luôn staing"):** bỏ dựng staging trên Vercel trong nhiệm vụ này. Code vẫn hỗ trợ ba môi trường (T001); checklist staging giữ trong `docs/08-deploy.md` để dùng khi cần. P4 (release `develop` → `main`) cũng bỏ: production đã chạy từ `main` hiện tại, thay đổi của T003 chỉ là tài liệu + `engines`, sẽ lên `main` ở lần release sau.
+- **Đổi phạm vi lần 2 (2026-11-24, người dùng: "Xóa luôn môi trường staging"):** bỏ hẳn staging khỏi app, chỉ còn development và production. Vercel Preview (`NEXT_PUBLIC_VERCEL_ENV=preview`) được coi là production: chế độ chặt nhất (không demo, thông báo chặn chung, không nhãn); Preview không có biến nên luôn bị chặn. `NEXT_PUBLIC_APP_ENV=staging` giờ là giá trị không hợp lệ (fail fast). Xoá `.env.staging.example`; docs 01/02/03/04/08, README, `.env.example` chỉ nói hai môi trường. Việc ngoài repo (người dùng tự quyết): xoá Neon branch `staging`, OAuth client `Taskeo Staging`, file local `.env.staging.secrets`.
 - Các bước trên Vercel / Google Cloud Console / Neon do người dùng tự bấm theo checklist; Claude không nhập secret, không tạo tài khoản. Claude kiểm tra URL đã deploy sau đó.
 
 **Phạm vi:**
@@ -37,10 +38,11 @@ Quyết định với người dùng (2026-11-24, trong chat):
 - ~~URL staging (alias nhánh `develop`) mở được, tiêu đề `Taskeo · Staging`, `/login` hiện nút đăng nhập Google (chế độ `configured`, không phải thông báo chặn).~~ bỏ: staging ngoài phạm vi.
 - ~~Bấm đăng nhập ở staging chuyển tới `accounts.google.com` với `redirect_uri=https://<domain-staging>/api/auth/callback/google`, Google không báo `redirect_uri_mismatch`.~~ bỏ: staging ngoài phạm vi.
 - [x] Production `taskeo-zeta.vercel.app`: tiêu đề `Taskeo`, `/login` hiện nút đăng nhập Google; bấm thì sang `accounts.google.com` với `redirect_uri` là domain production, không có `redirect_uri_mismatch`.
-- [x] Không còn chuỗi `<domain-production>` trong repo (`<domain-staging>` giữ lại vì chưa có staging).
+- [x] Không còn chuỗi `<domain-production>` / `<domain-staging>` trong repo.
+- [ ] Không còn môi trường staging trong `src/`: `APP_ENVS` = development / production, `preview` → production, `NEXT_PUBLIC_APP_ENV=staging` ném lỗi; có test cho hai điều sau; docs và file env mẫu chỉ nói hai môi trường.
 - [ ] typecheck, lint, test, build xanh.
 
-**Tài liệu bị ảnh hưởng:** 01 môi trường · 02 Google · 03 DB (lệnh `db:deploy`) · 08 mới
+**Tài liệu bị ảnh hưởng:** 01 môi trường · 02 Google · 03 DB (lệnh `db:deploy`) · 04 kiến trúc (`app.ts`) · 08 mới
 
 ## 2. Kế hoạch từng phần
 
@@ -49,7 +51,8 @@ Quyết định với người dùng (2026-11-24, trong chat):
 | P1 | Checklist deploy + script `db:deploy` + `engines` + README | `docs/08-deploy.md`, `package.json`, `README.md`, `docs/01`, `docs/03` | tự làm (docs + cấu hình nhỏ) | không (cấu hình); kiểm `npm run db:deploy -- --help` chạy được |
 | P2 | Người dùng làm theo checklist: project Vercel, biến Preview + Production, 2 OAuth client, `db:deploy` lên Neon `staging` + `main`; báo lại 2 domain và kết quả `migrate status` | ngoài repo | người dùng | — |
 | P3 | Điền domain thật vào docs + file env mẫu; kiểm URL staging bằng trình duyệt (tiêu đề, `/login`, `redirect_uri`) | `docs/01`, `docs/02`, `.env.staging.example`, `.env.production.example` | tự làm | không; kiểm tay trên URL staging |
-| ~~P4~~ | bỏ (xem *Đổi phạm vi*). Production: sau bước 7 và merge vào `develop`, chạy `/task release` (hỏi người dùng trước khi merge vào `main` và trước khi push), rồi kiểm URL production như P3 | — | tự làm + người dùng cho phép | không; kiểm tay trên URL production |
+| P4 | Bỏ môi trường staging: `src/config/app.ts`, test, `sidebar.tsx`, chú thích `env.ts` / `proxy.ts` (agent); docs 01/02/03/04/08, README, `.env.example`, xoá `.env.staging.example` (tự làm) | `src/config/*`, `src/components/layout/sidebar.tsx`, `src/proxy.ts`, docs, env mẫu | `google-integrator` + tự làm | `app.test.ts`: preview → production; `staging` ném lỗi |
+| ~~P4 cũ~~ | bỏ (xem *Đổi phạm vi*). Production: sau bước 7 và merge vào `develop`, chạy `/task release` (hỏi người dùng trước khi merge vào `main` và trước khi push), rồi kiểm URL production như P3 | — | tự làm + người dùng cho phép | không; kiểm tay trên URL production |
 
 Rủi ro / phụ thuộc:
 - Staging deploy từ `develop` trên GitHub: nhánh này cần được push (hỏi người dùng trước). Mọi bản deploy chỉ có code đã push.
@@ -67,9 +70,10 @@ Kế hoạch tự viết, không qua `planner` (như T002): việc chủ yếu l
 
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
-| P1 | (commit này) | không; `npm run db:deploy` khi shell không có `DATABASE_URL` / `DIRECT_URL` → Prisma báo lỗi validate và dừng, không chạm database | ✅ | ✅ | ✅ 61/61 | ✅ |
+| P1 | `315f4e8` | không; `npm run db:deploy` khi shell không có `DATABASE_URL` / `DIRECT_URL` → Prisma báo lỗi validate và dừng, không chạm database | ✅ | ✅ | ✅ 61/61 | ✅ |
 | P2 | — | người dùng: project Vercel `taskeo`, domain production `taskeo-zeta.vercel.app` (đổi từ `taskeo-sigma`), 6 biến Production, client `Taskeo`, Redeploy. Staging: chưa xong | | | | |
-| P3a (production) | (commit này) | kiểm tay trên `taskeo-zeta.vercel.app` | ✅ | ✅ | ✅ | ✅ |
+| P3a (production) | `04fd3a9` | kiểm tay trên `taskeo-zeta.vercel.app` | ✅ | ✅ | ✅ | ✅ |
+| P4 | (commit này) | 2 test mới trong `app.test.ts` (viết trước: 5 test đỏ với code cũ, xanh sau khi sửa); bỏ 5 test staging → 58 test | ✅ | ✅ | ✅ 58/58 | ✅ |
 
 Ghi chú P2/P3a (2026-11-24):
 - Bản build đầu chạy trước khi có biến: `/login` báo chặn. Đặt biến xong vẫn báo chặn vì `/login` được dựng sẵn lúc build (`x-nextjs-prerender: 1`, `x-vercel-cache: HIT`, `age` 1990 s) → phải Redeploy. Đã ghi vào `docs/08-deploy.md` bước 6: đổi biến nào cũng phải build lại.
