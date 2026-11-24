@@ -124,7 +124,7 @@ Vòng 1 (`git diff 4fb38b4..9a773c0`, cùng ba reviewer): không còn CRITICAL /
 
 **Tài liệu đã cập nhật:** README, `docs/01-environment.md` (hai môi trường, Preview), `docs/02-google-cloud.md`, `docs/03-database.md` (`db:deploy`, `Read-Host`), `docs/04-architecture.md`, `docs/08-deploy.md` (mới), `.env.example`, `.env.production.example`; xoá `.env.staging.example`. Bốn lệnh lần cuối: typecheck ✅ · lint ✅ · test ✅ 59/59 · build ✅.
 
-**Merge vào develop:** commit `<hash>`, 2026-11-24
+**Merge vào develop:** commit `13292dc`, 2026-11-24
 
 **Việc để sau:**
 - Người dùng: đổi `AUTH_SECRET` / `TOKEN_ENCRYPTION_KEY` production (đã hiện trong Terminal panel và log phiên) và Google Client Secret của `Taskeo` (từng nằm trong file mẫu chưa commit), rồi Redeploy.
