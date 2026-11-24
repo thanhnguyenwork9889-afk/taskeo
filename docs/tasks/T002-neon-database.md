@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `chore/T002-neon-database` |
 | Tạo từ | `develop` @ `b37b633` |
-| Trạng thái | 5-fix |
+| Trạng thái | 6-rereview |
 | Ngày tạo | 2026-11-24 |
 
 Sheet nhiệm vụ: T07 (một phần B1 trong backlog: migration; phần đăng nhập Google thật để T15).
@@ -76,9 +76,15 @@ Reviewer đã chạy: `layer-reviewer`, `security-reviewer` (diff đụng Prisma
 
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
-| R1 | | |
+| R1 | đã sửa: bỏ script `db:deploy` (dev dùng `migrate dev`); docs 03 ghi các script `db:*` chỉ cho branch `dev` và biến trong shell thắng `.env.local` | (commit này) |
+| R2 | đã sửa: docs 03 nói `migrate deploy` lấy biến từ shell / CI, mở shell mới sau khi chạy | (commit này) |
+| R3 | đã sửa: docs 03 ghi cần `.env.local` | (commit này) |
+| R4 | đã sửa: thêm `channel_binding=require` vào ba file `.env*.example` (`.env.local` của người dùng đã có sẵn) | (commit này) |
+| R5 | bỏ qua: không tái hiện được — `src/server/auth/auth.ts` `withEncryptedTokens` mã hoá cả 3 token trong `linkAccount`, `persistReSignInTokens` và `server/google/client.ts` mã hoá khi ghi lại | — |
+| R6 | bỏ qua: schema chuẩn của Auth.js adapter, không cần đổi | — |
+| R7 | để sau: kiểm tra quyền sở hữu space/project ở tầng ứng dụng thuộc B2 / T22 (đã ghi trong backlog B2) | — |
 
-Kết quả 4 lệnh sau khi sửa:
+Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 61/61 · build ✅ · `db:status` up to date.
 
 ## 6. Review lại
 

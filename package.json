@@ -11,7 +11,6 @@
     "test": "vitest run",
     "postinstall": "prisma generate",
     "db:migrate": "node --env-file=.env.local node_modules/prisma/build/index.js migrate dev",
-    "db:deploy": "node --env-file=.env.local node_modules/prisma/build/index.js migrate deploy",
     "db:status": "node --env-file=.env.local node_modules/prisma/build/index.js migrate status",
     "db:studio": "node --env-file=.env.local node_modules/prisma/build/index.js studio"
   },
