@@ -12,7 +12,7 @@ Checklist dựng production lần đầu (nhiệm vụ T003). Hai môi trường
 
 Production dùng **secret riêng**: không chép `AUTH_SECRET`, `TOKEN_ENCRYPTION_KEY`, OAuth client hay chuỗi database từ `.env.local` (development) sang.
 
-Không có staging. Bản **Preview** của Vercel (mọi nhánh khác `main`) được app coi là production và không có biến nào, nên luôn bị chặn truy cập.
+Không có staging. Bản **Preview** của Vercel (mọi nhánh khác `main`) được app coi là production; nó bị chặn truy cập **vì không có biến nào** — đừng bao giờ tick Environment Preview khi đặt biến (bước 4).
 
 ## 1. Tạo project trên Vercel
 
@@ -41,7 +41,7 @@ Consent screen đang ở chế độ Testing: chỉ test user đăng nhập đư
 
 ## 4. Đặt biến môi trường trên Vercel
 
-**Settings → Environment Variables**, mỗi biến chỉ tick Environment = **Production**. Tạo hai secret mới (chạy hai lần, mỗi lần một giá trị khác):
+**Settings → Environment Variables**, mỗi biến chỉ tick Environment = **Production**, **không** tick Preview / Development. Preview được app coi là production: tick Preview là đưa secret và database production lên mọi bản Preview, và các bản đó chạy được như production (không nhãn). Tạo hai secret mới (chạy hai lần, mỗi lần một giá trị khác):
 
 ```powershell
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
@@ -68,11 +68,13 @@ Không dùng `npx auth secret` ở đây: lệnh đó ghi vào `.env.local` củ
 Chạy trên máy, trong **một cửa sổ PowerShell mới** (dấu nhắc `PS C:\...>`), mọi lệnh trong cùng cửa sổ đó, xong thì đóng để chuỗi kết nối không sót lại trong shell:
 
 ```powershell
-$env:DATABASE_URL = "<chuỗi có pooling của branch main>"
-$env:DIRECT_URL = "<chuỗi trực tiếp của branch main>"
+$env:DATABASE_URL = Read-Host "DATABASE_URL (chuỗi có pooling của branch main)"
+$env:DIRECT_URL = Read-Host "DIRECT_URL (chuỗi trực tiếp của branch main)"
 npm run db:deploy
 npx prisma migrate status
 ```
+
+Mỗi dòng `Read-Host` hỏi một chuỗi: dán vào rồi Enter. Dán qua `Read-Host` thì lịch sử PowerShell (PSReadLine) chỉ lưu câu lệnh, không lưu chuỗi kết nối có mật khẩu; đừng gõ thẳng `$env:DATABASE_URL = "postgresql://..."`.
 
 `migrate status` phải báo *Database schema is up to date*. Lỗi `Environment variable not found: DIRECT_URL` nghĩa là cửa sổ đó chưa có biến (đặt ở cửa sổ khác, hoặc đang dùng `cmd` / Git Bash). `db:deploy` (`prisma migrate deploy`) chỉ áp migration đã có trong repo, không tạo migration mới, không xoá dữ liệu. Chi tiết: [03-database.md](03-database.md#mỗi-môi-trường-một-database).
 
@@ -90,6 +92,6 @@ Kiểm tra:
 
 ## Về sau
 
-- Migrate tự động khi deploy: T67. Hiện tại mỗi lần có migration mới phải chạy bước 5 trước khi release lên `main`.
+- Migrate tự động khi deploy: T67. Hiện tại mỗi lần có migration mới phải chạy bước 5 khi release `develop` → `main`, trước khi bản production mới được deploy.
 - Domain riêng + consent screen In production: T71.
 - Merge qua Pull Request: T72. Muốn có bản Preview chạy được cho PR thì phải thêm lại một môi trường (database, OAuth client, secret riêng).

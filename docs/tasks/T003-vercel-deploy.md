@@ -4,42 +4,40 @@
 |---|---|
 | Nhánh | `chore/T003-vercel-deploy` |
 | Tạo từ | `develop` @ `17790f6` |
-| Trạng thái | 5-fix |
+| Trạng thái | 6-rereview |
 | Ngày tạo | 2026-11-24 |
 
 Sheet nhiệm vụ: T08 (deploy bản trống lên Vercel, thêm redirect URI production). Chạm tới T63 (tách Preview / Production + 2 database) ở mức đặt biến; phần migrate tự động khi deploy vẫn là T67.
 
 ## 1. Docs – yêu cầu
 
-**Mục tiêu:** Taskeo chạy trên Vercel ở hai môi trường: staging (Preview, nhánh `develop`) và production (nhánh `main`), mỗi môi trường có database Neon, OAuth client và secret riêng, và nút đăng nhập Google chuyển sang Google với đúng redirect URI.
+**Mục tiêu:** Taskeo chạy trên Vercel production (nhánh `main`, `taskeo-zeta.vercel.app`) với database Neon, OAuth client và secret riêng, nút đăng nhập Google chuyển sang Google với đúng redirect URI; app chỉ còn hai môi trường, development và production.
 
-Quyết định với người dùng (2026-11-24, trong chat):
-- Domain: dùng domain miễn phí `*.vercel.app` (production = domain chính của project, staging = alias cố định của nhánh `develop`). Domain riêng để sau (T71 cần domain đã xác minh).
-- Làm cả staging và production. Production cần merge `develop` → `main`: chỉ làm qua `/task release` khi người dùng cho phép trong chat ở thời điểm đó.
-- **Đổi phạm vi (2026-11-24, người dùng: "Bỏ luôn staing"):** bỏ dựng staging trên Vercel trong nhiệm vụ này. Code vẫn hỗ trợ ba môi trường (T001); checklist staging giữ trong `docs/08-deploy.md` để dùng khi cần. P4 (release `develop` → `main`) cũng bỏ: production đã chạy từ `main` hiện tại, thay đổi của T003 chỉ là tài liệu + `engines`, sẽ lên `main` ở lần release sau.
-- **Đổi phạm vi lần 2 (2026-11-24, người dùng: "Xóa luôn môi trường staging"):** bỏ hẳn staging khỏi app, chỉ còn development và production. Vercel Preview (`NEXT_PUBLIC_VERCEL_ENV=preview`) được coi là production: chế độ chặt nhất (không demo, thông báo chặn chung, không nhãn); Preview không có biến nên luôn bị chặn. `NEXT_PUBLIC_APP_ENV=staging` giờ là giá trị không hợp lệ (fail fast). Xoá `.env.staging.example`; docs 01/02/03/04/08, README, `.env.example` chỉ nói hai môi trường. Việc ngoài repo (người dùng tự quyết): xoá Neon branch `staging`, OAuth client `Taskeo Staging`, file local `.env.staging.secrets`.
-- Các bước trên Vercel / Google Cloud Console / Neon do người dùng tự bấm theo checklist; Claude không nhập secret, không tạo tài khoản. Claude kiểm tra URL đã deploy sau đó.
+Quyết định với người dùng (2026-11-24, trong chat), theo thứ tự thời gian:
+1. Domain miễn phí `*.vercel.app`; domain riêng để sau (T71). Các bước trên Vercel / Google Cloud Console / Neon do người dùng tự bấm theo checklist; Claude không nhập secret, không tạo tài khoản, chỉ kiểm tra URL đã deploy.
+2. Ban đầu làm cả staging (Preview, nhánh `develop`) và production, production qua `/task release`.
+3. Đổi phạm vi lần 1 ("Bỏ luôn staing"): không dựng staging trên Vercel. Bỏ luôn bước release: production đã chạy từ `main` hiện tại; thay đổi của T003 lên `main` ở lần release sau.
+4. **Đổi phạm vi lần 2 ("Xóa luôn môi trường staging") — phạm vi hiện hành:** bỏ hẳn staging khỏi app. Vercel Preview (`NEXT_PUBLIC_VERCEL_ENV=preview`) được coi là production: chế độ chặt nhất (không demo, thông báo chặn chung, không nhãn), và bị chặn vì không đặt biến nào cho Environment Preview. `NEXT_PUBLIC_APP_ENV=staging` là giá trị không hợp lệ (fail fast). Việc ngoài repo, người dùng tự quyết: xoá Neon branch `staging`, OAuth client `Taskeo Staging`, file local `.env.staging.secrets`.
 
 **Phạm vi:**
-- `docs/08-deploy.md`: checklist deploy từng bước (tạo project Vercel từ GitHub, Production Branch = `main`, Node version, biến môi trường cho Preview (Branch `develop`) và Production theo `.env.staging.example` / `.env.production.example`, tạo OAuth client `Taskeo Staging` và `Taskeo` với redirect URI, chạy `prisma migrate deploy` lên Neon branch `staging` và `main`, cách kiểm tra).
-- `package.json`: script `db:deploy` (`prisma migrate deploy`, đọc `DATABASE_URL` / `DIRECT_URL` từ biến môi trường của shell, không cần file env có secret production nằm trên máy) và `engines.node` `>=20.9`.
-- Sau khi người dùng tạo xong project: thay `<domain-staging>` / `<domain-production>` bằng domain thật trong `docs/01`, `docs/02`, `.env.staging.example`, `.env.production.example`.
-- README: thêm dòng 08 vào bảng tài liệu.
+- `docs/08-deploy.md`: checklist dựng production (project Vercel từ GitHub, Production Branch = `main`, Node 24.x, Deployment Protection, domain, OAuth client `Taskeo`, 6 biến chỉ ở Environment Production, `db:deploy` lên Neon `main`, Redeploy, cách kiểm tra).
+- `package.json`: script `db:deploy` (`prisma migrate deploy`, đọc `DATABASE_URL` / `DIRECT_URL` từ shell) và `engines.node` `24.x`.
+- Điền domain production vào `docs/01`, `docs/02`, `.env.production.example`.
+- Bỏ môi trường staging: `src/config/app.ts` (+ test), `sidebar.tsx`, chú thích `env.ts` / `proxy.ts`; docs 01/02/03/04, README, `.env.example`; xoá `.env.staging.example`.
+- README: dòng 08 trong bảng tài liệu.
 
 **Ngoài phạm vi:**
 - Chạy `prisma migrate deploy` tự động trong build Vercel (T67).
-- Đăng nhập Google trọn vòng và lưu token ở staging / production (T15 kiểm ở development trước).
-- Domain riêng, consent screen In production (T71); `/api/health`, Sentry (T64, T65); merge qua PR + CI (T72, T52).
+- Đăng nhập Google trọn vòng và lưu token ở production (T15 kiểm ở development trước).
+- Domain riêng, consent screen In production (T71); `/api/health`, Sentry (T64, T65); merge qua PR + CI (T72, T52); release `develop` → `main`.
 
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
 - [ ] `docs/08-deploy.md` có checklist đủ các bước ở *Phạm vi*; README liệt kê 08.
 - [ ] `npm run db:deploy` có trong `package.json`; `package.json` có `engines.node` (`24.x`).
 - [ ] Neon branch `main`: `prisma migrate status` báo "Database schema is up to date" (người dùng chạy, dán kết quả).
-- ~~URL staging (alias nhánh `develop`) mở được, tiêu đề `Taskeo · Staging`, `/login` hiện nút đăng nhập Google (chế độ `configured`, không phải thông báo chặn).~~ bỏ: staging ngoài phạm vi.
-- ~~Bấm đăng nhập ở staging chuyển tới `accounts.google.com` với `redirect_uri=https://<domain-staging>/api/auth/callback/google`, Google không báo `redirect_uri_mismatch`.~~ bỏ: staging ngoài phạm vi.
 - [x] Production `taskeo-zeta.vercel.app`: tiêu đề `Taskeo`, `/login` hiện nút đăng nhập Google; bấm thì sang `accounts.google.com` với `redirect_uri` là domain production, không có `redirect_uri_mismatch`.
 - [x] Không còn chuỗi `<domain-production>` / `<domain-staging>` trong repo.
-- [ ] Không còn môi trường staging trong `src/`: `APP_ENVS` = development / production, `preview` → production, `NEXT_PUBLIC_APP_ENV=staging` ném lỗi; có test cho hai điều sau; docs và file env mẫu chỉ nói hai môi trường.
+- [x] Không còn môi trường staging trong `src/`: `APP_ENVS` = development / production, `preview` → production, `NEXT_PUBLIC_APP_ENV=staging` ném lỗi; có test cho hai điều trên; docs và file env mẫu chỉ nói hai môi trường.
 - [ ] typecheck, lint, test, build xanh.
 
 **Tài liệu bị ảnh hưởng:** 01 môi trường · 02 Google · 03 DB (lệnh `db:deploy`) · 04 kiến trúc (`app.ts`) · 08 mới
@@ -48,18 +46,17 @@ Quyết định với người dùng (2026-11-24, trong chat):
 
 | Phần | Việc | File | Agent | Test cần viết |
 |---|---|---|---|---|
-| P1 | Checklist deploy + script `db:deploy` + `engines` + README | `docs/08-deploy.md`, `package.json`, `README.md`, `docs/01`, `docs/03` | tự làm (docs + cấu hình nhỏ) | không (cấu hình); kiểm `npm run db:deploy -- --help` chạy được |
-| P2 | Người dùng làm theo checklist: project Vercel, biến Preview + Production, 2 OAuth client, `db:deploy` lên Neon `staging` + `main`; báo lại 2 domain và kết quả `migrate status` | ngoài repo | người dùng | — |
-| P3 | Điền domain thật vào docs + file env mẫu; kiểm URL staging bằng trình duyệt (tiêu đề, `/login`, `redirect_uri`) | `docs/01`, `docs/02`, `.env.staging.example`, `.env.production.example` | tự làm | không; kiểm tay trên URL staging |
-| P4 | Bỏ môi trường staging: `src/config/app.ts`, test, `sidebar.tsx`, chú thích `env.ts` / `proxy.ts` (agent); docs 01/02/03/04/08, README, `.env.example`, xoá `.env.staging.example` (tự làm) | `src/config/*`, `src/components/layout/sidebar.tsx`, `src/proxy.ts`, docs, env mẫu | `google-integrator` + tự làm | `app.test.ts`: preview → production; `staging` ném lỗi |
-| ~~P4 cũ~~ | bỏ (xem *Đổi phạm vi*). Production: sau bước 7 và merge vào `develop`, chạy `/task release` (hỏi người dùng trước khi merge vào `main` và trước khi push), rồi kiểm URL production như P3 | — | tự làm + người dùng cho phép | không; kiểm tay trên URL production |
+| P1 | Checklist deploy + script `db:deploy` + `engines` + README | `docs/08-deploy.md`, `package.json`, `README.md`, `docs/01`, `docs/03` | tự làm (docs + cấu hình nhỏ) | không (cấu hình); kiểm `db:deploy` khi thiếu biến thì dừng |
+| P2 | Người dùng làm theo checklist: project Vercel, biến Production, client `Taskeo`, `db:deploy` lên Neon `main`, Redeploy | ngoài repo | người dùng | — |
+| P3 | Điền domain production vào docs + file env mẫu; kiểm URL production bằng trình duyệt (tiêu đề, `/login`, `redirect_uri`) | `docs/01`, `docs/02`, `.env.production.example` | tự làm | không; kiểm tay |
+| P4 | Bỏ môi trường staging: code + test (agent); docs, README, `.env.example`, xoá `.env.staging.example` (tự làm) | `src/config/*`, `src/components/layout/sidebar.tsx`, `src/proxy.ts`, docs, env mẫu | `google-integrator` + tự làm | `app.test.ts`: preview → production; `staging` ném lỗi |
+
+Kế hoạch đã duyệt ban đầu có P2–P4 khác (staging + release); đổi theo quyết định 3–4 ở mục 1.
 
 Rủi ro / phụ thuộc:
-- Staging deploy từ `develop` trên GitHub: nhánh này cần được push (hỏi người dùng trước). Mọi bản deploy chỉ có code đã push.
-- URL preview ngẫu nhiên theo commit không đăng nhập Google được (redirect URI phải khớp chính xác); chỉ dùng alias nhánh `develop`.
-- Nếu Vercel không bật *Automatically expose System Environment Variables* mà quên `NEXT_PUBLIC_APP_ENV`, Preview bị coi là production (vẫn chặn đúng, nhưng sai nhãn) — checklist bắt đặt tường minh.
-- Biến `NEXT_PUBLIC_*` nhúng lúc build: đổi biến phải Redeploy.
-- P4 kiểm production sau khi merge vào `develop`, nên dòng nghiệm thu production được đánh dấu bổ sung trong mục 7 sau release.
+- URL preview ngẫu nhiên theo commit không đăng nhập Google được (redirect URI phải khớp chính xác).
+- Preview được coi là production: nếu ai đó tick Environment Preview khi đặt biến, mọi bản Preview chạy với secret và database production. Checklist cấm tick Preview.
+- Đổi bất kỳ biến nào phải Redeploy: `/login` dựng sẵn lúc build.
 - Auth.js v5 tự tin host khi chạy trên Vercel (biến `VERCEL`), không cần `AUTH_URL` / `AUTH_TRUST_HOST`.
 
 Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-24, trong chat: "Approve plan") · ☐ bỏ qua (`--yes`)
@@ -75,11 +72,11 @@ Kế hoạch tự viết, không qua `planner` (như T002): việc chủ yếu l
 | P3a (production) | `04fd3a9` | kiểm tay trên `taskeo-zeta.vercel.app` | ✅ | ✅ | ✅ | ✅ |
 | P4 | (commit này) | 2 test mới trong `app.test.ts` (viết trước: 5 test đỏ với code cũ, xanh sau khi sửa); bỏ 5 test staging → 58 test | ✅ | ✅ | ✅ 58/58 | ✅ |
 
-Ghi chú P2/P3a (2026-11-24):
+Ghi chú P2/P3a (2026-11-24, trước khi bỏ staging):
 - Bản build đầu chạy trước khi có biến: `/login` báo chặn. Đặt biến xong vẫn báo chặn vì `/login` được dựng sẵn lúc build (`x-nextjs-prerender: 1`, `x-vercel-cache: HIT`, `age` 1990 s) → phải Redeploy. Đã ghi vào `docs/08-deploy.md` bước 6: đổi biến nào cũng phải build lại.
 - Sau Redeploy: tiêu đề `Taskeo`, `/login` có nút "Đăng nhập bằng Google"; bấm thì sang `accounts.google.com` với `redirect_uri=https://taskeo-zeta.vercel.app/api/auth/callback/google`, `scope=openid email profile`, `access_type=offline`, `prompt=consent`, không có `redirect_uri_mismatch`. Không đăng nhập tiếp (T15).
 - Người dùng đã dán giá trị thật (chuỗi Neon, Google Client ID / Secret) vào `.env.production.example` / `.env.staging.example` (chưa commit). Đã chuyển sang `.env.production.secrets` / `.env.staging.secrets` (git bỏ qua theo `.env*`, Next.js không tự đọc) và trả hai file mẫu về placeholder.
-- Thêm vào `docs/08-deploy.md`: tắt Vercel Authentication cho Preview (bước 1.6).
+- Thêm vào `docs/08-deploy.md`: tắt Vercel Authentication cho Preview (bước 1.6). Sau P4 đổi thành giữ bật, vì không còn staging.
 
 Ghi chú P1: `engines.node` đặt `24.x` thay cho `>=20.9` như mục 1: Vercel coi khoảng mở là "bản mới nhất" và cảnh báo; `24.x` khớp Node của máy dev (24.11.1). Next.js vẫn chỉ cần 20.9+ (docs/01).
 
@@ -103,9 +100,17 @@ Reviewer đã chạy (song song, trên `git diff develop...HEAD` @ `0253bf0`): `
 
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
-| R1 | đã sửa / bỏ qua: lý do | |
+| R1 | đã sửa: viết lại Mục tiêu, Phạm vi, Ngoài phạm vi, kế hoạch và rủi ro theo phạm vi hiện hành; các lần đổi phạm vi giữ thành danh sách quyết định theo thời gian | (commit này) |
+| R2 | đã sửa: tick tiêu chí bỏ staging, "hai điều sau" → "hai điều trên" | (commit này) |
+| R3 | đã sửa: `docs/08` (đầu trang + bước 4) và `docs/01` cấm tick Environment Preview, nói rõ hậu quả | (commit này) |
+| R4 | đã sửa: `docs/08` bước 5 dùng `Read-Host` để chuỗi kết nối không vào lịch sử PSReadLine; `docs/03` nhắc theo | (commit này) |
+| R5 | bỏ qua: test riêng có tên nói rõ ý đồ (preview được coi là production); trùng nhưng rẻ | — |
+| R6 | đã sửa (`google-integrator`): test `vercelEnv: "staging"` ném lỗi nêu `NEXT_PUBLIC_VERCEL_ENV` và `"staging"` | (commit này) |
+| R7 | bỏ qua: chỉ thẩm mỹ, thông báo liệt kê đúng giá trị Vercel hợp lệ | — |
+| R8 | đã sửa: `docs/03` và `docs/08` cùng viết "khi release `develop` → `main`, trước khi bản production mới được deploy" | (commit này) |
+| R9 | bỏ qua: hai file local, git bỏ qua, của người dùng; báo người dùng tự sửa / xoá | — |
 
-Kết quả 4 lệnh sau khi sửa:
+Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 59/59 · build ✅
 
 ## 6. Review lại
 

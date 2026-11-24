@@ -32,7 +32,7 @@ Taskeo có hai môi trường. Mỗi môi trường dùng **database, OAuth clie
 | Chế độ demo | Được (chỉ `npm run dev`, khi không có biến auth nào) | **Không** — thiếu biến là bị chặn |
 | Nhận biết | Tiêu đề `Taskeo · Dev`, nhãn "Dev" ở sidebar | Tiêu đề `Taskeo`, không nhãn |
 
-Bản **Preview** của Vercel (nhánh khác `main`) được coi là production và không có biến nên luôn bị chặn truy cập.
+Bản **Preview** của Vercel (nhánh khác `main`) được coi là production và bị chặn truy cập vì không có biến: khi đặt biến trên Vercel chỉ tick Environment Production, không tick Preview ([08-deploy.md](08-deploy.md#4-đặt-biến-môi-trường-trên-vercel)).
 
 Cách app xác định môi trường (`src/config/app.ts`, hàm `resolveAppEnv`):
 

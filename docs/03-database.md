@@ -36,9 +36,9 @@ Prisma CLI chỉ tự đọc file `.env`, không đọc `.env.local`, nên ba sc
 | Môi trường | Neon branch | Tạo / áp migration |
 |---|---|---|
 | development | `dev` | `npm run db:migrate` (tạo migration mới) |
-| production | `main` | `npm run db:deploy` với `DATABASE_URL` / `DIRECT_URL` của production, khi release `develop` → `main` |
+| production | `main` | `npm run db:deploy` với `DATABASE_URL` / `DIRECT_URL` của production, khi release `develop` → `main`, trước khi bản production mới được deploy |
 
-`npm run db:deploy` không đọc `.env.local`: nó lấy `DATABASE_URL` / `DIRECT_URL` từ biến môi trường của shell (hoặc của CI / Vercel khi build — tự động hoá ở T67). Chạy tay thì đặt hai biến của đúng branch trong shell, chạy xong mở shell mới. Từng bước: [08-deploy.md](08-deploy.md#5-áp-migration-lên-neon-main).
+`npm run db:deploy` không đọc `.env.local`: nó lấy `DATABASE_URL` / `DIRECT_URL` từ biến môi trường của shell (hoặc của CI / Vercel khi build — tự động hoá ở T67). Chạy tay thì đặt hai biến của đúng branch trong shell bằng `Read-Host` (để chuỗi không vào lịch sử PowerShell), chạy xong đóng shell. Từng bước: [08-deploy.md](08-deploy.md#5-áp-migration-lên-neon-main).
 
 Không chạy `migrate dev` hay `migrate reset` trên production.
 

@@ -121,6 +121,18 @@ describe("resolveAppEnv", () => {
     expect(act).toThrow(/"qa"/);
   });
 
+  it("throws for NEXT_PUBLIC_VERCEL_ENV=staging because staging is not a Vercel environment", () => {
+    // Arrange
+    const input = { vercelEnv: "staging" };
+
+    // Act
+    const act = () => resolveAppEnv(input);
+
+    // Assert
+    expect(act).toThrow(/NEXT_PUBLIC_VERCEL_ENV/);
+    expect(act).toThrow(/"staging"/);
+  });
+
   it.each(["constructor", "toString", "__proto__", "hasOwnProperty"])(
     "throws for NEXT_PUBLIC_VERCEL_ENV=%s instead of reading an inherited Object property",
     (vercelEnv) => {
