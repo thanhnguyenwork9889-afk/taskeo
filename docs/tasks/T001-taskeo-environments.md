@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `chore/T001-taskeo-environments` |
 | Tạo từ | `develop` @ `809201f` |
-| Trạng thái | 6-rereview |
+| Trạng thái | done |
 | Ngày tạo | 2026-11-24 |
 
 ## 1. Docs – yêu cầu
@@ -26,14 +26,14 @@
 - Script npm riêng cho từng môi trường (môi trường do Vercel / biến quyết định, không cần script).
 
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
-- [ ] `grep` không còn chữ "Workspace" là tên app trong `src/app/layout.tsx`, `sidebar.tsx`, `login/page.tsx`; ba chỗ đều đọc `APP_NAME`.
-- [ ] `package.json` có `"name": "taskeo"`.
-- [ ] Test `resolveAppEnv`: đủ 3 giá trị hợp lệ, suy từ `VERCEL_ENV` (3 trường hợp), suy từ `NODE_ENV`, giá trị sai ném lỗi.
-- [ ] Test `getAuthMode`: không có biến auth → `demo` ở development, `misconfigured` ở staging và production; đủ biến → `configured` ở cả ba.
-- [ ] `<title>` = `Taskeo` ở production, có hậu tố môi trường ở development / staging; nhãn môi trường ở sidebar chỉ hiện ngoài production (kiểm tra bằng dev server).
-- [ ] Có `.env.example`, `.env.staging.example`, `.env.production.example`, đều có `NEXT_PUBLIC_APP_ENV` đúng giá trị; `git check-ignore` không bỏ qua chúng nhưng vẫn bỏ qua `.env.local`.
-- [ ] docs/01 có bảng ba môi trường; docs/02 liệt kê redirect URI cho cả ba; docs/03 nêu DB riêng mỗi môi trường.
-- [ ] typecheck, lint, test, build xanh.
+- [x] `grep` không còn chữ "Workspace" là tên app trong `src/app/layout.tsx`, `sidebar.tsx`, `login/page.tsx`; ba chỗ đều đọc `APP_NAME`.
+- [x] `package.json` có `"name": "taskeo"`.
+- [x] Test `resolveAppEnv`: đủ 3 giá trị hợp lệ, suy từ `VERCEL_ENV` (3 trường hợp), suy từ `NODE_ENV`, giá trị sai ném lỗi.
+- [x] Test `getAuthMode`: không có biến auth → `demo` ở development, `misconfigured` ở staging và production; đủ biến → `configured` ở cả ba.
+- [x] `<title>` = `Taskeo` ở production, có hậu tố môi trường ở development / staging; nhãn môi trường ở sidebar chỉ hiện ngoài production (kiểm tra bằng dev server).
+- [x] Có `.env.example`, `.env.staging.example`, `.env.production.example`, đều có `NEXT_PUBLIC_APP_ENV` đúng giá trị; `git check-ignore` không bỏ qua chúng nhưng vẫn bỏ qua `.env.local`.
+- [x] docs/01 có bảng ba môi trường; docs/02 liệt kê redirect URI cho cả ba; docs/03 nêu DB riêng mỗi môi trường.
+- [x] typecheck, lint, test, build xanh.
 
 **Tài liệu bị ảnh hưởng:** 01 môi trường · 02 Google · 03 DB · 04 kiến trúc · README
 
@@ -103,17 +103,22 @@ Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 61/61 
 
 ## 6. Review lại
 
-Vòng 1:
+Vòng 1 (`git diff 7c357bb..eb40e84`, một reviewer gộp vai security + TypeScript + layer): R2–R10 đều đã sửa. Không có CRITICAL / HIGH mới. Một LOW: comment `src/proxy.ts:7` còn nói `/login` liệt kê biến thiếu — đã sửa trong commit `fix(T001): clarify proxy comment after R6`.
 
 ## 7. Final
 
-**Tóm tắt:**
+**Tóm tắt:** App mang tên **Taskeo** (`APP_NAME` trong `src/config/app.ts`, dùng ở title, sidebar, `/login`, breadcrumb; `package.json` = `taskeo`). Ba môi trường `development` / `staging` / `production` xác định bởi `NEXT_PUBLIC_APP_ENV` → `NEXT_PUBLIC_VERCEL_ENV` → `NODE_ENV`, giá trị sai thì dừng. Demo chỉ ở `npm run dev` (development + build không phải production); staging / production thiếu biến auth là bị chặn. Ngoài production có hậu tố tiêu đề và nhãn ở sidebar. `/login` đọc chế độ auth theo request. Ba file mẫu `.env*.example`; docs 01–04 + README mô tả nhánh ↔ Vercel ↔ DB ↔ OAuth.
 
-**Tiêu chí nghiệm thu:** (đánh dấu ở mục 1)
+**Tiêu chí nghiệm thu:** đạt hết (mục 1). Tiêu chí title / nhãn: development kiểm trên dev server (`Taskeo · Dev`, nhãn "Dev"); staging / production kiểm bằng unit test `appTitle` / `appEnvLabel` và wiring `getAppEnv()`, chưa chạy thật trên Vercel.
 
-**Tài liệu đã cập nhật:**
+**Kết quả cuối:** typecheck ✅ · lint ✅ · test ✅ 61/61 · build ✅ (`◐ /login`).
 
-**Merge vào develop:** commit `<hash>`, ngày
+**Tài liệu đã cập nhật:** 01 (ba môi trường, biến, chế độ chạy), 02 (OAuth client + redirect URI mỗi môi trường), 03 (DB mỗi môi trường, migrate), 04 (`src/config/app.ts`), README.
+
+**Merge vào develop:** commit `<hash>`, 2026-11-24
 
 **Việc để sau:**
--
+- Người dùng tự làm: tạo project Vercel (Production Branch = `main`), đặt biến cho Preview / Production; tạo 3 DB (Neon branch) và 3 OAuth client theo docs/01–03.
+- `(app)/layout.tsx` gọi `getViewer()` có thể chạy lúc build (app shell prerender): xem lại khi làm B1 (đăng nhập Google thật).
+- Đổi tên kiểu `Workspace*` trong `domain/` và mô tả agent trong `.claude/` (ngoài phạm vi).
+- CI (B9) nên chạy với `NEXT_PUBLIC_APP_ENV` cho từng môi trường.
