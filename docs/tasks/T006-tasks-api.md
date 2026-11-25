@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T006-tasks-api` |
 | Tạo từ | `develop` @ `9366d1d` |
-| Trạng thái | 3-build |
+| Trạng thái | 4-review |
 | Ngày tạo | 2026-11-25 |
 
 Nguồn: sheet nhiệm vụ, dòng **T22** (backlog B2, phần `tasks`). Theo cùng mẫu với T004 (không gian) và T005 (dự án).
@@ -96,7 +96,12 @@ Duyệt kế hoạch: ☐ chờ · ☒ người dùng đã duyệt (2026-11-25) 
 
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
-| P1 | | | | | | |
+| P1 | `2fb85d4` | `validation.test.ts` (+73) | ✅ | ✅ | ✅ 457/457 | ✅ |
+| P2 | `dc312bb` | `task-completion.test.ts` (12) | ✅ | ✅ | ✅ 457/457 | ✅ |
+| P3 | `a6f5d05` | `task-record.test.ts` (11) | ✅ | ✅ | ✅ 457/457 | ✅ |
+| P4 | `f5ac8b4` | `tasks.test.ts` (38) | ✅ | ✅ | ✅ 495/495 | ✅ |
+| P5 | `e16e0f6` | `tasks/route.test.ts` (27) | ✅ | ✅ | ✅ 555/555 | ✅ |
+| P6 | `85d31b4` | `tasks/[id]/route.test.ts` (33) | ✅ | ✅ | ✅ 555/555 | ✅ |
 
 ## 4. Review code
 
