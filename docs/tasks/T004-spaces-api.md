@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T004-spaces-api` |
 | Tạo từ | `develop` @ `98e1bf7` |
-| Trạng thái | 7-final |
+| Trạng thái | done |
 | Ngày tạo | 2026-11-25 |
 
 Nguồn: sheet nhiệm vụ, dòng **T20** (backlog B2, phần `spaces`).
@@ -28,14 +28,14 @@ Nguồn: sheet nhiệm vụ, dòng **T20** (backlog B2, phần `spaces`).
 - Rate limit (T73), test e2e (T61).
 
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
-- [ ] `GET /api/spaces` khi chưa đăng nhập trả 401; ở chế độ demo trả 503.
-- [ ] `POST /api/spaces` với tên rỗng, màu ngoài bảng màu hoặc icon lạ trả 400; hợp lệ trả 201 kèm không gian mới (có `id`, `color`, `icon`, `tint`).
-- [ ] `GET/PATCH/DELETE /api/spaces/[id]` với id của người dùng khác trả 404 và không đổi dữ liệu (test kiểm tra mọi truy vấn Prisma có `userId`).
-- [ ] `PATCH` chỉ đổi các trường gửi lên; `DELETE` trả 204.
-- [ ] Ở chế độ demo: tạo không gian chọn được màu + icon; sửa tên / mô tả / màu / icon ở trang chi tiết và thấy thay đổi ở danh sách, sidebar, Tổng quan; xoá có xác nhận, sau khi xoá dự án / công việc / tài liệu của không gian cũng biến mất.
-- [ ] localStorage đang có dữ liệu cũ (không có `icon`) vẫn mở được, không bị đưa về dữ liệu mẫu.
-- [ ] Có unit test cho schema, `updateSpace`, `deleteSpace`, hàm đổi bản ghi; có test cho route handler (mock `auth` + Prisma) phủ 401 / 400 / 404 / thành công.
-- [ ] typecheck, lint, test, build xanh.
+- [x] `GET /api/spaces` khi chưa đăng nhập trả 401; ở chế độ demo trả 503.
+- [x] `POST /api/spaces` với tên rỗng, màu ngoài bảng màu hoặc icon lạ trả 400; hợp lệ trả 201 kèm không gian mới (có `id`, `color`, `icon`, `tint`).
+- [x] `GET/PATCH/DELETE /api/spaces/[id]` với id của người dùng khác trả 404 và không đổi dữ liệu (test kiểm tra mọi truy vấn Prisma có `userId`).
+- [x] `PATCH` chỉ đổi các trường gửi lên; `DELETE` trả 204.
+- [x] Ở chế độ demo: tạo không gian chọn được màu + icon; sửa tên / mô tả / màu / icon ở trang chi tiết và thấy thay đổi ở danh sách, sidebar, Tổng quan; xoá có xác nhận, sau khi xoá dự án / công việc / tài liệu của không gian cũng biến mất.
+- [x] localStorage đang có dữ liệu cũ (không có `icon`) vẫn mở được, không bị đưa về dữ liệu mẫu.
+- [x] Có unit test cho schema, `updateSpace`, `deleteSpace`, hàm đổi bản ghi; có test cho route handler (mock `auth` + Prisma) phủ 401 / 400 / 404 / thành công.
+- [x] typecheck, lint, test, build xanh.
 
 **Tài liệu bị ảnh hưởng:** 04 kiến trúc (thêm `server/spaces.ts`, `app/api/spaces`), 06 API (bảng route mới).
 
@@ -145,13 +145,22 @@ Vòng 1 (`git diff 766ccbc..467b9bb`, cả ba reviewer): R1, R2, R16, R3–R8 s�
 
 ## 7. Final
 
-**Tóm tắt:**
+**Tóm tắt:** Không gian có đủ CRUD. Phía server: `GET/POST /api/spaces`, `GET/PATCH/DELETE /api/spaces/[id]` (Prisma + Zod, lọc `userId`, 401 / 503 / 400 / 404 / 409 / 204, phản hồi `{ data, error }`), `getApiUserId()`, phiên có `user.id`. Phía giao diện (store demo): chọn màu + icon khi tạo, sửa và xoá ở trang chi tiết (xoá kéo theo dự án / công việc / tài liệu), icon hiện ở danh sách, sidebar, Tổng quan. Trong lúc sửa phát hiện và chặn lỗi lộ `sessionToken` qua `/api/auth/session` (R16) do callback của chính nhánh này gây ra. 193 test (từ 61).
 
-**Tiêu chí nghiệm thu:** (đánh dấu ở mục 1)
+**Tiêu chí nghiệm thu:** cả 8 đạt (đánh dấu ở mục 1). Kiểm thật ngày 2026-11-25 trên `next dev` cổng 3000 (chế độ configured, DB Neon branch `dev`, đăng nhập Google trong browser pane):
+- API: chưa đăng nhập → 401; input sai → 400 kèm lỗi từng trường; key thừa `userId` → 400; tạo → 201 (có `id`, `color`, `icon`, `tint`); PATCH `{icon, description:""}` → 200; PATCH `{}` → 400; id lạ → 404; DELETE → 204, đọc lại → 404. Không gian thử đã xoá khỏi DB.
+- `/api/auth/session` chỉ còn `user.{id,name,email,image}` + `expires`.
+- Giao diện: tạo không gian với Xanh dương + Lập trình; sửa (tên trống báo lỗi, đổi tên + Hồng + Sức khoẻ) → header, danh sách, Tổng quan, sidebar cập nhật và còn sau khi tải lại; xoá → hộp xác nhận nêu số lượng, về `/spaces`, không nháy 404 (MutationObserver), biến khỏi danh sách và sidebar.
+- localStorage bỏ `icon` (và đổi tên làm dấu) → vẫn mở, icon về `folder`, không bị đưa về dữ liệu mẫu, không tạo bản backup. Dữ liệu gốc của pane đã khôi phục.
+- Bước 503 ở chế độ demo chỉ kiểm bằng test (không chạy được server demo song song với server của người dùng).
 
-**Tài liệu đã cập nhật:**
+**Tài liệu đã cập nhật:** `docs/04-architecture.md` (server/http, server/spaces, session-callback, space-record, api/spaces, mẫu viết API route), `docs/06-api.md` (bảng route, quy ước lỗi, việc còn thiếu), `docs/tasks/README.md`.
 
-**Merge vào develop:** commit `<hash>`, ngày
+**Merge vào develop:** commit `<hash>`, ngày 2026-11-25
 
 **Việc để sau:**
--
+- Nối giao diện vào API thay store demo (T59 / B3).
+- API dự án và công việc theo cùng mẫu (T21, T22).
+- R9: `Modal` nhận `role="alertdialog"` cho hộp thoại xoá.
+- R10, R11: giới hạn body, kiểm `Content-Type` / `Origin`, rate limit (T73).
+- LOW ở mục 6: hằng giới hạn tên chung cho mọi loại; `descriptionToDb` sang `domain/` nếu client cần; test `session-callback` thiếu ca thiếu một vài field.

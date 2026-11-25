@@ -8,7 +8,7 @@ Quy trình: [07-workflow.md](../07-workflow.md). Mẫu: [_template.md](_template
 | T001 | [Đặt tên Taskeo + ba môi trường](T001-taskeo-environments.md) | `chore/T001-taskeo-environments` | done | `d3f97b9` |
 | T002 | [Database Neon + migration đầu tiên](T002-neon-database.md) | `chore/T002-neon-database` | done | `81ccd2d` |
 | T003 | [Deploy lên Vercel (production) + bỏ staging](T003-vercel-deploy.md) | `chore/T003-vercel-deploy` | done | `13292dc` |
-| T004 | [API + UI CRUD Không gian](T004-spaces-api.md) | `feat/T004-spaces-api` | 7-final | |
+| T004 | [API + UI CRUD Không gian](T004-spaces-api.md) | `feat/T004-spaces-api` | done | |
 
 ## Việc chờ làm (backlog)
 
