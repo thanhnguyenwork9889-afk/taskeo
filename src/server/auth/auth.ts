@@ -1,17 +1,11 @@
 import "server-only";
-import NextAuth, { type Account, type DefaultSession } from "next-auth";
+import NextAuth, { type Account } from "next-auth";
 import Google from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import type { Adapter, AdapterAccount } from "next-auth/adapters";
 import { prisma } from "@/server/db";
 import { encryptOptional } from "@/server/crypto";
-
-declare module "next-auth" {
-  interface Session {
-    // Session strategy "database": callbacks.session gắn id người dùng để server lọc dữ liệu theo userId.
-    user: { id: string } & DefaultSession["user"];
-  }
-}
+import { sessionWithUserId } from "@/server/auth/session-callback";
 
 // Giai đoạn 1 chỉ xin scope đăng nhập. Drive / Calendar / Gmail xin thêm ở giai đoạn sau
 // (incremental authorization), xem server/google/scopes.ts.
@@ -60,8 +54,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   session: { strategy: "database" },
   callbacks: {
-    // Chỉ thêm id; không đưa token hay dữ liệu Account vào phiên (phiên có thể tới client).
-    session: ({ session, user }) => ({ ...session, user: { ...session.user, id: user.id } }),
+    // Chỉ name/email/image/expires + id; không đưa token, sessionToken hay dữ liệu Account vào phiên (phiên có thể tới client).
+    session: sessionWithUserId,
   },
   pages: { signIn: "/login" },
   providers: [

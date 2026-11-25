@@ -7,9 +7,7 @@ import { Modal } from "@/components/ui/modal";
 import type { Space } from "@/domain/types";
 import { deleteSpace, spaceDeletionImpact } from "@/domain/workspace-actions";
 import { updateWorkspace, useWorkspace } from "@/store/workspace-store";
-import { control, cx } from "@/components/ui/styles";
-
-const dangerButton = `${control} inline-flex items-center justify-center gap-2 bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800`;
+import { control, cx, dangerButton } from "@/components/ui/styles";
 
 interface SpaceDeleteDialogProps {
   space: Space;

@@ -51,9 +51,15 @@ export async function readJson(request: Request): Promise<JsonReadResult> {
   }
 }
 
-/** Lỗi không lường trước: chỉ log ngữ cảnh + message (không body, không token), trả 500 chung. */
+/**
+ * Lỗi không lường trước: log ngữ cảnh + name/message/stack của lỗi (không body, không token,
+ * không header), trả 500 chung.
+ */
 export function handleUnexpected(error: unknown, context: string): Response {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(context, { message });
+  if (error instanceof Error) {
+    console.error(context, { name: error.name, message: error.message, stack: error.stack });
+  } else {
+    console.error(context, { message: String(error) });
+  }
   return fail(500, UNEXPECTED_MESSAGE);
 }

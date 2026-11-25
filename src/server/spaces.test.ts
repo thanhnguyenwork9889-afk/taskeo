@@ -13,7 +13,7 @@ const space = vi.hoisted(() => ({
 
 vi.mock("@/server/db", () => ({ prisma: { space } }));
 
-import { createSpace, deleteSpace, getSpace, listSpaces, updateSpace } from "./spaces";
+import { createSpace, deleteSpace, getSpace, listSpaces, MAX_SPACES, updateSpace } from "./spaces";
 
 const USER = "user-1";
 
@@ -42,7 +42,7 @@ describe("listSpaces", () => {
     const args = space.findMany.mock.calls[0][0];
     expect(args.where).toEqual({ userId: USER });
     expect(args.orderBy).toEqual([{ order: "asc" }, { createdAt: "asc" }]);
-    expect(args.take).toBeGreaterThan(0);
+    expect(args.take).toBe(MAX_SPACES);
     expect(args.select).toEqual({
       id: true,
       name: true,
@@ -92,7 +92,36 @@ describe("createSpace", () => {
       icon: DEFAULT_SPACE_ICON,
       order: SPACE_PALETTE.length + 2,
     });
-    expect(result).toMatchObject({ id: "new", name: "Mới", description: "", color: SPACE_PALETTE[2].color });
+    expect(result).toEqual({ ok: true, space: expect.objectContaining({ id: "new", name: "Mới", description: "" }) });
+    expect(result.ok && result.space.color).toBe(SPACE_PALETTE[2].color);
+  });
+
+  it("vẫn tạo khi đang có MAX_SPACES - 1 không gian", async () => {
+    space.count.mockResolvedValue(MAX_SPACES - 1);
+    space.create.mockImplementation(async ({ data }) => ({ id: "new", driveFolderId: null, ...data }));
+
+    const result = await createSpace(USER, { name: "Cuối" });
+
+    expect(result.ok).toBe(true);
+    expect(space.create.mock.calls[0][0].data.order).toBe(MAX_SPACES - 1);
+  });
+
+  it.each([MAX_SPACES, MAX_SPACES + 5])("không tạo và trả reason limit khi đã có %i không gian", async (count) => {
+    space.count.mockResolvedValue(count);
+
+    const result = await createSpace(USER, { name: "Thừa" });
+
+    expect(result).toEqual({ ok: false, reason: "limit" });
+    expect(space.create).not.toHaveBeenCalled();
+  });
+
+  it("lưu null khi mô tả rỗng (sau trim ở schema)", async () => {
+    space.count.mockResolvedValue(0);
+    space.create.mockImplementation(async ({ data }) => ({ id: "new", driveFolderId: null, ...data }));
+
+    await createSpace(USER, { name: "A", description: "" });
+
+    expect(space.create.mock.calls[0][0].data.description).toBeNull();
   });
 
   it("giữ màu, icon, mô tả người dùng chọn và bỏ khoá lạ trong input", async () => {
@@ -146,6 +175,17 @@ describe("updateSpace", () => {
     await updateSpace(USER, "s1", input);
 
     expect(space.updateMany.mock.calls[0][0].data).toEqual({ icon: "heart" });
+  });
+
+  it("mô tả rỗng lưu null để xoá mô tả, mô tả có chữ giữ nguyên", async () => {
+    space.updateMany.mockResolvedValue({ count: 1 });
+    space.findFirst.mockResolvedValue(record());
+
+    await updateSpace(USER, "s1", { description: "" });
+    await updateSpace(USER, "s1", { description: "Mới" });
+
+    expect(space.updateMany.mock.calls[0][0].data).toEqual({ description: null });
+    expect(space.updateMany.mock.calls[1][0].data).toEqual({ description: "Mới" });
   });
 
   it("trả null và không đọc lại khi không cập nhật được bản ghi nào", async () => {

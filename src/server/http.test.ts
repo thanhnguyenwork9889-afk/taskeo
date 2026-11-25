@@ -56,12 +56,19 @@ describe("validationError", () => {
 });
 
 describe("handleUnexpected", () => {
-  it("log context + message, trả 500 chung không lộ chi tiết", async () => {
+  it("log context + name + message + stack, trả 500 chung không lộ chi tiết", async () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const response = handleUnexpected(new Error("db password=abc"), "GET /api/spaces");
+    const error = new TypeError("db password=abc");
+    const response = handleUnexpected(error, "GET /api/spaces");
     expect(response.status).toBe(500);
-    expect(await response.text()).not.toContain("password");
-    expect(spy).toHaveBeenCalledWith("GET /api/spaces", { message: "db password=abc" });
+    const text = await response.text();
+    expect(text).not.toContain("password");
+    expect(text).not.toContain("TypeError");
+    expect(spy).toHaveBeenCalledWith("GET /api/spaces", {
+      name: "TypeError",
+      message: "db password=abc",
+      stack: error.stack,
+    });
   });
 
   it("chịu được giá trị ném không phải Error", () => {

@@ -5,12 +5,10 @@ import { useUI } from "@/components/layout/ui-context";
 import { Modal } from "@/components/ui/modal";
 import { SpaceStylePicker, type SpaceStyle } from "@/components/ui/space-style-picker";
 import type { Space } from "@/domain/types";
-import { updateSpaceInputSchema } from "@/domain/validation";
+import { SPACE_DESCRIPTION_MAX, SPACE_NAME_MAX, updateSpaceInputSchema } from "@/domain/validation";
 import { updateSpace, type SpaceChanges } from "@/domain/workspace-actions";
 import { updateWorkspace } from "@/store/workspace-store";
 import { control, cx, field, primaryButton } from "@/components/ui/styles";
-
-const DESCRIPTION_MAX = 500;
 
 type FieldErrors = Partial<Record<"name" | "description" | "form", string>>;
 
@@ -101,6 +99,7 @@ function NameField({ value, error, onChange }: FieldProps) {
       <input
         id="space-edit-name"
         required
+        maxLength={SPACE_NAME_MAX}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         aria-invalid={Boolean(error)}
@@ -125,6 +124,7 @@ function DescriptionField({ value, error, onChange }: FieldProps) {
       <textarea
         id="space-edit-description"
         rows={3}
+        maxLength={SPACE_DESCRIPTION_MAX}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         aria-invalid={Boolean(error)}
@@ -132,7 +132,7 @@ function DescriptionField({ value, error, onChange }: FieldProps) {
         className={cx(field, "mt-2 py-2")}
       />
       <p id="space-edit-description-count" className="mt-1 text-right text-xs text-muted">
-        {value.trim().length}/{DESCRIPTION_MAX}
+        {value.trim().length}/{SPACE_DESCRIPTION_MAX}
       </p>
       {error && (
         <p id="space-edit-description-error" role="alert" className="text-sm text-red-700">

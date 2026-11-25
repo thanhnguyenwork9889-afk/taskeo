@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SPACE_ICON, SPACE_ICONS, SPACE_ICON_LABEL, SPACE_PALETTE, tintForColor } from "./labels";
 import { createSeedState } from "./seed";
-import { createSpaceInputSchema, spaceSchema, updateSpaceInputSchema, workspaceStateSchema } from "./validation";
+import {
+  SPACE_DESCRIPTION_MAX,
+  SPACE_NAME_MAX,
+  createSpaceInputSchema,
+  spaceSchema,
+  updateSpaceInputSchema,
+  workspaceStateSchema,
+} from "./validation";
 
 const NOW = new Date(2026, 10, 23, 9, 0);
 
@@ -20,6 +27,32 @@ describe("space icons", () => {
     expect(SPACE_ICONS[0]).toBe("folder");
     expect(DEFAULT_SPACE_ICON).toBe("folder");
     for (const icon of SPACE_ICONS) expect(SPACE_ICON_LABEL[icon].trim()).not.toBe("");
+  });
+});
+
+describe("space palette", () => {
+  it("gives every color a non-empty Vietnamese label", () => {
+    for (const entry of SPACE_PALETTE) expect(entry.label.trim()).not.toBe("");
+  });
+
+  it("uses unique labels", () => {
+    const labels = SPACE_PALETTE.map((entry) => entry.label);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+});
+
+describe("space text limits", () => {
+  const base = { name: "Gia đình" };
+
+  it("accepts name and description at the exported maximum", () => {
+    const input = { name: "a".repeat(SPACE_NAME_MAX), description: "b".repeat(SPACE_DESCRIPTION_MAX) };
+    expect(createSpaceInputSchema.safeParse(input).success).toBe(true);
+  });
+
+  it("rejects name or description one character over the maximum", () => {
+    expect(createSpaceInputSchema.safeParse({ name: "a".repeat(SPACE_NAME_MAX + 1) }).success).toBe(false);
+    const longDescription = { ...base, description: "b".repeat(SPACE_DESCRIPTION_MAX + 1) };
+    expect(createSpaceInputSchema.safeParse(longDescription).success).toBe(false);
   });
 });
 

@@ -15,15 +15,27 @@ const spaceSelect = {
   driveFolderId: true,
 } as const;
 
-// Giới hạn an toàn cho danh sách không gian của một người dùng.
-const MAX_SPACES = 200;
+/** Số không gian tối đa của một người dùng: `createSpace` chặn ở đây, `listSpaces` cắt ở đây. */
+export const MAX_SPACES = 200;
 
-/** Chỉ giữ các trường cho phép sửa và có mặt trong input (không gửi `undefined`, bỏ khoá lạ). */
-function pickSpaceFields(input: UpdateSpaceInput): Partial<Pick<Space, "name" | "description" | "color" | "icon">> {
+export type CreateSpaceResult = { ok: true; space: Space } | { ok: false; reason: "limit" };
+
+type SpaceFieldsData = Partial<Pick<Space, "name" | "color" | "icon">> & { description?: string | null };
+
+/** Mô tả rỗng (schema đã trim) lưu `null`, để DB chỉ có một kiểu "không có mô tả". */
+function descriptionToDb(description: string | undefined): string | null {
+  return description ? description : null;
+}
+
+/**
+ * Chỉ giữ các trường cho phép sửa và có mặt trong input (không gửi `undefined`, bỏ khoá lạ).
+ * `description: ""` → `null` để xoá mô tả.
+ */
+function pickSpaceFields(input: UpdateSpaceInput): SpaceFieldsData {
   const { name, description, color, icon } = input;
   return {
     ...(name !== undefined && { name }),
-    ...(description !== undefined && { description }),
+    ...(description !== undefined && { description: descriptionToDb(description) }),
     ...(color !== undefined && { color }),
     ...(icon !== undefined && { icon }),
   };
@@ -44,21 +56,25 @@ export async function getSpace(userId: string, id: string): Promise<Space | null
   return record ? spaceFromRecord(record) : null;
 }
 
-export async function createSpace(userId: string, input: CreateSpaceInput): Promise<Space> {
+/** Tạo không gian; đã đủ `MAX_SPACES` thì không tạo và trả `{ ok: false, reason: "limit" }`. */
+export async function createSpace(userId: string, input: CreateSpaceInput): Promise<CreateSpaceResult> {
+  // count rồi create không atomic: hai POST đồng thời có thể trùng `order` / màu mặc định
+  // hoặc vượt MAX_SPACES một chút. Chấp nhận vì `order` chỉ dùng để sắp xếp.
   const count = await prisma.space.count({ where: { userId } });
+  if (count >= MAX_SPACES) return { ok: false, reason: "limit" };
   const record = await prisma.space.create({
     data: {
       userId,
       name: input.name,
-      // Lưu null khi không có mô tả; spaceFromRecord đổi null → "".
-      description: input.description ?? null,
+      // Thiếu hoặc rỗng → null; spaceFromRecord đổi null → "".
+      description: descriptionToDb(input.description),
       color: input.color ?? SPACE_PALETTE[count % SPACE_PALETTE.length].color,
       icon: input.icon ?? DEFAULT_SPACE_ICON,
       order: count,
     },
     select: spaceSelect,
   });
-  return spaceFromRecord(record);
+  return { ok: true, space: spaceFromRecord(record) };
 }
 
 export async function updateSpace(userId: string, id: string, input: UpdateSpaceInput): Promise<Space | null> {

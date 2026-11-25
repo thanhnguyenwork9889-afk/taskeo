@@ -10,7 +10,11 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("next/server", () => ({ connection: mocks.connection }));
 vi.mock("@/server/auth/session", () => ({ getApiUserId: mocks.getApiUserId }));
-vi.mock("@/server/spaces", () => ({ listSpaces: mocks.listSpaces, createSpace: mocks.createSpace }));
+vi.mock("@/server/spaces", () => ({
+  MAX_SPACES: 200,
+  listSpaces: mocks.listSpaces,
+  createSpace: mocks.createSpace,
+}));
 
 import { GET, POST } from "./route";
 
@@ -144,13 +148,20 @@ describe("POST /api/spaces", () => {
   });
 
   it("trả 201 với không gian mới có id, color, icon, tint", async () => {
-    mocks.createSpace.mockResolvedValue(SPACE);
+    mocks.createSpace.mockResolvedValue({ ok: true, space: SPACE });
     const response = await POST(postJson({ name: "  Công việc  ", icon: "briefcase" }));
     expect(response.status).toBe(201);
     const body = await response.json();
     expect(body.error).toBeNull();
     expect(body.data).toMatchObject({ id: "sp_1", color: "#8B73D5", icon: "briefcase", tint: "#F0ECFA" });
     expect(mocks.createSpace).toHaveBeenCalledWith("user_1", { name: "Công việc", icon: "briefcase" });
+  });
+
+  it("trả 409 khi đã đạt giới hạn số không gian", async () => {
+    mocks.createSpace.mockResolvedValue({ ok: false, reason: "limit" });
+    const response = await POST(postJson({ name: "A" }));
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ data: null, error: { message: "Đã đạt giới hạn 200 không gian" } });
   });
 
   it("trả 500 thông báo chung khi DB lỗi, không lộ message", async () => {

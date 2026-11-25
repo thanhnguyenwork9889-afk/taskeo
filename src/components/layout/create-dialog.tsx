@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/modal";
 import { SpaceStylePicker, type SpaceStyle } from "@/components/ui/space-style-picker";
 import { DEFAULT_SPACE_ICON, DOC_KIND_LABEL, DOC_KINDS, SPACE_PALETTE } from "@/domain/labels";
 import type { DocKind, Project, Space, WorkspaceState } from "@/domain/types";
+import { SPACE_DESCRIPTION_MAX, SPACE_NAME_MAX } from "@/domain/validation";
 import { createFile, createProject, createSpace, createTask, projectNameExists } from "@/domain/workspace-actions";
 import { updateWorkspace, useWorkspace } from "@/store/workspace-store";
 import { control, cx, field, primaryButton } from "@/components/ui/styles";
@@ -24,8 +25,6 @@ const NOTES: Record<CreateRequest["kind"], string> = {
   project: "Giai đoạn 3 sẽ tạo thư mục con trên Drive cho dự án.",
   doc: "Chế độ demo: chưa tạo tệp trên Google Drive.",
 };
-
-const DESCRIPTION_MAX_LENGTH = 500;
 
 interface FormValues {
   title: string;
@@ -138,7 +137,7 @@ function TitleField({ kind, value, onChange }: TitleFieldProps) {
       Tên
       <input
         required
-        maxLength={200}
+        maxLength={SPACE_NAME_MAX}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={kind === "space" ? "Ví dụ: Dự án cá nhân" : "Bạn đang lên kế hoạch gì?"}
@@ -162,7 +161,7 @@ function SpaceFields({ description, onDescriptionChange, style, onStyleChange }:
         Mô tả <span className="font-normal text-muted">(không bắt buộc)</span>
         <textarea
           rows={3}
-          maxLength={DESCRIPTION_MAX_LENGTH}
+          maxLength={SPACE_DESCRIPTION_MAX}
           value={description}
           onChange={(event) => onDescriptionChange(event.target.value)}
           placeholder="Không gian này dùng để làm gì?"

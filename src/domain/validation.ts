@@ -25,9 +25,14 @@ export function isDriveUrl(value: string): boolean {
 }
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày phải có dạng YYYY-MM-DD");
-const NAME_MAX = 200;
-const DESCRIPTION_MAX = 500;
-const name = z.string().trim().min(1, "Tên không được để trống").max(NAME_MAX, `Tên tối đa ${NAME_MAX} ký tự`);
+/** Độ dài tối đa (ký tự, sau khi trim) của tên / mô tả không gian; UI dùng cho `maxLength`. */
+export const SPACE_NAME_MAX = 200;
+export const SPACE_DESCRIPTION_MAX = 500;
+const name = z
+  .string()
+  .trim()
+  .min(1, "Tên không được để trống")
+  .max(SPACE_NAME_MAX, `Tên tối đa ${SPACE_NAME_MAX} ký tự`);
 
 export const taskStatusSchema = z.enum(TASK_STATUSES);
 export const prioritySchema = z.enum(PRIORITIES);
@@ -55,7 +60,7 @@ export const spaceSchema = z.object({
 // Không dùng `.default()`: PATCH chỉ được chứa đúng các trường người dùng gửi lên.
 const spaceInputFields = {
   name,
-  description: z.string().trim().max(DESCRIPTION_MAX, `Mô tả tối đa ${DESCRIPTION_MAX} ký tự`).optional(),
+  description: z.string().trim().max(SPACE_DESCRIPTION_MAX, `Mô tả tối đa ${SPACE_DESCRIPTION_MAX} ký tự`).optional(),
   color: spaceColorSchema.optional(),
   icon: spaceIconSchema.optional(),
 };

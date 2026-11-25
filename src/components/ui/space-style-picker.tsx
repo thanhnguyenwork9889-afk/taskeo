@@ -41,17 +41,17 @@ function ColorGroup({ name, color, onSelect }: { name: string; color: string; on
     <fieldset>
       <legend className={legend}>Màu</legend>
       <div className="flex flex-wrap gap-1">
-        {SPACE_PALETTE.map((entry, index) => {
+        {SPACE_PALETTE.map((entry) => {
           const checked = entry.color.toLowerCase() === color.toLowerCase();
           return (
-            <label key={entry.color} className={option} title={`Màu ${index + 1}`}>
+            <label key={entry.color} className={option} title={entry.label}>
               <input
                 type="radio"
                 name={name}
                 value={entry.color}
                 checked={checked}
                 onChange={() => onSelect(entry.color)}
-                aria-label={`Màu ${index + 1} (${entry.color})`}
+                aria-label={entry.label}
                 className="sr-only"
               />
               <span
