@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T005-projects-api` |
 | Tạo từ | `develop` @ `0784c30` |
-| Trạng thái | 6-rereview |
+| Trạng thái | 7-final |
 | Ngày tạo | 2026-11-25 |
 
 Nguồn: sheet nhiệm vụ, dòng **T21** (backlog B2, phần `projects`). Theo cùng mẫu với T004 (không gian).
@@ -136,7 +136,9 @@ Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 361/36
 
 ## 6. Review lại
 
-Vòng 1:
+Vòng 1 (`git diff c41352b..b8dbd48`, cả ba reviewer): R1, R2, R5, R6 sửa đúng, có test. Không có CRITICAL / HIGH mới → sang bước 7.
+- MEDIUM (typescript) / LOW (layer): `Object.fromEntries` trong `updateProject` (domain) làm mất kiểu khoá, khoá lạ (`id`, `spaceId`) vẫn lọt qua lúc chạy → đã sửa ngay: chọn rõ từng trường (`46643d1`), 151/151 test domain, typecheck xanh.
+- LOW, để sau: gộp `count` + `aggregate` để bớt một truy vấn; thông báo "Ngày không hợp lệ" chưa nêu khoảng năm cho phép; `projectSchema` (localStorage) không giới hạn năm (cố ý: không đẩy dữ liệu cũ về mẫu); nên có test tích hợp với DB thật cho `escapeLikePattern` phòng khi nâng Prisma đổi cách thoát.
 
 ## 7. Final
 

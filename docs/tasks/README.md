@@ -9,7 +9,7 @@ Quy trình: [07-workflow.md](../07-workflow.md). Mẫu: [_template.md](_template
 | T002 | [Database Neon + migration đầu tiên](T002-neon-database.md) | `chore/T002-neon-database` | done | `81ccd2d` |
 | T003 | [Deploy lên Vercel (production) + bỏ staging](T003-vercel-deploy.md) | `chore/T003-vercel-deploy` | done | `13292dc` |
 | T004 | [API + UI CRUD Không gian](T004-spaces-api.md) | `feat/T004-spaces-api` | done | `c028a2e` |
-| T005 | [API + UI CRUD Dự án trong Không gian](T005-projects-api.md) | `feat/T005-projects-api` | 6-rereview | |
+| T005 | [API + UI CRUD Dự án trong Không gian](T005-projects-api.md) | `feat/T005-projects-api` | 7-final | |
 
 ## Việc chờ làm (backlog)
 
