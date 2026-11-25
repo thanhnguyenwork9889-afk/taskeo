@@ -218,8 +218,15 @@ export function updateProject(state: WorkspaceState, id: string, changes: Projec
   if (!current) return state;
   const name = changes.name?.trim() || current.name;
   if (name !== current.name && projectNameExists(state, current.spaceId, name, id)) return state;
-  const defined = Object.fromEntries(Object.entries(changes).filter(([, value]) => value !== undefined));
-  const updated: Project = { ...current, ...defined, name };
+  // Chọn rõ từng trường: giữ kiểu, bỏ khoá `undefined` và khoá lạ (id, spaceId…).
+  const { description, status, dueDate } = changes;
+  const updated: Project = {
+    ...current,
+    name,
+    ...(description !== undefined && { description }),
+    ...(status !== undefined && { status }),
+    ...(dueDate !== undefined && { dueDate }),
+  };
   return { ...state, projects: state.projects.map((p) => (p.id === id ? updated : p)) };
 }
 
