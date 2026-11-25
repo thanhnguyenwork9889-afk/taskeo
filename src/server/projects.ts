@@ -1,0 +1,155 @@
+import "server-only";
+import { dueDateToDb, projectFromRecord } from "@/domain/project-record";
+import type { Project, ProjectStatus } from "@/domain/types";
+import type { CreateProjectInput, UpdateProjectInput } from "@/domain/validation";
+import { prisma } from "@/server/db";
+
+// Chỉ đọc các cột `ProjectRecord` cần; không trả userId, order, driveFolderId, createdAt.
+const projectSelect = {
+  id: true,
+  spaceId: true,
+  name: true,
+  description: true,
+  status: true,
+  dueDate: true,
+} as const;
+
+/** Số dự án tối đa trong một không gian: `createProject` chặn ở đây, `listProjects` cắt ở đây. */
+export const MAX_PROJECTS_PER_SPACE = 200;
+
+export type CreateProjectResult =
+  | { ok: true; project: Project }
+  | { ok: false; reason: "not_found" | "conflict" | "limit" };
+
+export type UpdateProjectResult = { ok: true; project: Project } | { ok: false; reason: "not_found" | "conflict" };
+
+interface ProjectFieldsData {
+  name?: string;
+  description?: string | null;
+  status?: ProjectStatus;
+  dueDate?: Date | null;
+}
+
+/** Mô tả rỗng (schema đã trim) lưu `null`, để DB chỉ có một kiểu "không có mô tả". */
+function descriptionToDb(description: string | undefined): string | null {
+  return description ? description : null;
+}
+
+/**
+ * Chỉ giữ trường cho phép sửa và có mặt trong input (không gửi `undefined`, bỏ khoá lạ).
+ * `description: ""` → `null`; `dueDate` qua `dueDateToDb` (null giữ null).
+ */
+function pickProjectFields(input: UpdateProjectInput): ProjectFieldsData {
+  const { name, description, status, dueDate } = input;
+  return {
+    ...(name !== undefined && { name }),
+    ...(description !== undefined && { description: descriptionToDb(description) }),
+    ...(status !== undefined && { status }),
+    ...(dueDate !== undefined && { dueDate: dueDateToDb(dueDate) }),
+  };
+}
+
+/** Lỗi vi phạm unique của Prisma (`P2002`); kiểm `code` để không phải import lớp lỗi của Prisma. */
+function isUniqueViolation(error: unknown): boolean {
+  return typeof error === "object" && error !== null && (error as { code?: unknown }).code === "P2002";
+}
+
+async function spaceBelongsToUser(userId: string, spaceId: string): Promise<boolean> {
+  const space = await prisma.space.findFirst({ where: { id: spaceId, userId }, select: { id: true } });
+  return space !== null;
+}
+
+/** Có dự án khác cùng tên (không phân biệt hoa thường) trong không gian; DB unique thì phân biệt. */
+async function nameTaken(userId: string, spaceId: string, name: string, excludeId?: string): Promise<boolean> {
+  const duplicate = await prisma.project.findFirst({
+    where: {
+      userId,
+      spaceId,
+      name: { equals: name, mode: "insensitive" },
+      ...(excludeId !== undefined && { NOT: { id: excludeId } }),
+    },
+    select: { id: true },
+  });
+  return duplicate !== null;
+}
+
+/** Dự án của không gian; `null` khi không gian không có hoặc của người khác. */
+export async function listProjects(userId: string, spaceId: string): Promise<Project[] | null> {
+  if (!(await spaceBelongsToUser(userId, spaceId))) return null;
+  const records = await prisma.project.findMany({
+    where: { userId, spaceId },
+    orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+    select: projectSelect,
+    take: MAX_PROJECTS_PER_SPACE,
+  });
+  return records.map(projectFromRecord);
+}
+
+export async function getProject(userId: string, id: string): Promise<Project | null> {
+  const record = await prisma.project.findFirst({ where: { id, userId }, select: projectSelect });
+  return record ? projectFromRecord(record) : null;
+}
+
+/** Tạo dự án trong không gian của người dùng; không gian lạ / đủ giới hạn / trùng tên → `ok: false`. */
+export async function createProject(
+  userId: string,
+  spaceId: string,
+  input: CreateProjectInput,
+): Promise<CreateProjectResult> {
+  if (!(await spaceBelongsToUser(userId, spaceId))) return { ok: false, reason: "not_found" };
+  // count rồi create không atomic: hai POST đồng thời có thể trùng `order` hoặc vượt
+  // MAX_PROJECTS_PER_SPACE một chút. Chấp nhận vì `order` chỉ dùng để sắp xếp.
+  const count = await prisma.project.count({ where: { userId, spaceId } });
+  if (count >= MAX_PROJECTS_PER_SPACE) return { ok: false, reason: "limit" };
+  if (await nameTaken(userId, spaceId, input.name)) return { ok: false, reason: "conflict" };
+
+  try {
+    const record = await prisma.project.create({
+      data: {
+        userId,
+        spaceId,
+        name: input.name,
+        description: descriptionToDb(input.description),
+        ...(input.status !== undefined && { status: input.status }),
+        ...(input.dueDate !== undefined && { dueDate: dueDateToDb(input.dueDate) }),
+        order: count,
+      },
+      select: projectSelect,
+    });
+    return { ok: true, project: projectFromRecord(record) };
+  } catch (error) {
+    // Hai request đồng thời cùng tên vượt qua bước kiểm trước → unique `[spaceId, name]` chặn.
+    if (isUniqueViolation(error)) return { ok: false, reason: "conflict" };
+    throw error;
+  }
+}
+
+/** Sửa các trường gửi lên; dự án lạ → `not_found`, đổi tên trùng trong không gian → `conflict`. */
+export async function updateProject(
+  userId: string,
+  id: string,
+  input: UpdateProjectInput,
+): Promise<UpdateProjectResult> {
+  const current = await prisma.project.findFirst({ where: { id, userId }, select: { spaceId: true } });
+  if (!current) return { ok: false, reason: "not_found" };
+  if (input.name !== undefined && (await nameTaken(userId, current.spaceId, input.name, id))) {
+    return { ok: false, reason: "conflict" };
+  }
+
+  try {
+    const { count } = await prisma.project.updateMany({ where: { id, userId }, data: pickProjectFields(input) });
+    if (count === 0) return { ok: false, reason: "not_found" };
+  } catch (error) {
+    if (isUniqueViolation(error)) return { ok: false, reason: "conflict" };
+    throw error;
+  }
+
+  const project = await getProject(userId, id);
+  return project ? { ok: true, project } : { ok: false, reason: "not_found" };
+}
+
+/** Xoá dự án của người dùng; công việc giữ lại với `projectId = null` (`onDelete: SetNull`). */
+export async function deleteProject(userId: string, id: string): Promise<boolean> {
+  const { count } = await prisma.project.deleteMany({ where: { id, userId } });
+  return count > 0;
+}

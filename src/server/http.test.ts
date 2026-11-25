@@ -1,6 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { fail, handleUnexpected, ok, readJson, unauthorized, unavailable, validationError } from "./http";
+import {
+  fail,
+  handleUnexpected,
+  isValidRouteId,
+  ok,
+  readJson,
+  unauthorized,
+  unavailable,
+  validationError,
+} from "./http";
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -75,5 +84,18 @@ describe("handleUnexpected", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     handleUnexpected("boom", "ctx");
     expect(spy).toHaveBeenCalledWith("ctx", { message: "boom" });
+  });
+});
+
+describe("isValidRouteId", () => {
+  it("nhận id 1–64 ký tự", () => {
+    expect(isValidRouteId("a")).toBe(true);
+    expect(isValidRouteId("clx0abc123")).toBe(true);
+    expect(isValidRouteId("x".repeat(64))).toBe(true);
+  });
+
+  it("từ chối id rỗng hoặc dài hơn 64 ký tự", () => {
+    expect(isValidRouteId("")).toBe(false);
+    expect(isValidRouteId("x".repeat(65))).toBe(false);
   });
 });

@@ -63,3 +63,10 @@ export function handleUnexpected(error: unknown, context: string): Response {
   }
   return fail(500, UNEXPECTED_MESSAGE);
 }
+
+const MAX_ROUTE_ID_LENGTH = 64;
+
+/** id trong URL rỗng hoặc quá dài → route coi như không tồn tại (404), không gọi DB. */
+export function isValidRouteId(id: string): boolean {
+  return id.length > 0 && id.length <= MAX_ROUTE_ID_LENGTH;
+}
