@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T005-projects-api` |
 | Tạo từ | `develop` @ `0784c30` |
-| Trạng thái | 7-final |
+| Trạng thái | done |
 | Ngày tạo | 2026-11-25 |
 
 Nguồn: sheet nhiệm vụ, dòng **T21** (backlog B2, phần `projects`). Theo cùng mẫu với T004 (không gian).
@@ -35,13 +35,13 @@ Nguồn: sheet nhiệm vụ, dòng **T21** (backlog B2, phần `projects`). Theo
 - Sắp xếp `order` bằng kéo thả; rate limit (T73); test e2e (T61).
 
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
-- [ ] `GET /api/spaces/[id]/projects` khi chưa đăng nhập trả 401; ở chế độ demo trả 503; không gian của người khác trả 404.
-- [ ] `POST /api/spaces/[id]/projects` với tên rỗng, `status` lạ, `dueDate` sai định dạng hoặc key thừa (`spaceId`, `userId`) trả 400; tên trùng trong cùng không gian trả 409; hợp lệ trả 201 kèm dự án mới (`id`, `spaceId`, `name`, `description`, `status`, `dueDate`).
-- [ ] `GET/PATCH/DELETE /api/projects/[id]` với id của người khác trả 404 và không đổi dữ liệu (test kiểm tra mọi truy vấn Prisma có `userId`).
-- [ ] `PATCH` chỉ đổi các trường gửi lên; `PATCH {}` trả 400; đổi tên trùng trả 409; `DELETE` trả 204 và công việc của dự án vẫn còn với `projectId = null`.
-- [ ] Ở chế độ demo: sửa tên / mô tả dự án ở trang chi tiết và thấy thay đổi ở trang chi tiết, thẻ dự án trong không gian; tên trùng bị báo lỗi; xoá có xác nhận, về trang không gian, công việc và tài liệu của dự án vẫn hiện trong không gian.
-- [ ] Có unit test cho schema, `updateProject`, `deleteProject`, `projectDeletionImpact`, hàm đổi bản ghi, `server/projects.ts`; có test cho route handler (mock `auth` + Prisma) phủ 401 / 503 / 400 / 404 / 409 / thành công.
-- [ ] typecheck, lint, test, build xanh.
+- [x] `GET /api/spaces/[id]/projects` khi chưa đăng nhập trả 401; ở chế độ demo trả 503; không gian của người khác trả 404.
+- [x] `POST /api/spaces/[id]/projects` với tên rỗng, `status` lạ, `dueDate` sai định dạng hoặc key thừa (`spaceId`, `userId`) trả 400; tên trùng trong cùng không gian trả 409; hợp lệ trả 201 kèm dự án mới (`id`, `spaceId`, `name`, `description`, `status`, `dueDate`).
+- [x] `GET/PATCH/DELETE /api/projects/[id]` với id của người khác trả 404 và không đổi dữ liệu (test kiểm tra mọi truy vấn Prisma có `userId`).
+- [x] `PATCH` chỉ đổi các trường gửi lên; `PATCH {}` trả 400; đổi tên trùng trả 409; `DELETE` trả 204 và công việc của dự án vẫn còn với `projectId = null`.
+- [x] Ở chế độ demo: sửa tên / mô tả dự án ở trang chi tiết và thấy thay đổi ở trang chi tiết, thẻ dự án trong không gian; tên trùng bị báo lỗi; xoá có xác nhận, về trang không gian, công việc và tài liệu của dự án vẫn hiện trong không gian.
+- [x] Có unit test cho schema, `updateProject`, `deleteProject`, `projectDeletionImpact`, hàm đổi bản ghi, `server/projects.ts`; có test cho route handler (mock `auth` + Prisma) phủ 401 / 503 / 400 / 404 / 409 / thành công.
+- [x] typecheck, lint, test, build xanh.
 
 **Tài liệu bị ảnh hưởng:** 04 kiến trúc (thêm `server/projects.ts`, `app/api/projects`, `app/api/spaces/[id]/projects`), 06 API (bảng route mới).
 
@@ -142,13 +142,21 @@ Vòng 1 (`git diff c41352b..b8dbd48`, cả ba reviewer): R1, R2, R5, R6 sửa đ
 
 ## 7. Final
 
-**Tóm tắt:**
+**Tóm tắt:** Dự án trong không gian có đủ CRUD. Phía server: `GET/POST /api/spaces/[id]/projects`, `GET/PATCH/DELETE /api/projects/[id]` (Prisma + Zod, lọc `userId`, kiểm không gian thuộc người dùng, 401 / 503 / 400 / 404 / 409 / 204, phản hồi `{ data, error }`), `server/projects.ts`, `domain/project-record.ts` (`dueDate` theo UTC), `isValidRouteId` dùng chung. Phía giao diện (store demo): sửa tên / mô tả, xoá có xác nhận; xoá dự án giữ công việc và tài liệu trong không gian. Review phát hiện và đã sửa lỗi so tên dùng `ILIKE` không thoát `_` / `%` (R1). 361 test (từ 193).
 
-**Tiêu chí nghiệm thu:** (đánh dấu ở mục 1)
+**Tiêu chí nghiệm thu:** cả 7 đạt (đánh dấu ở mục 1). Kiểm thật ngày 2026-11-25 trên `next dev` cổng 3000 (chế độ configured, DB Neon branch `dev`, đăng nhập Google trong browser pane):
+- API: chưa đăng nhập → 401 (cả hai route); tên rỗng, `status` lạ, `2026-02-31`, `0000-01-01`, key thừa `userId`, JSON hỏng → 400; không gian lạ → 404; tạo → 201 đủ trường; `Q1xplan` và `%` tạo được cạnh `Q1_plan` (R1); `q1_PLAN` → 409; PATCH `{description:""}` → 200, `{}` → 400, `{spaceId}` → 400, đổi tên trùng khác hoa thường → 409, đổi hoa thường chính nó → 200; id lạ → 404; DELETE → 204 body rỗng, đọc lại → 404.
+- Xoá dự án: công việc thử (tạo bằng Prisma) còn lại với `projectId = null`, đúng `spaceId`. Không gian thử đã xoá (cascade), DB sạch.
+- Giao diện: sửa tên trống → "Tên không được để trống"; tên trùng khác hoa thường → báo trùng; lưu → tên / mô tả mới ở trang chi tiết và thẻ dự án; xoá → hộp xác nhận nêu 2 công việc / 1 tài liệu chuyển về không gian, về `/spaces/sp-viewix`, không nháy 404 (MutationObserver), công việc và tài liệu hiện trong không gian. localStorage của pane đã khôi phục.
+- 503 ở chế độ demo chỉ kiểm bằng test (không chạy server demo song song).
 
-**Tài liệu đã cập nhật:**
+**Tài liệu đã cập nhật:** `docs/04-architecture.md` (server/projects, domain/project-record, http `isValidRouteId`, route mới), `docs/06-api.md` (bảng route, quy ước dự án, giới hạn đồng thời), `docs/tasks/README.md`.
 
 **Merge vào develop:** commit `<hash>`, ngày
 
 **Việc để sau:**
--
+- Nối giao diện vào API thay store demo (T59 / B3); API công việc (T22).
+- R4: unique index trên `lower(name)` (migration riêng) để chặn trùng tên khi gửi đồng thời.
+- R9, R10: focus / a11y cho dialog sửa / xoá (cả không gian và dự án).
+- R11: rate limit, giới hạn body, kiểm `Origin` (T73).
+- LOW mục 6: gộp `count` + `aggregate`; thông báo nêu khoảng năm 1900–2100; test tích hợp DB cho `escapeLikePattern`.
