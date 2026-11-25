@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T005-projects-api` |
 | Tạo từ | `develop` @ `0784c30` |
-| Trạng thái | 3-build |
+| Trạng thái | 4-review |
 | Ngày tạo | 2026-11-25 |
 
 Nguồn: sheet nhiệm vụ, dòng **T21** (backlog B2, phần `projects`). Theo cùng mẫu với T004 (không gian).
@@ -84,7 +84,13 @@ Duyệt kế hoạch: ☐ chờ · ☒ người dùng đã duyệt (2026-11-25) 
 
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
-| P1 | | | | | | |
+| P1 | `25ef97d` | `validation.test.ts` (+42) | ✅ | ✅ | ✅ 264/264 | ✅ |
+| P2 | `a62fd70` | `workspace-actions.test.ts` (+16) | ✅ | ✅ | ✅ 264/264 | ✅ |
+| P3 | `8e0623d` | `project-record.test.ts` (13) | ✅ | ✅ | ✅ 264/264 | ✅ |
+| P4 | `b5e492b` | `projects.test.ts` (24), `http.test.ts` (+`isValidRouteId`) | ✅ | ✅ | ✅ 290/290 | ✅ |
+| P7 | `9435c81` | — (kiểm tay ở bước 7) | ✅ | ✅ | ✅ 290/290 | ✅ |
+| P5 | `247ccb1` | `spaces/[id]/projects/route.test.ts` (24) | ✅ | ✅ | ✅ 343/343 | ✅ |
+| P6 | `bac6b89` | `projects/[id]/route.test.ts` (29) | ✅ | ✅ | ✅ 343/343 | ✅ |
 
 ## 4. Review code
 
