@@ -78,7 +78,7 @@ Rủi ro / phụ thuộc:
 - UI chưa có test component → chỉ kiểm tay; logic dồn vào `domain/`.
 - Chưa có rate limit / giới hạn body (T73).
 
-Duyệt kế hoạch: ☒ chờ · ☐ người dùng đã duyệt (ngày) · ☐ bỏ qua (`--yes`)
+Duyệt kế hoạch: ☐ chờ · ☒ người dùng đã duyệt (2026-11-25) · ☐ bỏ qua (`--yes`)
 
 ## 3. Thực hiện + kiểm thử
 
