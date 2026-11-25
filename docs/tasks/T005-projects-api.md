@@ -152,7 +152,7 @@ Vòng 1 (`git diff c41352b..b8dbd48`, cả ba reviewer): R1, R2, R5, R6 sửa đ
 
 **Tài liệu đã cập nhật:** `docs/04-architecture.md` (server/projects, domain/project-record, http `isValidRouteId`, route mới), `docs/06-api.md` (bảng route, quy ước dự án, giới hạn đồng thời), `docs/tasks/README.md`.
 
-**Merge vào develop:** commit `<hash>`, ngày
+**Merge vào develop:** commit `96108c7`, ngày 2026-11-25
 
 **Việc để sau:**
 - Nối giao diện vào API thay store demo (T59 / B3); API công việc (T22).
