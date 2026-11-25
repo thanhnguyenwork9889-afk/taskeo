@@ -70,4 +70,4 @@ Rủi ro / phụ thuộc:
 - Giao diện (P8–P11) chưa có hạ tầng test component → chỉ kiểm tay ở chế độ demo; logic dồn vào `domain/` để có unit test.
 - Chưa có rate limit (T73) — ghi chú trong docs 06.
 
-Duyệt kế hoạch: ☒ chờ · ☐ người dùng đã duyệt (ngày) · ☐ bỏ qua (`--yes`)
+Duyệt kế hoạch: ☐ chờ · ☒ người dùng đã duyệt (2026-11-25) · ☐ bỏ qua (`--yes`)
