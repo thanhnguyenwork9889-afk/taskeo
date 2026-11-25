@@ -90,7 +90,7 @@ Rủi ro / phụ thuộc:
 - Lệch ngày theo múi giờ → chỉ dùng `dueDateToDb` / `dueDateFromDb`, P3 test đổi `TZ`.
 - Chưa có rate limit / giới hạn body (T73), phân trang (`take: 2000`).
 
-Duyệt kế hoạch: ☒ chờ · ☐ người dùng đã duyệt (ngày) · ☐ bỏ qua (`--yes`)
+Duyệt kế hoạch: ☐ chờ · ☒ người dùng đã duyệt (2026-11-25) · ☐ bỏ qua (`--yes`)
 
 ## 3. Thực hiện + kiểm thử
 
