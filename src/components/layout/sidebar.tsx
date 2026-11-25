@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { LayoutGrid, Plus } from "lucide-react";
 import { APP_NAME, appEnvLabel, getAppEnv, type AppEnv } from "@/config/app";
 import { useWorkspace } from "@/store/workspace-store";
+import { SpaceIcon } from "@/components/ui/space-icon";
 import { control, cx } from "@/components/ui/styles";
 import { isNavActive, NAV_ITEMS } from "./navigation";
 import { useUI, useViewer } from "./ui-context";
@@ -102,7 +103,9 @@ export function Sidebar({ open, onNavigate }: SidebarProps) {
                 active ? "bg-brand-soft text-brand-ink" : "text-[#666675] hover:bg-canvas",
               )}
             >
-              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: space.color }} />
+              <span className="flex shrink-0" style={{ color: space.color }} aria-hidden>
+                <SpaceIcon icon={space.icon} className="h-3.5 w-3.5" />
+              </span>
               <span className="truncate">{space.name}</span>
             </Link>
           );
