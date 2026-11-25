@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T006-tasks-api` |
 | Tạo từ | `develop` @ `9366d1d` |
-| Trạng thái | 4-review |
+| Trạng thái | 5-fix |
 | Ngày tạo | 2026-11-25 |
 
 Nguồn: sheet nhiệm vụ, dòng **T22** (backlog B2, phần `tasks`). Theo cùng mẫu với T004 (không gian) và T005 (dự án).
@@ -105,11 +105,25 @@ Duyệt kế hoạch: ☐ chờ · ☒ người dùng đã duyệt (2026-11-25) 
 
 ## 4. Review code
 
-Reviewer đã chạy:
+Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewer` trên `git diff develop...HEAD` @ `baec847`. Không có CRITICAL / HIGH. Security: không thấy IDOR, mass assignment hay truy vấn thiếu `userId`.
 
 | # | Mức | File:dòng | Vấn đề | Reviewer |
 |---|---|---|---|---|
-| R1 | | | | |
+| R1 | MEDIUM | `src/app/api/tasks/route.test.ts` (503), `src/app/api/tasks/[id]/route.test.ts` (503) | Test "503 không import `@/server/tasks`" luôn qua: factory của `vi.mock` chỉ chạy lần import đầu, module được cache, `vi.clearAllMocks()` xoá bộ đếm → đổi route sang import tĩnh test vẫn xanh. Tiêu chí nghiệm thu 1 chưa thực sự được kiểm. Đã xác nhận bằng đọc code | typescript |
+| R2 | MEDIUM | `docs/04`, `docs/06` | Chưa cập nhật kiến trúc và bảng route | layer → bước 7 |
+| R3 | LOW | `src/domain/validation.ts` (`taskTitle`, mô tả) | Chuỗi có ` ` qua được Zod; Postgres từ chối → Prisma ném → 500 thay vì 400 | security (nghi ngờ; DB là Postgres nên có thật) |
+| R4 | LOW | `src/server/tasks.ts` (`updateTask`) | `status` gửi lên bằng status hiện tại vẫn ghi `status` + `completedAt` (giá trị vừa đọc) → nới rộng race ghi đè `completedAt` | typescript |
+| R5 | LOW | `src/app/api/tasks/route.ts` (POST `switch`) | Thiếu nhánh `default` kiểu `never` như PATCH; không nhất quán | layer, typescript |
+| R6 | LOW | `src/domain/workspace-actions.ts:14` | Thứ tự import `task-completion` sau `types` | layer |
+| R7 | LOW | `src/domain/validation.ts` (`listTasksQuerySchema`) | Chưa có test khoá `parse({})` → `{}` (không sinh khoá `undefined`) | typescript |
+| R8 | LOW | `src/server/tasks.ts` (`createTask` P2003) | P2003 do `userId` (user bị xoá giữa chừng) cũng thành 400 dự án / không gian | typescript (nghi ngờ) |
+| R9 | LOW | `src/server/tasks.ts` (`isForeignKeyViolation`) | Test dùng `{ code }` giả, chưa kiểm lỗi Prisma thật | typescript → bước 7 |
+| R10 | LOW | `src/server/tasks.ts` (`createTask`, `updateTask`) | count → aggregate → create và đọc-status-rồi-ghi không atomic | security, typescript (đã chấp nhận ở mục 2) |
+| R11 | LOW | `src/server/tasks.ts` (`listTasks`) | Danh sách tối đa 2000 × mô tả 5000 ký tự (~10 MB), không phân trang | security |
+| R12 | LOW | `src/server/http.ts` (`readJson`) | Không giới hạn body, không kiểm `Content-Type` / `Origin` | security (T73) |
+| R13 | LOW | `src/server/http.ts` (`handleUnexpected`) | Log `message` của lỗi Prisma có thể chứa dữ liệu người dùng (có từ T004) | security |
+| R14 | LOW | `src/domain/validation.ts` (mô tả) | `.trim()` cả mô tả nhiều dòng (mất thụt dòng đầu) | typescript (nghi ngờ) |
+| R15 | LOW | `src/server/http.ts` (`validationError`) | Thông điệp key thừa chứa tên key client gửi (chỉ trả về người gửi) | security (thông tin) |
 
 ## 5. Fix bug
 
