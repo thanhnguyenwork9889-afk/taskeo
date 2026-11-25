@@ -4,10 +4,14 @@ import {
   createProject,
   createSpace,
   createTask,
+  deleteProject,
   deleteSpace,
   kindFromDriveUrl,
+  projectDeletionImpact,
+  projectNameExists,
   spaceDeletionImpact,
   toggleTaskDone,
+  updateProject,
   updateSpace,
   updateTask,
 } from "./workspace-actions";
@@ -220,5 +224,134 @@ describe("spaceDeletionImpact", () => {
 
   it("returns zeros for an unknown id", () => {
     expect(spaceDeletionImpact(createSeedState(NOW), "sp-unknown")).toEqual({ projects: 0, tasks: 0, files: 0 });
+  });
+});
+
+describe("projectNameExists", () => {
+  it("matches case-insensitively within the same space only", () => {
+    const state = createSeedState(NOW);
+    expect(projectNameExists(state, "sp-viewix", "  website REDESIGN ")).toBe(true);
+    expect(projectNameExists(state, "sp-retail", "Website redesign")).toBe(false);
+  });
+
+  it("ignores the project with excludeId", () => {
+    const state = createSeedState(NOW);
+    expect(projectNameExists(state, "sp-viewix", "Website redesign", "pj-web")).toBe(false);
+    expect(projectNameExists(state, "sp-viewix", "Website redesign", "pj-brand")).toBe(true);
+  });
+});
+
+describe("updateProject", () => {
+  it("renames with trimming without mutating the previous state", () => {
+    const before = createSeedState(NOW);
+    const original = before.projects.find((p) => p.id === "pj-web");
+    const after = updateProject(before, "pj-web", { name: "  Website mới  " });
+    expect(after.projects.find((p) => p.id === "pj-web")).toEqual({ ...original, name: "Website mới" });
+    expect(before).toEqual(createSeedState(NOW));
+    expect(after.projects.find((p) => p.id === "pj-brand")).toBe(before.projects.find((p) => p.id === "pj-brand"));
+  });
+
+  it("ignores a blank name but still applies other changes", () => {
+    const after = updateProject(createSeedState(NOW), "pj-web", { name: "   ", description: "Mô tả mới" });
+    expect(after.projects.find((p) => p.id === "pj-web")).toMatchObject({ name: "Website redesign", description: "Mô tả mới" });
+  });
+
+  it("returns the same state when the name duplicates another project in the space", () => {
+    const state = createSeedState(NOW);
+    expect(updateProject(state, "pj-web", { name: "brand IDENTITY", description: "X" })).toBe(state);
+  });
+
+  it("allows a name used by a project in another space", () => {
+    const after = updateProject(createSeedState(NOW), "pj-web", { name: "Quản lý bán hàng" });
+    expect(after.projects.find((p) => p.id === "pj-web")?.name).toBe("Quản lý bán hàng");
+  });
+
+  it("allows changing the case of its own name", () => {
+    const after = updateProject(createSeedState(NOW), "pj-web", { name: "WEBSITE REDESIGN" });
+    expect(after.projects.find((p) => p.id === "pj-web")?.name).toBe("WEBSITE REDESIGN");
+  });
+
+  it("still updates status and dueDate", () => {
+    let state = updateProject(createSeedState(NOW), "pj-web", { status: "ON_HOLD" });
+    state = updateProject(state, "pj-web", { dueDate: "2026-12-31" });
+    expect(state.projects.find((p) => p.id === "pj-web")).toMatchObject({ status: "ON_HOLD", dueDate: "2026-12-31" });
+    state = updateProject(state, "pj-web", { dueDate: null });
+    expect(state.projects.find((p) => p.id === "pj-web")?.dueDate).toBeNull();
+  });
+
+  it("ignores keys whose value is undefined without mutating the changes", () => {
+    const before = createSeedState(NOW);
+    const original = before.projects.find((p) => p.id === "pj-web");
+    const changes = { description: undefined, status: "DONE" as const };
+    const after = updateProject(before, "pj-web", changes);
+    expect(after.projects.find((p) => p.id === "pj-web")).toEqual({ ...original, status: "DONE" });
+    expect(changes).toEqual({ description: undefined, status: "DONE" });
+    expect(before).toEqual(createSeedState(NOW));
+  });
+
+  it("still clears dueDate when given null", () => {
+    const state = updateProject(createSeedState(NOW), "pj-web", { dueDate: "2026-12-31" });
+    const after = updateProject(state, "pj-web", { dueDate: null });
+    expect(after.projects.find((p) => p.id === "pj-web")?.dueDate).toBeNull();
+  });
+
+  it("returns the same state for an unknown id", () => {
+    const state = createSeedState(NOW);
+    expect(updateProject(state, "pj-unknown", { name: "X" })).toBe(state);
+  });
+});
+
+describe("deleteProject", () => {
+  it("removes the project and keeps its tasks and files in the space with projectId null", () => {
+    const before = createSeedState(NOW);
+    const after = deleteProject(before, "pj-blog");
+    expect(after.projects.map((p) => p.id)).not.toContain("pj-blog");
+    expect(after.projects).toHaveLength(before.projects.length - 1);
+    expect(after.tasks).toHaveLength(before.tasks.length);
+    expect(after.files).toHaveLength(before.files.length);
+    const blogTaskIds = before.tasks.filter((t) => t.projectId === "pj-blog").map((t) => t.id);
+    for (const id of blogTaskIds) {
+      expect(after.tasks.find((t) => t.id === id)).toMatchObject({ projectId: null, spaceId: "sp-viewix" });
+    }
+    for (const id of ["f-4", "f-5", "f-6"]) {
+      expect(after.files.find((f) => f.id === id)).toMatchObject({ projectId: null, spaceId: "sp-viewix" });
+    }
+    expect(after.activities).toBe(before.activities);
+  });
+
+  it("does not mutate the previous state and leaves other projects, tasks and files untouched", () => {
+    const before = createSeedState(NOW);
+    const after = deleteProject(before, "pj-blog");
+    expect(before).toEqual(createSeedState(NOW));
+    expect(after.projects[0]).toBe(before.projects[0]);
+    expect(after.tasks.find((t) => t.id === "t-1")).toBe(before.tasks.find((t) => t.id === "t-1"));
+    expect(after.files.find((f) => f.id === "f-1")).toBe(before.files.find((f) => f.id === "f-1"));
+  });
+
+  it("moves a project task without a space into the project's space", () => {
+    const seed = createSeedState(NOW);
+    const state = { ...seed, tasks: seed.tasks.map((t) => (t.id === "t-1" ? { ...t, spaceId: null } : t)) };
+    expect(deleteProject(state, "pj-web").tasks.find((t) => t.id === "t-1")).toMatchObject({ projectId: null, spaceId: "sp-viewix" });
+  });
+
+  it("produces a state that still passes the storage schema", () => {
+    expect(workspaceStateSchema.safeParse(deleteProject(createSeedState(NOW), "pj-blog")).success).toBe(true);
+  });
+
+  it("returns the same state for an unknown id", () => {
+    const state = createSeedState(NOW);
+    expect(deleteProject(state, "pj-unknown")).toBe(state);
+  });
+});
+
+describe("projectDeletionImpact", () => {
+  it("counts tasks and files that move back to the space", () => {
+    const state = createSeedState(NOW);
+    expect(projectDeletionImpact(state, "pj-blog")).toEqual({ tasks: 6, files: 3 });
+    expect(projectDeletionImpact(state, "pj-web")).toEqual({ tasks: 2, files: 1 });
+  });
+
+  it("returns zeros for an unknown id", () => {
+    expect(projectDeletionImpact(createSeedState(NOW), "pj-unknown")).toEqual({ tasks: 0, files: 0 });
   });
 });

@@ -10,8 +10,9 @@ src/
 ├── server/            2. Chỉ chạy trên server ("server-only")
 │   ├── db.ts             Prisma client
 │   ├── crypto.ts         Mã hoá token Google (AES-256-GCM)
-│   ├── http.ts           Phản hồi API dạng { data, error }, đọc JSON, lỗi 400/401/503/500
+│   ├── http.ts           Phản hồi API dạng { data, error }, đọc JSON, lỗi 400/401/503/500, isValidRouteId
 │   ├── spaces.ts         Truy vấn không gian, luôn lọc theo userId
+│   ├── projects.ts       Truy vấn dự án: lọc userId, kiểm không gian thuộc user, trùng tên không phân biệt hoa thường
 │   ├── auth/
 │   │   ├── auth.ts       Cấu hình Auth.js
 │   │   ├── session.ts    getViewer(): người dùng hiện tại · getApiUserId(): userId cho API route
@@ -24,6 +25,7 @@ src/
 │   ├── types.ts labels.ts       Kiểu dữ liệu + nhãn tiếng Việt
 │   ├── validation.ts            Schema Zod dùng chung (storage + input API)
 │   ├── space-record.ts          Bản ghi DB → Space phía client
+│   ├── project-record.ts        Bản ghi DB → Project phía client, dueDate ↔ YYYY-MM-DD theo UTC
 │   ├── workspace-actions.ts     Thao tác dữ liệu dạng hàm thuần
 │   ├── task-filters.ts stats.ts dates.ts
 │   ├── seed.ts                  Dữ liệu mẫu cho chế độ demo
@@ -39,7 +41,9 @@ src/
 │   ├── (auth)/login/            Trang đăng nhập
 │   ├── (app)/                   Layout có sidebar + các trang
 │   ├── api/auth/[...nextauth]/  Auth.js
-│   └── api/spaces/              CRUD không gian (route chỉ parse input, gọi server/spaces)
+│   ├── api/spaces/              CRUD không gian (route chỉ parse input, gọi server/spaces)
+│   ├── api/spaces/[id]/projects/ Danh sách + tạo dự án trong không gian (gọi server/projects)
+│   └── api/projects/[id]/       Xem / sửa / xoá một dự án
 └── proxy.ts           Chuyển về /login khi chưa có cookie phiên (chỉ khi bật auth)
 ```
 

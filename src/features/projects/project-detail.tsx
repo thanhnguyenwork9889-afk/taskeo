@@ -3,26 +3,67 @@
 import { useState } from "react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
-import { CalendarDays, FileText, FolderOpen, Link2, Plus, Sparkles } from "lucide-react";
+import { CalendarDays, FileText, FolderOpen, Link2, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { matchesQuery, useUI } from "@/components/layout/ui-context";
 import { FileRow } from "@/features/docs/file-row";
 import { percentOf, ProgressBar } from "@/components/ui/progress-bar";
 import { PROJECT_STATUS_LABEL, PROJECT_STATUSES } from "@/domain/labels";
-import type { ProjectStatus } from "@/domain/types";
+import type { Project, ProjectStatus } from "@/domain/types";
 import { updateProject } from "@/domain/workspace-actions";
 import { updateWorkspace, useWorkspace } from "@/store/workspace-store";
 import { card, control, cx, field, primaryButton, secondaryButton } from "@/components/ui/styles";
 import { AttachDriveDialog } from "./attach-drive-dialog";
+import { ProjectDeleteDialog } from "./project-delete-dialog";
+import { ProjectEditDialog } from "./project-edit-dialog";
 import { ProjectTasks } from "./project-tasks";
+
+type Dialog = "edit" | "delete" | null;
+
+/** Nút Sửa / Xoá / trạng thái ở header, kèm hộp thoại tương ứng. */
+function ProjectHeaderActions({ project, onDeleting }: { project: Project; onDeleting: () => void }) {
+  const [dialog, setDialog] = useState<Dialog>(null);
+  const close = () => setDialog(null);
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <button type="button" onClick={() => setDialog("edit")} className={secondaryButton}>
+        <Pencil className="h-4 w-4" aria-hidden />
+        Sửa
+      </button>
+      <button type="button" onClick={() => setDialog("delete")} className={cx(secondaryButton, "text-red-700 hover:bg-red-50")}>
+        <Trash2 className="h-4 w-4" aria-hidden />
+        Xoá
+      </button>
+      <select
+        aria-label="Trạng thái dự án"
+        value={project.status}
+        onChange={(event) => updateWorkspace((s) => updateProject(s, project.id, { status: event.target.value as ProjectStatus }))}
+        className={cx(control, "border border-blue-100 bg-blue-50 px-3 text-sm font-medium text-blue-700")}
+      >
+        {PROJECT_STATUSES.map((status) => (
+          <option key={status} value={status}>
+            {PROJECT_STATUS_LABEL[status]}
+          </option>
+        ))}
+      </select>
+      {dialog === "edit" && <ProjectEditDialog project={project} onClose={close} />}
+      {dialog === "delete" && <ProjectDeleteDialog project={project} onClose={close} onDeleting={onDeleting} />}
+    </div>
+  );
+}
 
 export function ProjectDetail() {
   const { id: projectId } = useParams<{ id: string }>();
   const { projects, spaces, tasks, files } = useWorkspace();
   const { query, openCreate } = useUI();
   const [attaching, setAttaching] = useState(false);
+  // Bật khi người dùng xoá dự án này: render rỗng trong lúc chuyển về trang không gian thay vì nháy 404.
+  const [deleting, setDeleting] = useState(false);
 
   const project = projects.find((p) => p.id === projectId);
-  if (!project) notFound();
+  if (!project) {
+    if (deleting) return null;
+    notFound();
+  }
   const space = spaces.find((s) => s.id === project.spaceId);
 
   const items = tasks.filter((t) => t.projectId === project.id);
@@ -54,18 +95,7 @@ export function ProjectDetail() {
               <p className="mt-2 text-sm leading-6 text-muted">{project.description}</p>
             </div>
           </div>
-          <select
-            aria-label="Trạng thái dự án"
-            value={project.status}
-            onChange={(event) => updateWorkspace((s) => updateProject(s, project.id, { status: event.target.value as ProjectStatus }))}
-            className={cx(control, "border border-blue-100 bg-blue-50 px-3 text-sm font-medium text-blue-700")}
-          >
-            {PROJECT_STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {PROJECT_STATUS_LABEL[status]}
-              </option>
-            ))}
-          </select>
+          <ProjectHeaderActions project={project} onDeleting={() => setDeleting(true)} />
         </div>
         <div className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-4 border-t border-[#EFECF4] pt-5">
           <label className="flex items-center gap-2 text-sm text-muted">
