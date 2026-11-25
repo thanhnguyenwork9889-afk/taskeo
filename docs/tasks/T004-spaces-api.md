@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T004-spaces-api` |
 | Tạo từ | `develop` @ `98e1bf7` |
-| Trạng thái | 4-review |
+| Trạng thái | 5-fix |
 | Ngày tạo | 2026-11-25 |
 
 Nguồn: sheet nhiệm vụ, dòng **T20** (backlog B2, phần `spaces`).
@@ -90,11 +90,25 @@ Duyệt kế hoạch: ☐ chờ · ☒ người dùng đã duyệt (2026-11-25) 
 
 ## 4. Review code
 
-Reviewer đã chạy:
+Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewer` trên `git diff develop...HEAD` @ `671c776`. Không có CRITICAL / HIGH.
 
 | # | Mức | File:dòng | Vấn đề | Reviewer |
 |---|---|---|---|---|
-| R1 | | | | |
+| R1 | MEDIUM | `src/server/spaces.ts:19,48` | `listSpaces` cắt ở `MAX_SPACES` (200) nhưng `createSpace` không giới hạn: tạo được vô hạn, phần vượt 200 không hiện trong GET | security, typescript |
+| R2 | MEDIUM | `src/server/auth/auth.ts` (`callbacks.session`) | Callback gắn `user.id` không có test; xoá nó thì test vẫn xanh nhưng API luôn 401 | typescript |
+| R3 | LOW | `src/server/spaces.ts:54` | `description ?? null` lưu `""` khi client gửi chuỗi rỗng → hai kiểu "không có mô tả" (null và `""`) | typescript, layer |
+| R4 | LOW | `src/features/spaces/space-edit-dialog.tsx:13,125` | Textarea mô tả thiếu `maxLength`; `DESCRIPTION_MAX` lặp lại hằng trong `domain/validation.ts` | typescript |
+| R5 | LOW | `src/features/spaces/space-delete-dialog.tsx:12` | `dangerButton` khai báo cục bộ thay vì ở `components/ui/styles.ts` | (ghi chú của P10) |
+| R6 | LOW | `src/components/ui/space-style-picker.tsx` | Tên truy cập của ô màu là mã hex ("Màu 1 (#8B73D5)"), không có nghĩa với trình đọc màn hình | typescript |
+| R7 | LOW | `src/server/http.ts:55` | `handleUnexpected` chỉ log `message`, mất `name` / `stack` → khó debug lỗi 500 | typescript |
+| R8 | LOW | `src/server/spaces.test.ts:45` | `take` chỉ kiểm `> 0`; không kiểm đúng giới hạn | typescript |
+| R9 | LOW | `src/features/spaces/space-delete-dialog.tsx` | Hộp thoại xoá dùng `role="dialog"`, chưa phải `alertdialog` | typescript |
+| R10 | LOW | `src/server/http.ts:46` | `readJson` không giới hạn kích thước body, không kiểm `Content-Type` / `Origin` (cookie SameSite=Lax nên rủi ro CSRF thực tế thấp) | security |
+| R11 | LOW | `src/app/api/spaces/**` | Chưa có rate limit | security |
+| R12 | LOW | `src/server/auth/session.ts` | Nhánh misconfigured (log + trả) lặp ở `getViewer` và `getApiUserId` | layer |
+| R13 | LOW | `src/features/spaces/space-delete-dialog.tsx:54` | Chính tả "Hủy" lệch "Xoá" | layer |
+| R14 | LOW | `src/server/spaces.ts:48` | `count` rồi `create` không trong transaction → hai POST đồng thời có thể trùng `order` / màu mặc định | security, typescript, layer |
+| R15 | — | `docs/04`, `docs/06` | Cần cập nhật bảng thư mục và bảng route | layer → bước 7 |
 
 ## 5. Fix bug
 
