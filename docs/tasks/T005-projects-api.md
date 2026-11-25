@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T005-projects-api` |
 | Tạo từ | `develop` @ `0784c30` |
-| Trạng thái | 4-review |
+| Trạng thái | 5-fix |
 | Ngày tạo | 2026-11-25 |
 
 Nguồn: sheet nhiệm vụ, dòng **T21** (backlog B2, phần `projects`). Theo cùng mẫu với T004 (không gian).
@@ -94,11 +94,23 @@ Duyệt kế hoạch: ☐ chờ · ☒ người dùng đã duyệt (2026-11-25) 
 
 ## 4. Review code
 
-Reviewer đã chạy:
+Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewer` trên `git diff develop...HEAD` @ `d2bfbf8`. Reviewer không báo CRITICAL / HIGH; R1 được nâng lên HIGH sau khi kiểm lại (xem dưới).
 
 | # | Mức | File:dòng | Vấn đề | Reviewer |
 |---|---|---|---|---|
-| R1 | | | | |
+| R1 | HIGH | `src/server/projects.ts` (`nameTaken`) | `equals` + `mode: "insensitive"` được Prisma dịch thành `"name" ILIKE $3` **không thoát** ký tự → `_` và `%` trong tên là ký tự đại diện: `Q1_plan` trùng nhầm `Q1xplan`, tên `%` trùng mọi dự án → 409 sai, không tạo / đổi tên được. Đã kiểm bằng log SQL của Prisma trên DB `dev` (chỉ đọc) | typescript (MEDIUM, nghi ngờ) → xác nhận |
+| R2 | MEDIUM | `src/domain/validation.ts` (`projectDueDateSchema`) | Nhận `0000-01-01` (JS hợp lệ, Postgres không có năm 0) → Prisma ném lỗi → 500 thay vì 400 | typescript |
+| R3 | MEDIUM | `docs/04`, `docs/06` | Chưa cập nhật kiến trúc và bảng route | layer, typescript → bước 7 |
+| R4 | MEDIUM | `src/server/projects.ts` (`updateProject`, `createProject`) | Kiểm trùng rồi ghi không atomic; hai request đồng thời khác hoa thường (`A` / `a`) đều qua, unique của DB chỉ chặn trùng chính xác | security, typescript |
+| R5 | LOW | `src/domain/workspace-actions.ts` (`updateProject`) | `{ ...current, ...changes }` ghi đè thành `undefined` nếu `changes` có khoá giá trị `undefined` | layer, typescript |
+| R6 | LOW | `src/server/projects.ts` (`createProject`, `order: count`) | Sau khi xoá dự án, `count` trùng `order` đang có | layer, typescript |
+| R7 | LOW | `nameTaken` / `projectNameExists` | So hoa thường của Postgres và `toLocaleLowerCase("vi")` có thể lệch với vài ký tự Unicode đặc biệt | layer, typescript |
+| R8 | LOW | `src/server/projects.ts` (`createProject`) | `limit` xét trước `conflict` (cùng 409) | typescript |
+| R9 | LOW | `project-detail.tsx`, `project-delete-dialog.tsx` | Cờ `deleting` không reset nếu `router.replace` lỗi; focus về `body` sau khi xoá | typescript |
+| R10 | LOW | `project-edit-dialog.tsx` | Sau submit lỗi không chuyển focus vào ô lỗi; gõ một ô xoá lỗi mọi ô; bộ đếm không `aria-live` | typescript |
+| R11 | LOW | `src/app/api/**` | Chưa có rate limit, giới hạn body, kiểm `Origin` | security |
+| R12 | LOW | `project-*-dialog.tsx` | Chuỗi UI viết cứng trong component (giống dialog không gian T004) | layer |
+| R13 | LOW | `src/server/projects.ts` (`listProjects`) | `take: 200` không phân trang | security |
 
 ## 5. Fix bug
 
