@@ -71,3 +71,43 @@ Rủi ro / phụ thuộc:
 - Chưa có rate limit (T73) — ghi chú trong docs 06.
 
 Duyệt kế hoạch: ☐ chờ · ☒ người dùng đã duyệt (2026-11-25) · ☐ bỏ qua (`--yes`)
+
+## 3. Thực hiện + kiểm thử
+
+| Phần | Commit | Test thêm | typecheck | lint | test | build |
+|---|---|---|---|---|---|---|
+| P1 | `497e820` | `validation.test.ts` (22) | ✅ | ✅ | ✅ 88/88 | ✅ |
+| P4 | `72adafa` | `session.test.ts` (7) | ✅ | ✅ | ✅ 88/88 | ✅ |
+
+## 4. Review code
+
+Reviewer đã chạy:
+
+| # | Mức | File:dòng | Vấn đề | Reviewer |
+|---|---|---|---|---|
+| R1 | | | | |
+
+## 5. Fix bug
+
+| Phát hiện | Xử lý | Commit |
+|---|---|---|
+| R1 | đã sửa / bỏ qua: lý do | |
+
+Kết quả 4 lệnh sau khi sửa:
+
+## 6. Review lại
+
+Vòng 1:
+
+## 7. Final
+
+**Tóm tắt:**
+
+**Tiêu chí nghiệm thu:** (đánh dấu ở mục 1)
+
+**Tài liệu đã cập nhật:**
+
+**Merge vào develop:** commit `<hash>`, ngày
+
+**Việc để sau:**
+-
