@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T005-projects-api` |
 | Tạo từ | `develop` @ `0784c30` |
-| Trạng thái | 5-fix |
+| Trạng thái | 6-rereview |
 | Ngày tạo | 2026-11-25 |
 
 Nguồn: sheet nhiệm vụ, dòng **T21** (backlog B2, phần `projects`). Theo cùng mẫu với T004 (không gian).
@@ -116,9 +116,23 @@ Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewe
 
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
-| R1 | đã sửa / bỏ qua: lý do | |
+Commit trước bước 5: `c41352b`.
 
-Kết quả 4 lệnh sau khi sửa:
+| Phát hiện | Xử lý | Commit |
+|---|---|---|
+| R1 | đã sửa: `escapeLikePattern` thoát `\` → `%` → `_` trước khi đưa vào `equals` + `insensitive`; tên ghi DB vẫn là tên gốc. Kiểm thật trên Postgres (`SELECT … ILIKE …`, chỉ đọc): `Q1xplan`/`Q1_plan` và `anything`/`%` hết khớp nhầm; `q1_PLAN`/`Q1_plan`, `Dự Án`/`dự án` vẫn khớp; `a\b` giờ khớp đúng (bản cũ không khớp) | `b8dbd48` |
+| R2 | đã sửa: `projectDueDateSchema` chỉ nhận năm 1900–2100 (`PROJECT_DUE_YEAR_MIN/MAX`) | `b8dbd48` |
+| R5 | đã sửa: `updateProject` (domain) bỏ khoá `undefined` trước khi gộp; `ProjectEditDialog` gửi thẳng `result.data` | `b8dbd48` |
+| R6 | đã sửa: `order` = `max(order) + 1` (`aggregate` có `userId`), 0 khi chưa có dự án | `b8dbd48` |
+| R3 | làm ở bước 7 | — |
+| R4 | chấp nhận, ghi việc để sau: cần unique index trên `lower(name)` (migration riêng) mới chặn được đồng thời | — |
+| R7 | chấp nhận: lệch hoa thường chỉ với vài ký tự Unicode đặc biệt; tiếng Việt đã kiểm khớp | — |
+| R8 | bỏ qua: đúng spec, ghi vào docs 06 | — |
+| R9, R10 | để sau: cải thiện focus / a11y cho cả dialog không gian và dự án cùng lúc | — |
+| R11 | để sau: T73 | — |
+| R12, R13 | bỏ qua: nhất quán với T004; có giới hạn trên 200 | — |
+
+Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 361/361 · build ✅.
 
 ## 6. Review lại
 
