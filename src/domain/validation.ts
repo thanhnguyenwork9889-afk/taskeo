@@ -1,5 +1,13 @@
 import { z } from "zod";
-import { DOC_KINDS, PRIORITIES, PROJECT_STATUSES, TASK_STATUSES } from "@/domain/labels";
+import {
+  DEFAULT_SPACE_ICON,
+  DOC_KINDS,
+  PRIORITIES,
+  PROJECT_STATUSES,
+  SPACE_ICONS,
+  SPACE_PALETTE,
+  TASK_STATUSES,
+} from "@/domain/labels";
 
 // Schema dùng chung: kiểm tra dữ liệu đọc từ localStorage (chế độ demo)
 // và sau này kiểm tra input của các API route.
@@ -17,12 +25,20 @@ export function isDriveUrl(value: string): boolean {
 }
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày phải có dạng YYYY-MM-DD");
-const name = z.string().trim().min(1, "Tên không được để trống").max(200);
+const NAME_MAX = 200;
+const DESCRIPTION_MAX = 500;
+const name = z.string().trim().min(1, "Tên không được để trống").max(NAME_MAX, `Tên tối đa ${NAME_MAX} ký tự`);
 
 export const taskStatusSchema = z.enum(TASK_STATUSES);
 export const prioritySchema = z.enum(PRIORITIES);
 export const projectStatusSchema = z.enum(PROJECT_STATUSES);
 export const docKindSchema = z.enum(DOC_KINDS);
+
+const PALETTE_COLORS = new Set(SPACE_PALETTE.map((entry) => entry.color));
+
+/** Màu không gian: chỉ nhận màu trong SPACE_PALETTE. */
+export const spaceColorSchema = z.string().refine((value) => PALETTE_COLORS.has(value), "Màu không nằm trong bảng màu");
+export const spaceIconSchema = z.enum(SPACE_ICONS, "Biểu tượng không hợp lệ");
 
 export const spaceSchema = z.object({
   id: z.string(),
@@ -30,8 +46,28 @@ export const spaceSchema = z.object({
   description: z.string(),
   color: z.string(),
   tint: z.string(),
+  // Dữ liệu localStorage cũ chưa có icon (hoặc icon lạ) vẫn đọc được, thay vì bị đưa về dữ liệu mẫu.
+  icon: spaceIconSchema.catch(DEFAULT_SPACE_ICON),
   driveFolderId: z.string().nullable(),
 });
+
+// Input tạo / sửa không gian (API). `.strict()` chặn gán thừa userId, id, driveFolderId, order.
+// Không dùng `.default()`: PATCH chỉ được chứa đúng các trường người dùng gửi lên.
+const spaceInputFields = {
+  name,
+  description: z.string().trim().max(DESCRIPTION_MAX, `Mô tả tối đa ${DESCRIPTION_MAX} ký tự`).optional(),
+  color: spaceColorSchema.optional(),
+  icon: spaceIconSchema.optional(),
+};
+
+export const createSpaceInputSchema = z.strictObject(spaceInputFields);
+
+export const updateSpaceInputSchema = z
+  .strictObject({ ...spaceInputFields, name: name.optional() })
+  .refine((input) => Object.keys(input).length > 0, "Cần gửi ít nhất một trường để cập nhật");
+
+export type CreateSpaceInput = z.infer<typeof createSpaceInputSchema>;
+export type UpdateSpaceInput = z.infer<typeof updateSpaceInputSchema>;
 
 export const projectSchema = z.object({
   id: z.string(),

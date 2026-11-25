@@ -1,13 +1,13 @@
 import { addDays, toISODate } from "@/domain/dates";
-import type { Activity, CalendarEvent, Priority, Task, TaskStatus, WorkspaceFile, WorkspaceState } from "@/domain/types";
+import type { Activity, CalendarEvent, Priority, Space, Task, TaskStatus, WorkspaceFile, WorkspaceState } from "@/domain/types";
 
 // Dữ liệu mẫu cho chế độ demo, lấy từ prototype. Ngày tháng tính tương đối theo hôm nay.
 
-const SPACES = [
-  { id: "sp-viewix", name: "Viewix Factory", description: "Sáng tạo những trải nghiệm khác biệt", color: "#8B73D5", tint: "#F0ECFA" },
-  { id: "sp-retail", name: "Smart Retail", description: "Giải pháp bán lẻ thông minh", color: "#4C9C86", tint: "#E9F4EF" },
-  { id: "sp-ielts", name: "IELTS", description: "Mỗi ngày tiến gần hơn đến mục tiêu", color: "#D6A243", tint: "#FCF4E2" },
-  { id: "sp-service", name: "Thợ Điện Lạnh", description: "Vận hành & phát triển dịch vụ", color: "#598FD0", tint: "#EBF2FC" },
+const SPACES: Omit<Space, "driveFolderId">[] = [
+  { id: "sp-viewix", name: "Viewix Factory", description: "Sáng tạo những trải nghiệm khác biệt", color: "#8B73D5", tint: "#F0ECFA", icon: "palette" },
+  { id: "sp-retail", name: "Smart Retail", description: "Giải pháp bán lẻ thông minh", color: "#4C9C86", tint: "#E9F4EF", icon: "shopping" },
+  { id: "sp-ielts", name: "IELTS", description: "Mỗi ngày tiến gần hơn đến mục tiêu", color: "#D6A243", tint: "#FCF4E2", icon: "graduation" },
+  { id: "sp-service", name: "Thợ Điện Lạnh", description: "Vận hành & phát triển dịch vụ", color: "#598FD0", tint: "#EBF2FC", icon: "wrench" },
 ];
 
 const PROJECTS = [

@@ -1,4 +1,4 @@
-import type { DocKind, Priority, ProjectStatus, TaskStatus } from "@/domain/types";
+import type { DocKind, Priority, ProjectStatus, SpaceIcon, TaskStatus } from "@/domain/types";
 
 export const TASK_STATUSES: readonly TaskStatus[] = ["TODO", "IN_PROGRESS", "PAUSED", "DONE"];
 export const PRIORITIES: readonly Priority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
@@ -69,3 +69,38 @@ export const SPACE_PALETTE: readonly { color: string; tint: string }[] = [
   { color: "#598FD0", tint: "#EBF2FC" },
   { color: "#D0708A", tint: "#FBEDF1" },
 ];
+
+/** Id icon của không gian (giao diện tự ánh xạ id → icon). Phần tử đầu là mặc định. */
+export const SPACE_ICONS = [
+  "folder",
+  "briefcase",
+  "book",
+  "graduation",
+  "home",
+  "heart",
+  "code",
+  "palette",
+  "shopping",
+  "wrench",
+] as const;
+
+export const DEFAULT_SPACE_ICON = SPACE_ICONS[0];
+
+export const SPACE_ICON_LABEL: Record<SpaceIcon, string> = {
+  folder: "Thư mục",
+  briefcase: "Công việc",
+  book: "Sách",
+  graduation: "Học tập",
+  home: "Gia đình",
+  heart: "Sức khoẻ",
+  code: "Lập trình",
+  palette: "Sáng tạo",
+  shopping: "Mua sắm",
+  wrench: "Kỹ thuật",
+};
+
+/** Màu nền nhạt tương ứng màu chính; màu ngoài bảng dùng màu nền của màu đầu tiên. */
+export function tintForColor(color: string): string {
+  const match = SPACE_PALETTE.find((entry) => entry.color.toLowerCase() === color.toLowerCase());
+  return (match ?? SPACE_PALETTE[0]).tint;
+}

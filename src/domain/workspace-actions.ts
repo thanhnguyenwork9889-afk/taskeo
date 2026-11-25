@@ -1,4 +1,4 @@
-import { SPACE_PALETTE, STATUS_LABEL } from "@/domain/labels";
+import { DEFAULT_SPACE_ICON, SPACE_PALETTE, STATUS_LABEL } from "@/domain/labels";
 import type { Activity, ActivityType, DocKind, Project, Task, TaskStatus, WorkspaceFile, WorkspaceState } from "@/domain/types";
 
 // Các hàm thuần (không side effect): nhận state cũ, trả state mới, không sửa state cũ.
@@ -95,7 +95,7 @@ export function createSpace(state: WorkspaceState, name: string): WorkspaceState
     ...state,
     spaces: [
       ...state.spaces,
-      { id: newId("space"), name: trimmed, description: "Không gian làm việc mới của bạn", driveFolderId: null, ...palette },
+      { id: newId("space"), name: trimmed, description: "Không gian làm việc mới của bạn", icon: DEFAULT_SPACE_ICON, driveFolderId: null, ...palette },
     ],
   };
 }
