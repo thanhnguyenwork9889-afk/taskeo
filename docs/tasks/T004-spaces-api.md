@@ -156,7 +156,7 @@ Vòng 1 (`git diff 766ccbc..467b9bb`, cả ba reviewer): R1, R2, R16, R3–R8 s�
 
 **Tài liệu đã cập nhật:** `docs/04-architecture.md` (server/http, server/spaces, session-callback, space-record, api/spaces, mẫu viết API route), `docs/06-api.md` (bảng route, quy ước lỗi, việc còn thiếu), `docs/tasks/README.md`.
 
-**Merge vào develop:** commit `<hash>`, ngày 2026-11-25
+**Merge vào develop:** commit `c028a2e`, ngày 2026-11-25
 
 **Việc để sau:**
 - Nối giao diện vào API thay store demo (T59 / B3).
