@@ -57,6 +57,11 @@ Phát hiện khi lập kế hoạch (đã kiểm tra lại trong code):
 | P6 | Helper phản hồi `{data, error}` (400 Zod / JSON hỏng, 500 không lộ chi tiết); `GET/POST /api/spaces` | mới `src/server/http.ts`, `src/app/api/spaces/route.ts` + test | api-builder | 401, 503, 400 (tên rỗng, màu lạ, icon lạ, JSON hỏng), 201 có `id,color,icon,tint`, GET 200 | P4, P5 |
 | P7 | `GET/PATCH/DELETE /api/spaces/[id]` | mới `src/app/api/spaces/[id]/route.ts` + test | api-builder | 401/503; 404 id không có / của người khác; 400 PATCH `{}` hoặc key thừa; PATCH 200; DELETE 204 body rỗng | P6 |
 | P8 | `SpaceIcon` (id → icon lucide) + `SpaceStylePicker` (radio màu + icon, có nhãn, dùng được bàn phím) | mới `src/components/ui/space-icon.tsx` `space-style-picker.tsx` | feature-builder | (không có test component) kiểm tay | P1 |
+| P5 | `155229e` | `spaces.test.ts` (10) | ✅ | ✅ | ✅ 150/150 | ✅ |
+| P9 | `eff97fe` | — (kiểm tay) | ✅ | ✅ | ✅ 150/150 | ✅ |
+| P10 | `0a930a6` | — (kiểm tay) | ✅ | ✅ | ✅ 150/150 | ✅ |
+| P11 | `12120f3` | — (kiểm tay) | ✅ | ✅ | ✅ 150/150 | ✅ |
+| P6 | `b9e7b65` | `http.test.ts` (9), `route.test.ts` (16) | ✅ | ✅ | ✅ 150/150 | ✅ |
 | P9 | Hộp thoại tạo không gian: ô mô tả + chọn màu/icon | `src/components/layout/create-dialog.tsx` | feature-builder | kiểm tay chế độ demo | P2, P8 |
 | P10 | Trang chi tiết: icon ở header, nút Sửa (`space-edit-dialog`), nút Xoá có xác nhận số lượng (`space-delete-dialog`), xoá xong về `/spaces` không nháy trang 404 | `src/features/spaces/space-detail.tsx`, mới `space-edit-dialog.tsx` `space-delete-dialog.tsx` | feature-builder | kiểm tay | P2, P8 |
 | P11 | Hiện icon ở danh sách không gian, thẻ Không gian ở Tổng quan, sidebar | `spaces-list.tsx`, `dashboard/spaces-card.tsx`, `layout/sidebar.tsx` | feature-builder | kiểm tay | P8 |
