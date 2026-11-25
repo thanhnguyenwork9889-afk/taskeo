@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T004-spaces-api` |
 | Tạo từ | `develop` @ `98e1bf7` |
-| Trạng thái | 3-build |
+| Trạng thái | 4-review |
 | Ngày tạo | 2026-11-25 |
 
 Nguồn: sheet nhiệm vụ, dòng **T20** (backlog B2, phần `spaces`).
@@ -62,6 +62,7 @@ Phát hiện khi lập kế hoạch (đã kiểm tra lại trong code):
 | P10 | `0a930a6` | — (kiểm tay) | ✅ | ✅ | ✅ 150/150 | ✅ |
 | P11 | `12120f3` | — (kiểm tay) | ✅ | ✅ | ✅ 150/150 | ✅ |
 | P6 | `b9e7b65` | `http.test.ts` (9), `route.test.ts` (16) | ✅ | ✅ | ✅ 150/150 | ✅ |
+| P7 | `d3ff7a7` | `[id]/route.test.ts` (26) | ✅ | ✅ | ✅ 176/176 | ✅ |
 | P9 | Hộp thoại tạo không gian: ô mô tả + chọn màu/icon | `src/components/layout/create-dialog.tsx` | feature-builder | kiểm tay chế độ demo | P2, P8 |
 | P10 | Trang chi tiết: icon ở header, nút Sửa (`space-edit-dialog`), nút Xoá có xác nhận số lượng (`space-delete-dialog`), xoá xong về `/spaces` không nháy trang 404 | `src/features/spaces/space-detail.tsx`, mới `space-edit-dialog.tsx` `space-delete-dialog.tsx` | feature-builder | kiểm tay | P2, P8 |
 | P11 | Hiện icon ở danh sách không gian, thẻ Không gian ở Tổng quan, sidebar | `spaces-list.tsx`, `dashboard/spaces-card.tsx`, `layout/sidebar.tsx` | feature-builder | kiểm tay | P8 |
