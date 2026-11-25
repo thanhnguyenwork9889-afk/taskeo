@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T004-spaces-api` |
 | Tạo từ | `develop` @ `98e1bf7` |
-| Trạng thái | 5-fix |
+| Trạng thái | 6-rereview |
 | Ngày tạo | 2026-11-25 |
 
 Nguồn: sheet nhiệm vụ, dòng **T20** (backlog B2, phần `spaces`).
@@ -109,14 +109,31 @@ Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewe
 | R13 | LOW | `src/features/spaces/space-delete-dialog.tsx:54` | Chính tả "Hủy" lệch "Xoá" | layer |
 | R14 | LOW | `src/server/spaces.ts:48` | `count` rồi `create` không trong transaction → hai POST đồng thời có thể trùng `order` / màu mặc định | security, typescript, layer |
 | R15 | — | `docs/04`, `docs/06` | Cần cập nhật bảng thư mục và bảng route | layer → bước 7 |
+| R16 | HIGH | `src/server/auth/auth.ts` (`callbacks.session` của P4) | Callback spread nguyên `session` mà Auth.js truyền vào (strategy database: gồm `sessionToken`, `userId`, toàn bộ AdapterUser) → `sessionToken` lộ ra client qua `/api/auth/session`. Phát hiện khi sửa R2, đã đối chiếu `@auth/core/lib/actions/session.js` | google-integrator (bước 5) |
 
 ## 5. Fix bug
 
+Commit trước bước 5: `766ccbc`.
+
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
-| R1 | đã sửa / bỏ qua: lý do | |
+| R1 | đã sửa: `createSpace` trả `{ ok: false, reason: "limit" }` khi đủ `MAX_SPACES` (200); POST trả 409 | `467b9bb` |
+| R2 | đã sửa: tách `sessionWithUserId` (`server/auth/session-callback.ts`) + 7 test | `467b9bb` |
+| R16 | đã sửa: callback chỉ chọn `user.{id,name,email,image}` + `expires`, không còn `sessionToken` / `userId` / `emailVerified` | `467b9bb` |
+| R3 | đã sửa: mô tả rỗng → `null` khi tạo và sửa | `467b9bb` |
+| R4 | đã sửa: export `SPACE_NAME_MAX` / `SPACE_DESCRIPTION_MAX`, hai hộp thoại có `maxLength` | `467b9bb` |
+| R5 | đã sửa: `dangerButton` chuyển vào `components/ui/styles.ts` | `467b9bb` |
+| R6 | đã sửa: `SPACE_PALETTE` có `label` tiếng Việt, picker dùng làm tên truy cập | `467b9bb` |
+| R7 | đã sửa: log thêm `name`, `stack` | `467b9bb` |
+| R8 | đã sửa: `take` kiểm bằng `MAX_SPACES` | `467b9bb` |
+| R14 | chấp nhận, thêm comment: `order` chỉ để sắp xếp | `467b9bb` |
+| R9 | để sau: cần đổi `Modal` dùng chung để nhận `role="alertdialog"` | — |
+| R10, R11 | để sau: thuộc T73 (rate limit + security headers) | — |
+| R12 | bỏ qua: trùng lặp nhỏ, không bắt buộc | — |
+| R13 | bỏ qua: không tái hiện được — "Hủy" là cách viết chung ở cả 4 hộp thoại trong repo | — |
+| R15 | làm ở bước 7 | — |
 
-Kết quả 4 lệnh sau khi sửa:
+Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 193/193 · build ✅ (`/api/spaces`, `/api/spaces/[id]` là ƒ động).
 
 ## 6. Review lại
 
