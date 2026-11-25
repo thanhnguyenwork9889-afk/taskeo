@@ -78,6 +78,9 @@ Duyệt kế hoạch: ☐ chờ · ☒ người dùng đã duyệt (2026-11-25) 
 |---|---|---|---|---|---|---|
 | P1 | `497e820` | `validation.test.ts` (22) | ✅ | ✅ | ✅ 88/88 | ✅ |
 | P4 | `72adafa` | `session.test.ts` (7) | ✅ | ✅ | ✅ 88/88 | ✅ |
+| P2 | `689637c` | `workspace-actions.test.ts` (+16) | ✅ | ✅ | ✅ 115/115 | ✅ |
+| P3 | `ea25cbc` | `space-record.test.ts` (8) | ✅ | ✅ | ✅ 115/115 | ✅ |
+| P8 | `cc8afc0` | `space-icons.test.ts` (3) | ✅ | ✅ | ✅ 115/115 | ✅ |
 
 ## 4. Review code
 
