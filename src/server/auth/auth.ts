@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import type { Adapter, AdapterAccount } from "next-auth/adapters";
 import { prisma } from "@/server/db";
 import { encryptOptional } from "@/server/crypto";
+import { sessionWithUserId } from "@/server/auth/session-callback";
 
 // Giai đoạn 1 chỉ xin scope đăng nhập. Drive / Calendar / Gmail xin thêm ở giai đoạn sau
 // (incremental authorization), xem server/google/scopes.ts.
@@ -52,6 +53,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: ({ account, isNewUser }) => (isNewUser ? undefined : persistReSignInTokens(account ?? null)),
   },
   session: { strategy: "database" },
+  callbacks: {
+    // Chỉ name/email/image/expires + id; không đưa token, sessionToken hay dữ liệu Account vào phiên (phiên có thể tới client).
+    session: sessionWithUserId,
+  },
   pages: { signIn: "/login" },
   providers: [
     Google({

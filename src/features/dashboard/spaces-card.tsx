@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { FolderOpen } from "lucide-react";
 import { matchesQuery, useUI } from "@/components/layout/ui-context";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { SpaceIcon } from "@/components/ui/space-icon";
 import { useWorkspace } from "@/store/workspace-store";
 import { card, control, cx } from "@/components/ui/styles";
 
@@ -29,7 +29,7 @@ export function SpacesCard() {
               className={cx(control, "flex min-w-0 items-center gap-3 border border-[#ECE9F2] p-3 hover:bg-brand-faint")}
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ background: space.tint, color: space.color }}>
-                <FolderOpen className="h-[18px] w-[18px]" aria-hidden />
+                <SpaceIcon icon={space.icon} className="h-[18px] w-[18px]" />
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium">{space.name}</span>

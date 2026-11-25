@@ -39,3 +39,25 @@ export async function getViewer(): Promise<Viewer | null> {
     isDemo: false,
   };
 }
+
+export type ApiUserResult = { ok: true; userId: string } | { ok: false; status: 401 | 503 };
+
+/**
+ * Người dùng hiện tại cho API route.
+ * - Demo / cấu hình thiếu: 503 (không có DB, không import Auth.js / Prisma).
+ * - Đã cấu hình: 401 nếu chưa đăng nhập hoặc phiên thiếu `user.id`.
+ * Lỗi từ `auth()` (ví dụ DB hỏng) không bị nuốt, để route trả 500.
+ */
+export async function getApiUserId(): Promise<ApiUserResult> {
+  const mode = getAuthMode();
+  if (mode === "demo") return { ok: false, status: 503 };
+  if (mode === "misconfigured") {
+    console.error("Cấu hình đăng nhập thiếu biến môi trường", { missing: missingAuthEnvVars() });
+    return { ok: false, status: 503 };
+  }
+  const { auth } = await import("@/server/auth/auth");
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return { ok: false, status: 401 };
+  return { ok: true, userId };
+}

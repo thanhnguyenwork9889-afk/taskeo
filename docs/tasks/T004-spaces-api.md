@@ -1,0 +1,166 @@
+# T004 · API + UI CRUD Không gian (tên, màu, icon)
+
+| | |
+|---|---|
+| Nhánh | `feat/T004-spaces-api` |
+| Tạo từ | `develop` @ `98e1bf7` |
+| Trạng thái | done |
+| Ngày tạo | 2026-11-25 |
+
+Nguồn: sheet nhiệm vụ, dòng **T20** (backlog B2, phần `spaces`).
+
+## 1. Docs – yêu cầu
+
+**Mục tiêu:** Không gian có đủ tạo / xem / sửa / xoá, kể cả màu và icon: phía server có API route dùng Prisma + Zod; phía giao diện (vẫn chạy trên store demo) có sửa và xoá không gian.
+
+**Hiện trạng:** Giao diện chỉ *tạo* được không gian (`create-dialog.tsx` → `createSpace`), màu tự gán theo `SPACE_PALETTE`, không có icon, không sửa hay xoá được. Bảng `Space` trong Prisma đã có `name`, `description`, `color`, `icon`, `order` nên **không cần migration**. Chưa có API route nào ngoài `/api/auth`.
+
+**Phạm vi:**
+- `domain/`: schema Zod cho input tạo / sửa không gian (tên 1–200 ký tự, mô tả ≤ 500, `color` thuộc `SPACE_PALETTE`, `icon` thuộc danh sách `SPACE_ICONS` mới); thêm `icon` vào kiểu `Space` phía client (dữ liệu localStorage cũ thiếu `icon` vẫn đọc được, mặc định `"folder"`); hàm thuần `updateSpace`, `deleteSpace` (xoá luôn dự án, công việc, tài liệu của không gian — khớp `onDelete: Cascade` trong schema); hàm đổi bản ghi DB → `Space` client (tính `tint` từ `color`).
+- `server/spaces.ts`: `listSpaces`, `getSpace`, `createSpace`, `updateSpace`, `deleteSpace`, luôn lọc theo `userId`.
+- API route: `GET/POST /api/spaces`, `GET/PATCH/DELETE /api/spaces/[id]`. Mỗi route gọi `auth()`; chưa đăng nhập → 401; chế độ demo / misconfigured → 503 (demo không có DB); input sai → 400 kèm lỗi Zod; id không tồn tại hoặc của người khác → 404; `DELETE` → 204. Phản hồi theo một dạng chung `{ data, error }`.
+- UI (store demo): hộp thoại tạo không gian có chọn màu + icon; nút **Sửa** ở trang chi tiết không gian (tên, mô tả, màu, icon); nút **Xoá** có hộp xác nhận nêu số dự án / công việc / tài liệu sẽ mất, xoá xong về `/spaces`; icon đã chọn hiện ở danh sách không gian, sidebar, thẻ Không gian ở Tổng quan và trang chi tiết.
+
+**Ngoài phạm vi:**
+- Nối giao diện vào API (thay store demo bằng TanStack Query) — sheet T59 / backlog B3.
+- API dự án và công việc (T21, T22), ghi `Activity` (T27), thư mục Drive cho không gian (T31).
+- Sắp xếp lại thứ tự không gian (`order`) bằng kéo thả.
+- Rate limit (T73), test e2e (T61).
+
+**Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
+- [x] `GET /api/spaces` khi chưa đăng nhập trả 401; ở chế độ demo trả 503.
+- [x] `POST /api/spaces` với tên rỗng, màu ngoài bảng màu hoặc icon lạ trả 400; hợp lệ trả 201 kèm không gian mới (có `id`, `color`, `icon`, `tint`).
+- [x] `GET/PATCH/DELETE /api/spaces/[id]` với id của người dùng khác trả 404 và không đổi dữ liệu (test kiểm tra mọi truy vấn Prisma có `userId`).
+- [x] `PATCH` chỉ đổi các trường gửi lên; `DELETE` trả 204.
+- [x] Ở chế độ demo: tạo không gian chọn được màu + icon; sửa tên / mô tả / màu / icon ở trang chi tiết và thấy thay đổi ở danh sách, sidebar, Tổng quan; xoá có xác nhận, sau khi xoá dự án / công việc / tài liệu của không gian cũng biến mất.
+- [x] localStorage đang có dữ liệu cũ (không có `icon`) vẫn mở được, không bị đưa về dữ liệu mẫu.
+- [x] Có unit test cho schema, `updateSpace`, `deleteSpace`, hàm đổi bản ghi; có test cho route handler (mock `auth` + Prisma) phủ 401 / 400 / 404 / thành công.
+- [x] typecheck, lint, test, build xanh.
+
+**Tài liệu bị ảnh hưởng:** 04 kiến trúc (thêm `server/spaces.ts`, `app/api/spaces`), 06 API (bảng route mới).
+
+## 2. Kế hoạch từng phần
+
+Phát hiện khi lập kế hoạch (đã kiểm tra lại trong code):
+- Session của Auth.js chưa có `user.id` (`auth.ts` không có `callbacks.session`) → phải thêm, nếu không thì không lọc được theo `userId` (P4).
+- `next.config.ts` bật `cacheComponents` → mọi handler GET gọi `await connection()` ở dòng đầu để không bị prerender thành phản hồi tĩnh lúc build; không bọc nó trong try/catch.
+- Next 16: `params` của route động là `Promise`; DELETE trả `new Response(null, { status: 204 })`.
+- Route chỉ `import()` động `@/server/spaces` sau khi đã qua kiểm tra chế độ + phiên, để chế độ demo không khởi tạo Prisma.
+
+| Phần | Việc | File | Agent | Test cần viết (trước) | Phụ thuộc |
+|---|---|---|---|---|---|
+| P1 | `SPACE_ICONS` (id chuỗi, mặc định `folder`) + nhãn; `Space.icon`; `tintForColor`; `spaceSchema` storage có `icon` `.catch("folder")`; `createSpaceInputSchema` / `updateSpaceInputSchema` (`.strict()`, không `.default()`, PATCH ≥ 1 trường); seed thêm `icon` | `src/domain/types.ts` `labels.ts` `validation.ts` `seed.ts`, mới `validation.test.ts` | feature-builder | state cũ thiếu `icon` vẫn parse; input sai (tên rỗng/201 ký tự, mô tả 501, màu lạ, icon lạ, key thừa) bị từ chối; PATCH `{}` bị từ chối, `{name}` không sinh `color`/`icon` | — |
+| P2 | `createSpace(state, input)` nhận màu/icon; `updateSpace` (tính lại `tint`); `deleteSpace` (cascade dự án, công việc, file, gỡ `linkedFileIds`); `spaceDeletionImpact`; sửa 1 dòng gọi trong create-dialog | `src/domain/workspace-actions.ts` + test, `create-dialog.tsx` (1 dòng) | feature-builder | không mutate; update chỉ đổi trường gửi; delete cascade đúng, không đụng không gian khác; impact đếm đúng | P1 |
+| P3 | `spaceFromRecord`: bản ghi DB → `Space` client (null/lạ → mặc định, tính `tint`), không import `@prisma/client` | mới `src/domain/space-record.ts` + test | feature-builder | đủ trường, nhánh null/lạ, kết quả qua `spaceSchema` | P1 |
+| P4 | `callbacks.session` gắn `user.id` + augment kiểu; `getApiUserId()` → `{ok,userId}` / 401 / 503 (demo, misconfigured không import auth); alias `server-only` → stub trong `vitest.config.ts` | `src/server/auth/auth.ts` `session.ts`, mới `session.test.ts`, `vitest.config.ts` | google-integrator | demo/misconfigured → 503 và không gọi `auth`; không phiên → 401; có id → ok | — |
+| P5 | `listSpaces` / `getSpace` / `createSpace` / `updateSpace` (`updateMany` theo `{id,userId}`) / `deleteSpace` (`deleteMany`) | mới `src/server/spaces.ts` + test | api-builder | mọi lời gọi Prisma có `userId`; id người khác → null/false; update chỉ truyền trường có mặt | P1, P3 |
+| P6 | Helper phản hồi `{data, error}` (400 Zod / JSON hỏng, 500 không lộ chi tiết); `GET/POST /api/spaces` | mới `src/server/http.ts`, `src/app/api/spaces/route.ts` + test | api-builder | 401, 503, 400 (tên rỗng, màu lạ, icon lạ, JSON hỏng), 201 có `id,color,icon,tint`, GET 200 | P4, P5 |
+| P7 | `GET/PATCH/DELETE /api/spaces/[id]` | mới `src/app/api/spaces/[id]/route.ts` + test | api-builder | 401/503; 404 id không có / của người khác; 400 PATCH `{}` hoặc key thừa; PATCH 200; DELETE 204 body rỗng | P6 |
+| P8 | `SpaceIcon` (id → icon lucide) + `SpaceStylePicker` (radio màu + icon, có nhãn, dùng được bàn phím) | mới `src/components/ui/space-icon.tsx` `space-style-picker.tsx` | feature-builder | (không có test component) kiểm tay | P1 |
+| P5 | `155229e` | `spaces.test.ts` (10) | ✅ | ✅ | ✅ 150/150 | ✅ |
+| P9 | `eff97fe` | — (kiểm tay) | ✅ | ✅ | ✅ 150/150 | ✅ |
+| P10 | `0a930a6` | — (kiểm tay) | ✅ | ✅ | ✅ 150/150 | ✅ |
+| P11 | `12120f3` | — (kiểm tay) | ✅ | ✅ | ✅ 150/150 | ✅ |
+| P6 | `b9e7b65` | `http.test.ts` (9), `route.test.ts` (16) | ✅ | ✅ | ✅ 150/150 | ✅ |
+| P7 | `d3ff7a7` | `[id]/route.test.ts` (26) | ✅ | ✅ | ✅ 176/176 | ✅ |
+| P9 | Hộp thoại tạo không gian: ô mô tả + chọn màu/icon | `src/components/layout/create-dialog.tsx` | feature-builder | kiểm tay chế độ demo | P2, P8 |
+| P10 | Trang chi tiết: icon ở header, nút Sửa (`space-edit-dialog`), nút Xoá có xác nhận số lượng (`space-delete-dialog`), xoá xong về `/spaces` không nháy trang 404 | `src/features/spaces/space-detail.tsx`, mới `space-edit-dialog.tsx` `space-delete-dialog.tsx` | feature-builder | kiểm tay | P2, P8 |
+| P11 | Hiện icon ở danh sách không gian, thẻ Không gian ở Tổng quan, sidebar | `spaces-list.tsx`, `dashboard/spaces-card.tsx`, `layout/sidebar.tsx` | feature-builder | kiểm tay | P8 |
+
+Thứ tự (cùng đợt = khác file, chạy song song): đợt 1 P1 + P4 → đợt 2 P2 + P3 + P8 → đợt 3 P5 + P9 + P10 + P11 → P6 → P7. Docs 04 / 06 cập nhật ở bước 7.
+
+Rủi ro / phụ thuộc:
+- localStorage cũ thiếu `icon`: dùng `z.enum` thường sẽ đẩy người dùng về dữ liệu mẫu → bắt buộc `.catch("folder")`.
+- Mass assignment: schema input `.strict()`, không nhận `userId`, `id`, `driveFolderId`, `order`.
+- Activity trỏ tới công việc đã xoá: thẻ Hoạt động phải chịu được `entityId` không còn tồn tại.
+- Giao diện (P8–P11) chưa có hạ tầng test component → chỉ kiểm tay ở chế độ demo; logic dồn vào `domain/` để có unit test.
+- Chưa có rate limit (T73) — ghi chú trong docs 06.
+
+Duyệt kế hoạch: ☐ chờ · ☒ người dùng đã duyệt (2026-11-25) · ☐ bỏ qua (`--yes`)
+
+## 3. Thực hiện + kiểm thử
+
+| Phần | Commit | Test thêm | typecheck | lint | test | build |
+|---|---|---|---|---|---|---|
+| P1 | `497e820` | `validation.test.ts` (22) | ✅ | ✅ | ✅ 88/88 | ✅ |
+| P4 | `72adafa` | `session.test.ts` (7) | ✅ | ✅ | ✅ 88/88 | ✅ |
+| P2 | `689637c` | `workspace-actions.test.ts` (+16) | ✅ | ✅ | ✅ 115/115 | ✅ |
+| P3 | `ea25cbc` | `space-record.test.ts` (8) | ✅ | ✅ | ✅ 115/115 | ✅ |
+| P8 | `cc8afc0` | `space-icons.test.ts` (3) | ✅ | ✅ | ✅ 115/115 | ✅ |
+
+## 4. Review code
+
+Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewer` trên `git diff develop...HEAD` @ `671c776`. Không có CRITICAL / HIGH.
+
+| # | Mức | File:dòng | Vấn đề | Reviewer |
+|---|---|---|---|---|
+| R1 | MEDIUM | `src/server/spaces.ts:19,48` | `listSpaces` cắt ở `MAX_SPACES` (200) nhưng `createSpace` không giới hạn: tạo được vô hạn, phần vượt 200 không hiện trong GET | security, typescript |
+| R2 | MEDIUM | `src/server/auth/auth.ts` (`callbacks.session`) | Callback gắn `user.id` không có test; xoá nó thì test vẫn xanh nhưng API luôn 401 | typescript |
+| R3 | LOW | `src/server/spaces.ts:54` | `description ?? null` lưu `""` khi client gửi chuỗi rỗng → hai kiểu "không có mô tả" (null và `""`) | typescript, layer |
+| R4 | LOW | `src/features/spaces/space-edit-dialog.tsx:13,125` | Textarea mô tả thiếu `maxLength`; `DESCRIPTION_MAX` lặp lại hằng trong `domain/validation.ts` | typescript |
+| R5 | LOW | `src/features/spaces/space-delete-dialog.tsx:12` | `dangerButton` khai báo cục bộ thay vì ở `components/ui/styles.ts` | (ghi chú của P10) |
+| R6 | LOW | `src/components/ui/space-style-picker.tsx` | Tên truy cập của ô màu là mã hex ("Màu 1 (#8B73D5)"), không có nghĩa với trình đọc màn hình | typescript |
+| R7 | LOW | `src/server/http.ts:55` | `handleUnexpected` chỉ log `message`, mất `name` / `stack` → khó debug lỗi 500 | typescript |
+| R8 | LOW | `src/server/spaces.test.ts:45` | `take` chỉ kiểm `> 0`; không kiểm đúng giới hạn | typescript |
+| R9 | LOW | `src/features/spaces/space-delete-dialog.tsx` | Hộp thoại xoá dùng `role="dialog"`, chưa phải `alertdialog` | typescript |
+| R10 | LOW | `src/server/http.ts:46` | `readJson` không giới hạn kích thước body, không kiểm `Content-Type` / `Origin` (cookie SameSite=Lax nên rủi ro CSRF thực tế thấp) | security |
+| R11 | LOW | `src/app/api/spaces/**` | Chưa có rate limit | security |
+| R12 | LOW | `src/server/auth/session.ts` | Nhánh misconfigured (log + trả) lặp ở `getViewer` và `getApiUserId` | layer |
+| R13 | LOW | `src/features/spaces/space-delete-dialog.tsx:54` | Chính tả "Hủy" lệch "Xoá" | layer |
+| R14 | LOW | `src/server/spaces.ts:48` | `count` rồi `create` không trong transaction → hai POST đồng thời có thể trùng `order` / màu mặc định | security, typescript, layer |
+| R15 | — | `docs/04`, `docs/06` | Cần cập nhật bảng thư mục và bảng route | layer → bước 7 |
+| R16 | HIGH | `src/server/auth/auth.ts` (`callbacks.session` của P4) | Callback spread nguyên `session` mà Auth.js truyền vào (strategy database: gồm `sessionToken`, `userId`, toàn bộ AdapterUser) → `sessionToken` lộ ra client qua `/api/auth/session`. Phát hiện khi sửa R2, đã đối chiếu `@auth/core/lib/actions/session.js` | google-integrator (bước 5) |
+
+## 5. Fix bug
+
+Commit trước bước 5: `766ccbc`.
+
+| Phát hiện | Xử lý | Commit |
+|---|---|---|
+| R1 | đã sửa: `createSpace` trả `{ ok: false, reason: "limit" }` khi đủ `MAX_SPACES` (200); POST trả 409 | `467b9bb` |
+| R2 | đã sửa: tách `sessionWithUserId` (`server/auth/session-callback.ts`) + 7 test | `467b9bb` |
+| R16 | đã sửa: callback chỉ chọn `user.{id,name,email,image}` + `expires`, không còn `sessionToken` / `userId` / `emailVerified` | `467b9bb` |
+| R3 | đã sửa: mô tả rỗng → `null` khi tạo và sửa | `467b9bb` |
+| R4 | đã sửa: export `SPACE_NAME_MAX` / `SPACE_DESCRIPTION_MAX`, hai hộp thoại có `maxLength` | `467b9bb` |
+| R5 | đã sửa: `dangerButton` chuyển vào `components/ui/styles.ts` | `467b9bb` |
+| R6 | đã sửa: `SPACE_PALETTE` có `label` tiếng Việt, picker dùng làm tên truy cập | `467b9bb` |
+| R7 | đã sửa: log thêm `name`, `stack` | `467b9bb` |
+| R8 | đã sửa: `take` kiểm bằng `MAX_SPACES` | `467b9bb` |
+| R14 | chấp nhận, thêm comment: `order` chỉ để sắp xếp | `467b9bb` |
+| R9 | để sau: cần đổi `Modal` dùng chung để nhận `role="alertdialog"` | — |
+| R10, R11 | để sau: thuộc T73 (rate limit + security headers) | — |
+| R12 | bỏ qua: trùng lặp nhỏ, không bắt buộc | — |
+| R13 | bỏ qua: không tái hiện được — "Hủy" là cách viết chung ở cả 4 hộp thoại trong repo | — |
+| R15 | làm ở bước 7 | — |
+
+Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 193/193 · build ✅ (`/api/spaces`, `/api/spaces/[id]` là ƒ động).
+
+## 6. Review lại
+
+Vòng 1 (`git diff 766ccbc..467b9bb`, cả ba reviewer): R1, R2, R16, R3–R8 sửa đúng, có test. Không có CRITICAL / HIGH mới → sang bước 7. LOW mới, để sau:
+- `create-dialog.tsx`: ô tiêu đề dùng chung `SPACE_NAME_MAX` cho mọi loại (giá trị đúng: cả bốn loại cùng giới hạn 200).
+- `spaces.ts`: `descriptionToDb` là quy tắc nghiệp vụ nằm ở `server/` (chỉ server dùng).
+- `spaces.test.ts`: assertion dạng `result.ok && …` khó đọc khi fail; `session-callback.test.ts` thiếu ca `user` có mặt nhưng thiếu một vài field.
+- count + create không atomic có thể vượt nhẹ `MAX_SPACES` khi gửi đồng thời (đã chấp nhận ở R14; hẹp lại khi có rate limit T73).
+
+## 7. Final
+
+**Tóm tắt:** Không gian có đủ CRUD. Phía server: `GET/POST /api/spaces`, `GET/PATCH/DELETE /api/spaces/[id]` (Prisma + Zod, lọc `userId`, 401 / 503 / 400 / 404 / 409 / 204, phản hồi `{ data, error }`), `getApiUserId()`, phiên có `user.id`. Phía giao diện (store demo): chọn màu + icon khi tạo, sửa và xoá ở trang chi tiết (xoá kéo theo dự án / công việc / tài liệu), icon hiện ở danh sách, sidebar, Tổng quan. Trong lúc sửa phát hiện và chặn lỗi lộ `sessionToken` qua `/api/auth/session` (R16) do callback của chính nhánh này gây ra. 193 test (từ 61).
+
+**Tiêu chí nghiệm thu:** cả 8 đạt (đánh dấu ở mục 1). Kiểm thật ngày 2026-11-25 trên `next dev` cổng 3000 (chế độ configured, DB Neon branch `dev`, đăng nhập Google trong browser pane):
+- API: chưa đăng nhập → 401; input sai → 400 kèm lỗi từng trường; key thừa `userId` → 400; tạo → 201 (có `id`, `color`, `icon`, `tint`); PATCH `{icon, description:""}` → 200; PATCH `{}` → 400; id lạ → 404; DELETE → 204, đọc lại → 404. Không gian thử đã xoá khỏi DB.
+- `/api/auth/session` chỉ còn `user.{id,name,email,image}` + `expires`.
+- Giao diện: tạo không gian với Xanh dương + Lập trình; sửa (tên trống báo lỗi, đổi tên + Hồng + Sức khoẻ) → header, danh sách, Tổng quan, sidebar cập nhật và còn sau khi tải lại; xoá → hộp xác nhận nêu số lượng, về `/spaces`, không nháy 404 (MutationObserver), biến khỏi danh sách và sidebar.
+- localStorage bỏ `icon` (và đổi tên làm dấu) → vẫn mở, icon về `folder`, không bị đưa về dữ liệu mẫu, không tạo bản backup. Dữ liệu gốc của pane đã khôi phục.
+- Bước 503 ở chế độ demo chỉ kiểm bằng test (không chạy được server demo song song với server của người dùng).
+
+**Tài liệu đã cập nhật:** `docs/04-architecture.md` (server/http, server/spaces, session-callback, space-record, api/spaces, mẫu viết API route), `docs/06-api.md` (bảng route, quy ước lỗi, việc còn thiếu), `docs/tasks/README.md`.
+
+**Merge vào develop:** commit `<hash>`, ngày 2026-11-25
+
+**Việc để sau:**
+- Nối giao diện vào API thay store demo (T59 / B3).
+- API dự án và công việc theo cùng mẫu (T21, T22).
+- R9: `Modal` nhận `role="alertdialog"` cho hộp thoại xoá.
+- R10, R11: giới hạn body, kiểm `Content-Type` / `Origin`, rate limit (T73).
+- LOW ở mục 6: hằng giới hạn tên chung cho mọi loại; `descriptionToDb` sang `domain/` nếu client cần; test `session-callback` thiếu ca thiếu một vài field.

@@ -1,4 +1,4 @@
-import type { DocKind, Priority, ProjectStatus, TaskStatus } from "@/domain/types";
+import type { DocKind, Priority, ProjectStatus, SpaceIcon, TaskStatus } from "@/domain/types";
 
 export const TASK_STATUSES: readonly TaskStatus[] = ["TODO", "IN_PROGRESS", "PAUSED", "DONE"];
 export const PRIORITIES: readonly Priority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
@@ -61,11 +61,55 @@ export const DOC_KIND_STYLE: Record<DocKind, string> = {
   slide: "bg-amber-50 text-amber-700",
 };
 
-/** Bảng màu cho không gian mới: [màu chính, màu nền nhạt]. */
-export const SPACE_PALETTE: readonly { color: string; tint: string }[] = [
-  { color: "#8B73D5", tint: "#F0ECFA" },
-  { color: "#4C9C86", tint: "#E9F4EF" },
-  { color: "#D6A243", tint: "#FCF4E2" },
-  { color: "#598FD0", tint: "#EBF2FC" },
-  { color: "#D0708A", tint: "#FBEDF1" },
+export interface SpacePaletteEntry {
+  /** Màu chính (hex). */
+  color: string;
+  /** Màu nền nhạt (hex). */
+  tint: string;
+  /** Tên màu tiếng Việt cho trình đọc màn hình / tooltip. */
+  label: string;
+}
+
+/** Bảng màu cho không gian mới: màu chính, màu nền nhạt, tên màu. */
+export const SPACE_PALETTE: readonly SpacePaletteEntry[] = [
+  { color: "#8B73D5", tint: "#F0ECFA", label: "Tím" },
+  { color: "#4C9C86", tint: "#E9F4EF", label: "Xanh lá" },
+  { color: "#D6A243", tint: "#FCF4E2", label: "Vàng" },
+  { color: "#598FD0", tint: "#EBF2FC", label: "Xanh dương" },
+  { color: "#D0708A", tint: "#FBEDF1", label: "Hồng" },
 ];
+
+/** Id icon của không gian (giao diện tự ánh xạ id → icon). Phần tử đầu là mặc định. */
+export const SPACE_ICONS = [
+  "folder",
+  "briefcase",
+  "book",
+  "graduation",
+  "home",
+  "heart",
+  "code",
+  "palette",
+  "shopping",
+  "wrench",
+] as const;
+
+export const DEFAULT_SPACE_ICON = SPACE_ICONS[0];
+
+export const SPACE_ICON_LABEL: Record<SpaceIcon, string> = {
+  folder: "Thư mục",
+  briefcase: "Công việc",
+  book: "Sách",
+  graduation: "Học tập",
+  home: "Gia đình",
+  heart: "Sức khoẻ",
+  code: "Lập trình",
+  palette: "Sáng tạo",
+  shopping: "Mua sắm",
+  wrench: "Kỹ thuật",
+};
+
+/** Màu nền nhạt tương ứng màu chính; màu ngoài bảng dùng màu nền của màu đầu tiên. */
+export function tintForColor(color: string): string {
+  const match = SPACE_PALETTE.find((entry) => entry.color.toLowerCase() === color.toLowerCase());
+  return (match ?? SPACE_PALETTE[0]).tint;
+}

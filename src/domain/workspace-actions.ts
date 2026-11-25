@@ -1,5 +1,16 @@
-import { SPACE_PALETTE, STATUS_LABEL } from "@/domain/labels";
-import type { Activity, ActivityType, DocKind, Project, Task, TaskStatus, WorkspaceFile, WorkspaceState } from "@/domain/types";
+import { DEFAULT_SPACE_ICON, SPACE_PALETTE, STATUS_LABEL, tintForColor } from "@/domain/labels";
+import type {
+  Activity,
+  ActivityType,
+  DocKind,
+  Project,
+  Space,
+  SpaceIcon,
+  Task,
+  TaskStatus,
+  WorkspaceFile,
+  WorkspaceState,
+} from "@/domain/types";
 
 // Các hàm thuần (không side effect): nhận state cũ, trả state mới, không sửa state cũ.
 // `now` được truyền vào để dễ test.
@@ -87,16 +98,86 @@ export function toggleTaskDone(state: WorkspaceState, id: string, now: Date): Wo
   return setTaskStatus(state, id, task.status === "DONE" ? "TODO" : "DONE", now);
 }
 
-export function createSpace(state: WorkspaceState, name: string): WorkspaceState {
-  const trimmed = name.trim();
-  if (!trimmed) return state;
-  const palette = SPACE_PALETTE[state.spaces.length % SPACE_PALETTE.length];
+const DEFAULT_SPACE_DESCRIPTION = "Không gian làm việc mới của bạn";
+
+export interface NewSpaceInput {
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: SpaceIcon;
+}
+
+export function createSpace(state: WorkspaceState, input: NewSpaceInput): WorkspaceState {
+  const name = input.name.trim();
+  if (!name) return state;
+  const color = input.color ?? SPACE_PALETTE[state.spaces.length % SPACE_PALETTE.length].color;
+  const space: Space = {
+    id: newId("space"),
+    name,
+    description: input.description?.trim() || DEFAULT_SPACE_DESCRIPTION,
+    color,
+    tint: tintForColor(color),
+    icon: input.icon ?? DEFAULT_SPACE_ICON,
+    driveFolderId: null,
+  };
+  return { ...state, spaces: [...state.spaces, space] };
+}
+
+export type SpaceChanges = Partial<Pick<Space, "name" | "description" | "color" | "icon">>;
+
+/** Chỉ đổi các trường được gửi; tên trống sau khi trim thì bỏ qua đổi tên. Đổi màu thì tính lại màu nền. */
+export function updateSpace(state: WorkspaceState, id: string, changes: SpaceChanges): WorkspaceState {
+  const current = state.spaces.find((s) => s.id === id);
+  if (!current) return state;
+  const name = changes.name?.trim() || current.name;
+  const description = changes.description?.trim() ?? current.description;
+  const color = changes.color ?? current.color;
+  const tint = changes.color === undefined ? current.tint : tintForColor(color);
+  const updated: Space = { ...current, name, description, color, tint, icon: changes.icon ?? current.icon };
+  return { ...state, spaces: state.spaces.map((s) => (s.id === id ? updated : s)) };
+}
+
+interface SpaceContents {
+  projectIds: Set<string>;
+  tasks: Task[];
+  files: WorkspaceFile[];
+}
+
+function spaceContents(state: WorkspaceState, id: string): SpaceContents {
+  const projectIds = new Set(state.projects.filter((p) => p.spaceId === id).map((p) => p.id));
+  const tasks = state.tasks.filter((t) => t.spaceId === id || (t.projectId !== null && projectIds.has(t.projectId)));
+  const files = state.files.filter((f) => f.spaceId === id);
+  return { projectIds, tasks, files };
+}
+
+export interface SpaceDeletionImpact {
+  projects: number;
+  tasks: number;
+  files: number;
+}
+
+/** Số dự án / công việc / tài liệu sẽ mất khi xoá không gian. */
+export function spaceDeletionImpact(state: WorkspaceState, id: string): SpaceDeletionImpact {
+  const { projectIds, tasks, files } = spaceContents(state, id);
+  return { projects: projectIds.size, tasks: tasks.length, files: files.length };
+}
+
+/** Xoá không gian cùng dự án, công việc, tài liệu của nó (khớp onDelete: Cascade). Giữ nguyên hoạt động. */
+export function deleteSpace(state: WorkspaceState, id: string): WorkspaceState {
+  if (!state.spaces.some((s) => s.id === id)) return state;
+  const { projectIds, tasks, files } = spaceContents(state, id);
+  const removedTaskIds = new Set(tasks.map((t) => t.id));
+  const removedFileIds = new Set(files.map((f) => f.id));
+  const unlink = (task: Task): Task =>
+    task.linkedFileIds.some((fileId) => removedFileIds.has(fileId))
+      ? { ...task, linkedFileIds: task.linkedFileIds.filter((fileId) => !removedFileIds.has(fileId)) }
+      : task;
   return {
     ...state,
-    spaces: [
-      ...state.spaces,
-      { id: newId("space"), name: trimmed, description: "Không gian làm việc mới của bạn", driveFolderId: null, ...palette },
-    ],
+    spaces: state.spaces.filter((s) => s.id !== id),
+    projects: state.projects.filter((p) => !projectIds.has(p.id)),
+    tasks: state.tasks.filter((t) => !removedTaskIds.has(t.id)).map(unlink),
+    files: state.files.filter((f) => !removedFileIds.has(f.id)),
   };
 }
 

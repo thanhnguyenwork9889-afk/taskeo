@@ -1,10 +1,13 @@
 // Kiểu dữ liệu phía client. Giá trị enum trùng với prisma/schema.prisma để sau này
 // đổi nguồn dữ liệu từ localStorage sang API mà không phải sửa giao diện.
 
+import type { SPACE_ICONS } from "@/domain/labels";
+
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "PAUSED" | "DONE";
 export type Priority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 export type ProjectStatus = "ACTIVE" | "ON_HOLD" | "DONE" | "ARCHIVED";
 export type DocKind = "doc" | "sheet" | "slide";
+export type SpaceIcon = (typeof SPACE_ICONS)[number];
 export type ActivityType = "task_created" | "task_done" | "task_updated" | "project_created" | "doc_created";
 
 /** Ngày dạng YYYY-MM-DD (không có giờ, theo giờ địa phương). */
@@ -16,6 +19,7 @@ export interface Space {
   description: string;
   color: string;
   tint: string;
+  icon: SpaceIcon;
   driveFolderId: string | null;
 }
 
