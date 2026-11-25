@@ -181,9 +181,12 @@ export function deleteSpace(state: WorkspaceState, id: string): WorkspaceState {
   };
 }
 
-export function projectNameExists(state: WorkspaceState, spaceId: string, name: string): boolean {
+/** Tên dự án đã có trong không gian chưa (không phân biệt hoa thường); bỏ qua dự án `excludeId`. */
+export function projectNameExists(state: WorkspaceState, spaceId: string, name: string, excludeId?: string): boolean {
   const target = name.trim().toLocaleLowerCase("vi");
-  return state.projects.some((p) => p.spaceId === spaceId && p.name.toLocaleLowerCase("vi") === target);
+  return state.projects.some(
+    (p) => p.id !== excludeId && p.spaceId === spaceId && p.name.toLocaleLowerCase("vi") === target,
+  );
 }
 
 export function createProject(state: WorkspaceState, spaceId: string, name: string, now: Date): WorkspaceState {
@@ -204,12 +207,46 @@ export function createProject(state: WorkspaceState, spaceId: string, name: stri
   };
 }
 
-export function updateProject(
-  state: WorkspaceState,
-  id: string,
-  changes: Partial<Pick<Project, "status" | "dueDate" | "description">>,
-): WorkspaceState {
-  return { ...state, projects: state.projects.map((p) => (p.id === id ? { ...p, ...changes } : p)) };
+export type ProjectChanges = Partial<Pick<Project, "name" | "status" | "dueDate" | "description">>;
+
+/**
+ * Chỉ đổi các trường được gửi. Tên được trim; trống thì bỏ qua đổi tên;
+ * trùng với dự án khác cùng không gian thì không đổi gì (trả lại state cũ).
+ */
+export function updateProject(state: WorkspaceState, id: string, changes: ProjectChanges): WorkspaceState {
+  const current = state.projects.find((p) => p.id === id);
+  if (!current) return state;
+  const name = changes.name?.trim() || current.name;
+  if (name !== current.name && projectNameExists(state, current.spaceId, name, id)) return state;
+  const updated: Project = { ...current, ...changes, name };
+  return { ...state, projects: state.projects.map((p) => (p.id === id ? updated : p)) };
+}
+
+export interface ProjectDeletionImpact {
+  tasks: number;
+  files: number;
+}
+
+/** Số công việc / tài liệu sẽ chuyển về không gian khi xoá dự án. */
+export function projectDeletionImpact(state: WorkspaceState, id: string): ProjectDeletionImpact {
+  return {
+    tasks: state.tasks.filter((t) => t.projectId === id).length,
+    files: state.files.filter((f) => f.projectId === id).length,
+  };
+}
+
+/** Xoá dự án; công việc và tài liệu của nó ở lại không gian với projectId = null (khớp onDelete: SetNull). */
+export function deleteProject(state: WorkspaceState, id: string): WorkspaceState {
+  const project = state.projects.find((p) => p.id === id);
+  if (!project) return state;
+  return {
+    ...state,
+    projects: state.projects.filter((p) => p.id !== id),
+    tasks: state.tasks.map((t) =>
+      t.projectId === id ? { ...t, projectId: null, spaceId: t.spaceId ?? project.spaceId } : t,
+    ),
+    files: state.files.map((f) => (f.projectId === id ? { ...f, projectId: null } : f)),
+  };
 }
 
 export interface NewFileInput {
