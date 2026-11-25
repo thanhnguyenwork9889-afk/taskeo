@@ -74,6 +74,42 @@ export const updateSpaceInputSchema = z
 export type CreateSpaceInput = z.infer<typeof createSpaceInputSchema>;
 export type UpdateSpaceInput = z.infer<typeof updateSpaceInputSchema>;
 
+/** Độ dài tối đa (ký tự, sau khi trim) của tên / mô tả dự án; UI dùng cho `maxLength`. */
+export const PROJECT_NAME_MAX = 200;
+export const PROJECT_DESCRIPTION_MAX = 500;
+
+/** true khi `YYYY-MM-DD` là ngày có thật (chặn 2026-02-31): đổi sang Date UTC rồi đổi ngược phải ra đúng chuỗi. */
+function isRealIsoDate(value: string): boolean {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+/** Hạn dự án ở input API: ngày `YYYY-MM-DD` có thật, hoặc `null` để xoá hạn. */
+export const projectDueDateSchema = isoDate.refine(isRealIsoDate, "Ngày không hợp lệ").nullable();
+
+const projectName = z
+  .string()
+  .trim()
+  .min(1, "Tên không được để trống")
+  .max(PROJECT_NAME_MAX, `Tên tối đa ${PROJECT_NAME_MAX} ký tự`);
+
+// Input tạo / sửa dự án (API). Strict chặn spaceId, userId, id, order, driveFolderId; không `.default()`.
+const projectInputFields = {
+  name: projectName,
+  description: z.string().trim().max(PROJECT_DESCRIPTION_MAX, `Mô tả tối đa ${PROJECT_DESCRIPTION_MAX} ký tự`).optional(),
+  status: projectStatusSchema.optional(),
+  dueDate: projectDueDateSchema.optional(),
+};
+
+export const createProjectInputSchema = z.strictObject(projectInputFields);
+
+export const updateProjectInputSchema = z
+  .strictObject({ ...projectInputFields, name: projectName.optional() })
+  .refine((input) => Object.keys(input).length > 0, "Cần gửi ít nhất một trường để cập nhật");
+
+export type CreateProjectInput = z.infer<typeof createProjectInputSchema>;
+export type UpdateProjectInput = z.infer<typeof updateProjectInputSchema>;
+
 export const projectSchema = z.object({
   id: z.string(),
   spaceId: z.string(),
