@@ -54,8 +54,7 @@ export function ProjectEditDialog({ project, onClose }: { project: Project; onCl
       setErrors(result.errors);
       return;
     }
-    const { name, description } = result.data;
-    updateWorkspace((s) => updateProject(s, project.id, description === undefined ? { name } : { name, description }));
+    updateWorkspace((s) => updateProject(s, project.id, result.data));
     notify("Đã lưu thay đổi dự án.");
     onClose();
   };

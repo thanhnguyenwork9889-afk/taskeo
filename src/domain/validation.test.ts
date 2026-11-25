@@ -3,6 +3,8 @@ import { DEFAULT_SPACE_ICON, SPACE_ICONS, SPACE_ICON_LABEL, SPACE_PALETTE, tintF
 import { createSeedState } from "./seed";
 import {
   PROJECT_DESCRIPTION_MAX,
+  PROJECT_DUE_YEAR_MAX,
+  PROJECT_DUE_YEAR_MIN,
   PROJECT_NAME_MAX,
   SPACE_DESCRIPTION_MAX,
   SPACE_NAME_MAX,
@@ -171,6 +173,21 @@ describe("projectDueDateSchema", () => {
       expect(projectDueDateSchema.safeParse(value).success).toBe(false);
     },
   );
+
+  it("exports the year bounds", () => {
+    expect(PROJECT_DUE_YEAR_MIN).toBe(1900);
+    expect(PROJECT_DUE_YEAR_MAX).toBe(2100);
+  });
+
+  it.each(["1900-01-01", "2100-12-31"])("accepts boundary date %s", (value) => {
+    expect(projectDueDateSchema.parse(value)).toBe(value);
+  });
+
+  it.each(["0000-01-01", "1899-12-31", "2101-01-01"])("rejects out-of-range year %s with a Vietnamese message", (value) => {
+    const result = projectDueDateSchema.safeParse(value);
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe("Ngày không hợp lệ");
+  });
 });
 
 describe("createProjectInputSchema", () => {

@@ -7,6 +7,7 @@ const db = vi.hoisted(() => ({
     findMany: vi.fn(),
     findFirst: vi.fn(),
     count: vi.fn(),
+    aggregate: vi.fn(),
     create: vi.fn(),
     updateMany: vi.fn(),
     deleteMany: vi.fn(),
@@ -18,6 +19,7 @@ vi.mock("@/server/db", () => ({ prisma: db }));
 import {
   createProject,
   deleteProject,
+  escapeLikePattern,
   getProject,
   listProjects,
   MAX_PROJECTS_PER_SPACE,
@@ -46,7 +48,7 @@ function uniqueViolation(): Error {
 
 /** Mọi lời gọi Prisma (trừ create, có userId trong data) phải lọc theo userId. */
 function expectAllWhereHaveUserId(): void {
-  const mocks = [space.findFirst, project.findMany, project.findFirst, project.count, project.updateMany, project.deleteMany];
+  const mocks = [space.findFirst, project.findMany, project.findFirst, project.count, project.aggregate, project.updateMany, project.deleteMany];
   for (const mock of mocks) {
     for (const [args] of mock.mock.calls) {
       expect(args.where.userId).toBe(USER);
@@ -56,6 +58,23 @@ function expectAllWhereHaveUserId(): void {
 
 beforeEach(() => {
   vi.resetAllMocks();
+});
+
+describe("escapeLikePattern", () => {
+  it.each([
+    ["Q1_plan", "Q1\\_plan"],
+    ["100%", "100\\%"],
+    ["a\\b", "a\\\\b"],
+    ["\\%_", "\\\\\\%\\_"],
+    ["Dự án thường", "Dự án thường"],
+    ["", ""],
+  ])("%j → %j", (input, expected) => {
+    expect(escapeLikePattern(input)).toBe(expected);
+  });
+
+  it("thoát \\ trước để không nhân đôi \\ vừa thêm cho % và _", () => {
+    expect(escapeLikePattern("\\_")).toBe("\\\\\\_");
+  });
 });
 
 describe("listProjects", () => {
@@ -111,9 +130,10 @@ describe("getProject", () => {
 });
 
 describe("createProject", () => {
-  function arrangeCreate(count = 3): void {
+  function arrangeCreate(count = 3, maxOrder: number | null = null): void {
     space.findFirst.mockResolvedValue({ id: SPACE });
     project.count.mockResolvedValue(count);
+    project.aggregate.mockResolvedValue({ _max: { order: maxOrder } });
     project.findFirst.mockResolvedValue(null);
     project.create.mockImplementation(async ({ data }) => ({
       id: "new",
@@ -125,19 +145,23 @@ describe("createProject", () => {
     }));
   }
 
-  it("tạo với userId, spaceId từ tham số, order = count, mô tả rỗng → null", async () => {
-    arrangeCreate(3);
+  it("tạo với userId, spaceId từ tham số, order = max(order) + 1, mô tả rỗng → null", async () => {
+    arrangeCreate(3, 7);
 
     const result = await createProject(USER, SPACE, { name: "Mới", description: "" });
 
     expect(project.count.mock.calls[0][0].where).toEqual({ userId: USER, spaceId: SPACE });
+    expect(project.aggregate.mock.calls[0][0]).toEqual({
+      where: { userId: USER, spaceId: SPACE },
+      _max: { order: true },
+    });
     expect(project.findFirst.mock.calls[0][0].where).toEqual({
       userId: USER,
       spaceId: SPACE,
       name: { equals: "Mới", mode: "insensitive" },
     });
     const { data } = project.create.mock.calls[0][0];
-    expect(data).toEqual({ userId: USER, spaceId: SPACE, name: "Mới", description: null, order: 3 });
+    expect(data).toEqual({ userId: USER, spaceId: SPACE, name: "Mới", description: null, order: 8 });
     expect(Object.values(data)).not.toContain(undefined);
     expect(result).toEqual({
       ok: true,
@@ -171,6 +195,23 @@ describe("createProject", () => {
       order: 0,
     });
     expect(result.ok && result.project.dueDate).toBe("2026-12-31");
+  });
+
+  it("order = 0 khi chưa có dự án (max null)", async () => {
+    arrangeCreate(0, null);
+
+    await createProject(USER, SPACE, { name: "A" });
+
+    expect(project.create.mock.calls[0][0].data.order).toBe(0);
+  });
+
+  it("tên có _ và % gửi equals đã thoát (ILIKE không coi là ký tự đại diện)", async () => {
+    arrangeCreate(1);
+
+    await createProject(USER, SPACE, { name: "Q1_plan%" });
+
+    expect(project.findFirst.mock.calls[0][0].where.name).toEqual({ equals: "Q1\\_plan\\%", mode: "insensitive" });
+    expect(project.create.mock.calls[0][0].data.name).toBe("Q1_plan%");
   });
 
   it("dueDate null lưu null", async () => {
@@ -292,6 +333,15 @@ describe("updateProject", () => {
 
     expect(await updateProject(USER, "p-other", { name: "X" })).toEqual({ ok: false, reason: "not_found" });
     expect(project.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("đổi tên có _ và % gửi equals đã thoát, data giữ tên gốc", async () => {
+    arrangeUpdate({ name: "Q1_plan%" });
+
+    await updateProject(USER, "p1", { name: "Q1_plan%" });
+
+    expect(project.findFirst.mock.calls[1][0].where.name).toEqual({ equals: "Q1\\_plan\\%", mode: "insensitive" });
+    expect(project.updateMany.mock.calls[0][0].data).toEqual({ name: "Q1_plan%" });
   });
 
   it("updateMany count 0 (bị xoá giữa chừng) → not_found", async () => {

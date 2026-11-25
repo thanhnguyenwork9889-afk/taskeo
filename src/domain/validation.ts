@@ -84,8 +84,19 @@ function isRealIsoDate(value: string): boolean {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
-/** Hạn dự án ở input API: ngày `YYYY-MM-DD` có thật, hoặc `null` để xoá hạn. */
-export const projectDueDateSchema = isoDate.refine(isRealIsoDate, "Ngày không hợp lệ").nullable();
+/** Khoảng năm nhận cho hạn dự án (Postgres không có năm 0; chặn ngày vô lý trước khi tới DB). */
+export const PROJECT_DUE_YEAR_MIN = 1900;
+export const PROJECT_DUE_YEAR_MAX = 2100;
+
+function isDueYearInRange(value: string): boolean {
+  const year = Number(value.slice(0, 4));
+  return year >= PROJECT_DUE_YEAR_MIN && year <= PROJECT_DUE_YEAR_MAX;
+}
+
+/** Hạn dự án ở input API: ngày `YYYY-MM-DD` có thật, năm 1900–2100, hoặc `null` để xoá hạn. */
+export const projectDueDateSchema = isoDate
+  .refine((value) => isRealIsoDate(value) && isDueYearInRange(value), "Ngày không hợp lệ")
+  .nullable();
 
 const projectName = z
   .string()

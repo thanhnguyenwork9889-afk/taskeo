@@ -218,7 +218,8 @@ export function updateProject(state: WorkspaceState, id: string, changes: Projec
   if (!current) return state;
   const name = changes.name?.trim() || current.name;
   if (name !== current.name && projectNameExists(state, current.spaceId, name, id)) return state;
-  const updated: Project = { ...current, ...changes, name };
+  const defined = Object.fromEntries(Object.entries(changes).filter(([, value]) => value !== undefined));
+  const updated: Project = { ...current, ...defined, name };
   return { ...state, projects: state.projects.map((p) => (p.id === id ? updated : p)) };
 }
 

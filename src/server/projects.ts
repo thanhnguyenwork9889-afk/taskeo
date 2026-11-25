@@ -59,13 +59,24 @@ async function spaceBelongsToUser(userId: string, spaceId: string): Promise<bool
   return space !== null;
 }
 
+/**
+ * Thoát ký tự đại diện của LIKE/ILIKE để so khớp nguyên văn. Thoát `\` trước, nếu không
+ * `\` vừa thêm cho `%`/`_` sẽ bị nhân đôi. `\` là ký tự escape mặc định của ILIKE trên Postgres.
+ */
+export function escapeLikePattern(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
 /** Có dự án khác cùng tên (không phân biệt hoa thường) trong không gian; DB unique thì phân biệt. */
 async function nameTaken(userId: string, spaceId: string, name: string, excludeId?: string): Promise<boolean> {
   const duplicate = await prisma.project.findFirst({
     where: {
       userId,
       spaceId,
-      name: { equals: name, mode: "insensitive" },
+      // Prisma dịch `equals` + `mode: "insensitive"` thành `"name" ILIKE $n` và KHÔNG thoát
+      // giá trị (đã kiểm bằng log SQL), nên `_`/`%` trong tên thành ký tự đại diện
+      // (`Q1_plan` khớp `Q1xplan`, `%` khớp mọi tên → 409 sai). Tự thoát trước khi truyền.
+      name: { equals: escapeLikePattern(name), mode: "insensitive" },
       ...(excludeId !== undefined && { NOT: { id: excludeId } }),
     },
     select: { id: true },
@@ -97,11 +108,14 @@ export async function createProject(
   input: CreateProjectInput,
 ): Promise<CreateProjectResult> {
   if (!(await spaceBelongsToUser(userId, spaceId))) return { ok: false, reason: "not_found" };
-  // count rồi create không atomic: hai POST đồng thời có thể trùng `order` hoặc vượt
-  // MAX_PROJECTS_PER_SPACE một chút. Chấp nhận vì `order` chỉ dùng để sắp xếp.
+  // count / aggregate rồi create không atomic: hai POST đồng thời có thể cùng `order` (max + 1)
+  // hoặc vượt MAX_PROJECTS_PER_SPACE một chút. Chấp nhận vì `order` chỉ dùng để sắp xếp
+  // (listProjects sắp tiếp theo createdAt). Dùng max + 1 thay cho count để không trùng sau khi xoá.
   const count = await prisma.project.count({ where: { userId, spaceId } });
   if (count >= MAX_PROJECTS_PER_SPACE) return { ok: false, reason: "limit" };
   if (await nameTaken(userId, spaceId, input.name)) return { ok: false, reason: "conflict" };
+  const { _max } = await prisma.project.aggregate({ where: { userId, spaceId }, _max: { order: true } });
+  const order = _max.order === null ? 0 : _max.order + 1;
 
   try {
     const record = await prisma.project.create({
@@ -112,7 +126,7 @@ export async function createProject(
         description: descriptionToDb(input.description),
         ...(input.status !== undefined && { status: input.status }),
         ...(input.dueDate !== undefined && { dueDate: dueDateToDb(input.dueDate) }),
-        order: count,
+        order,
       },
       select: projectSelect,
     });

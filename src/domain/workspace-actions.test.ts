@@ -279,6 +279,22 @@ describe("updateProject", () => {
     expect(state.projects.find((p) => p.id === "pj-web")?.dueDate).toBeNull();
   });
 
+  it("ignores keys whose value is undefined without mutating the changes", () => {
+    const before = createSeedState(NOW);
+    const original = before.projects.find((p) => p.id === "pj-web");
+    const changes = { description: undefined, status: "DONE" as const };
+    const after = updateProject(before, "pj-web", changes);
+    expect(after.projects.find((p) => p.id === "pj-web")).toEqual({ ...original, status: "DONE" });
+    expect(changes).toEqual({ description: undefined, status: "DONE" });
+    expect(before).toEqual(createSeedState(NOW));
+  });
+
+  it("still clears dueDate when given null", () => {
+    const state = updateProject(createSeedState(NOW), "pj-web", { dueDate: "2026-12-31" });
+    const after = updateProject(state, "pj-web", { dueDate: null });
+    expect(after.projects.find((p) => p.id === "pj-web")?.dueDate).toBeNull();
+  });
+
   it("returns the same state for an unknown id", () => {
     const state = createSeedState(NOW);
     expect(updateProject(state, "pj-unknown", { name: "X" })).toBe(state);
