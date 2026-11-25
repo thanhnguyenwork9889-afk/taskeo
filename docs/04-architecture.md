@@ -10,16 +10,20 @@ src/
 ├── server/            2. Chỉ chạy trên server ("server-only")
 │   ├── db.ts             Prisma client
 │   ├── crypto.ts         Mã hoá token Google (AES-256-GCM)
+│   ├── http.ts           Phản hồi API dạng { data, error }, đọc JSON, lỗi 400/401/503/500
+│   ├── spaces.ts         Truy vấn không gian, luôn lọc theo userId
 │   ├── auth/
 │   │   ├── auth.ts       Cấu hình Auth.js
-│   │   ├── session.ts    getViewer(): người dùng hiện tại
+│   │   ├── session.ts    getViewer(): người dùng hiện tại · getApiUserId(): userId cho API route
+│   │   ├── session-callback.ts  Dựng phiên trả cho client (chỉ id, name, email, image)
 │   │   └── actions.ts    Server action đăng nhập / đăng xuất
 │   └── google/
 │       ├── client.ts     OAuth client theo user
 │       └── scopes.ts     Scope theo giai đoạn
 ├── domain/            3. Logic nghiệp vụ thuần, có test, chạy được cả client lẫn server
 │   ├── types.ts labels.ts       Kiểu dữ liệu + nhãn tiếng Việt
-│   ├── validation.ts            Schema Zod dùng chung
+│   ├── validation.ts            Schema Zod dùng chung (storage + input API)
+│   ├── space-record.ts          Bản ghi DB → Space phía client
 │   ├── workspace-actions.ts     Thao tác dữ liệu dạng hàm thuần
 │   ├── task-filters.ts stats.ts dates.ts
 │   ├── seed.ts                  Dữ liệu mẫu cho chế độ demo
@@ -27,14 +31,15 @@ src/
 ├── store/             4. State phía client
 │   └── workspace-store.ts       Store chế độ demo (localStorage)
 ├── components/        5. UI dùng chung
-│   ├── ui/                      Badge, modal, checkbox... + styles.ts (class Tailwind dùng lại)
+│   ├── ui/                      Badge, modal, checkbox, SpaceIcon, SpaceStylePicker... + styles.ts
 │   └── layout/                  App shell: sidebar, topbar, mobile nav, hộp thoại tạo mới, UI context
 ├── features/          6. Màn hình theo nghiệp vụ
 │   ├── dashboard/  tasks/  spaces/  projects/  docs/  calendar/
 ├── app/               7. Chỉ routing (Next.js App Router), mỏng nhất có thể
 │   ├── (auth)/login/            Trang đăng nhập
 │   ├── (app)/                   Layout có sidebar + các trang
-│   └── api/auth/[...nextauth]/  Auth.js
+│   ├── api/auth/[...nextauth]/  Auth.js
+│   └── api/spaces/              CRUD không gian (route chỉ parse input, gọi server/spaces)
 └── proxy.ts           Chuyển về /login khi chưa có cookie phiên (chỉ khi bật auth)
 ```
 
@@ -58,5 +63,6 @@ Lớp trên được import lớp dưới, **không có chiều ngược lại**
 | Component dùng ở nhiều feature, không biết gì về nghiệp vụ | `src/components/ui/` |
 | Hàm tính toán, lọc, validate | `src/domain/` (kèm `*.test.ts`) |
 | Code đụng DB, token, API Google | `src/server/` (đầu file có `import "server-only"`) |
+| API route mới | `src/app/api/<resource>/route.ts`: `getApiUserId()` → validate bằng Zod → `import()` động hàm trong `src/server/<resource>.ts` (để chế độ demo không khởi tạo Prisma); GET gọi `await connection()` ở dòng đầu |
 | Biến môi trường mới | `src/config/env.ts` + cả ba file `.env*.example` + [01-environment.md](01-environment.md) |
 | Hiện tên app | `APP_NAME` từ `@/config/app`, không viết cứng "Taskeo" |

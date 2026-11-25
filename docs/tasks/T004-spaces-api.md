@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T004-spaces-api` |
 | Tạo từ | `develop` @ `98e1bf7` |
-| Trạng thái | 6-rereview |
+| Trạng thái | 7-final |
 | Ngày tạo | 2026-11-25 |
 
 Nguồn: sheet nhiệm vụ, dòng **T20** (backlog B2, phần `spaces`).
@@ -137,7 +137,11 @@ Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 193/19
 
 ## 6. Review lại
 
-Vòng 1:
+Vòng 1 (`git diff 766ccbc..467b9bb`, cả ba reviewer): R1, R2, R16, R3–R8 sửa đúng, có test. Không có CRITICAL / HIGH mới → sang bước 7. LOW mới, để sau:
+- `create-dialog.tsx`: ô tiêu đề dùng chung `SPACE_NAME_MAX` cho mọi loại (giá trị đúng: cả bốn loại cùng giới hạn 200).
+- `spaces.ts`: `descriptionToDb` là quy tắc nghiệp vụ nằm ở `server/` (chỉ server dùng).
+- `spaces.test.ts`: assertion dạng `result.ok && …` khó đọc khi fail; `session-callback.test.ts` thiếu ca `user` có mặt nhưng thiếu một vài field.
+- count + create không atomic có thể vượt nhẹ `MAX_SPACES` khi gửi đồng thời (đã chấp nhận ở R14; hẹp lại khi có rate limit T73).
 
 ## 7. Final
 
