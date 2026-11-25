@@ -49,7 +49,7 @@ export function CreateDialog({ request, onClose }: { request: CreateRequest; onC
     }
     const stamp = new Date();
     if (request.kind === "space") {
-      updateWorkspace((s) => createSpace(s, title));
+      updateWorkspace((s) => createSpace(s, { name: title }));
     } else if (request.kind === "project") {
       if (projectNameExists(workspace, spaceId, title)) {
         notify("Tên dự án đã tồn tại trong không gian này.");
