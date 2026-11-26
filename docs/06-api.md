@@ -16,6 +16,11 @@
 | `GET /api/projects/[id]` | `src/app/api/projects/[id]/route.ts` | Một dự án → 200 / 404 |
 | `PATCH /api/projects/[id]` | `src/app/api/projects/[id]/route.ts` | Sửa các trường gửi lên (≥ 1 trường) → 200 / 404 / 409 đổi tên trùng. Không đổi được `spaceId` |
 | `DELETE /api/projects/[id]` | `src/app/api/projects/[id]/route.ts` | Xoá dự án; công việc giữ lại trong không gian với `projectId = null` (`onDelete: SetNull`) → 204 / 404 |
+| `GET /api/tasks` | `src/app/api/tasks/route.ts` | Công việc của người dùng (tối đa 2000), lọc tuỳ chọn `?spaceId=&projectId=&status=` → 200; 400 query sai hoặc một tham số gửi lặp |
+| `POST /api/tasks` | `src/app/api/tasks/route.ts` | Tạo công việc. Body `{ title, description?, status?, priority?, dueDate?, spaceId?, projectId? }` → 201; 400 dự án / không gian không có hoặc của người khác, `spaceId` khác không gian của dự án; 409 khi đã có 2000 công việc |
+| `GET /api/tasks/[id]` | `src/app/api/tasks/[id]/route.ts` | Một công việc → 200 / 404 |
+| `PATCH /api/tasks/[id]` | `src/app/api/tasks/[id]/route.ts` | Sửa các trường gửi lên (≥ 1 trường: `title`, `description`, `status`, `priority`, `dueDate`, `projectId`) → 200 / 404 / 400 dự án lạ. Không nhận `spaceId` |
+| `DELETE /api/tasks/[id]` | `src/app/api/tasks/[id]/route.ts` | Xoá công việc → 204 / 404 |
 
 ### Quy ước chung (từ T004)
 
@@ -24,6 +29,14 @@
 - `color` phải thuộc `SPACE_PALETTE`, `icon` thuộc `SPACE_ICONS` (`src/domain/labels.ts`); bỏ trống thì server chọn mặc định. Mô tả rỗng lưu `null`.
 - Dự án (T005): `status` thuộc `ACTIVE | ON_HOLD | DONE | ARCHIVED`; `dueDate` là `YYYY-MM-DD` có thật, năm 1900–2100, hoặc `null`; lưu nửa đêm UTC, đọc lại theo UTC. Tên trùng so không phân biệt hoa thường (`ILIKE` đã thoát `\ % _`), kèm bắt lỗi unique `P2002` của DB.
 - Kiểm trùng tên rồi mới ghi, không atomic: hai request đồng thời khác hoa thường có thể cùng qua (unique của DB chỉ chặn trùng chính xác).
+- Công việc (T006):
+  - Trường: `title` 1–200 ký tự, `description` ≤ 5000 (rỗng lưu `null`), `status` thuộc `TODO | IN_PROGRESS | PAUSED | DONE`, `priority` thuộc `LOW | MEDIUM | HIGH | URGENT`, `dueDate` như dự án. Chuỗi và id có ký tự NUL bị từ chối (Postgres không lưu được). Schema strict không nhận `userId`, `id`, `order`, `completedAt`, `calendarEventId`, `addToCalendar`, `createdAt`, `updatedAt`; PATCH không nhận `spaceId`.
+  - Vị trí: có `projectId` → `spaceId` lấy theo dự án (`spaceId: null` coi như không gửi; gửi `spaceId` khác → 400). Chỉ có `spaceId` → không gian phải của người dùng. Không có cả hai → công việc không thuộc không gian. PATCH đổi `projectId` → `spaceId` đổi theo; `projectId: null` → rời dự án, giữ `spaceId`.
+  - `completedAt` do server đặt: chuyển sang `DONE` → thời điểm hiện tại, chuyển khỏi `DONE` → `null`, status không đổi → giữ nguyên.
+  - Phản hồi: kiểu `Task` của client; `addToCalendar` suy từ `calendarEventId`, `linkedFileIds` luôn `[]` (chưa nối `TaskFile`, T60).
+  - Query `GET /api/tasks`: chuỗi rỗng coi như không gửi, tham số lạ bị bỏ qua, một tham số gửi nhiều lần → 400. Lọc theo không gian / dự án không có hoặc của người khác → 200 `[]` (không phân biệt). Id quá dài / có NUL trong body hoặc query → 400; trên URL → 404.
+  - Không atomic, chấp nhận: kiểm dự án rồi ghi (dự án bị xoá giữa chừng → lỗi khoá ngoại `P2003` → 400), đếm rồi tạo (có thể vượt 2000 một chút, trùng `order`), đọc status rồi ghi `completedAt`.
+  - Chưa có: phân trang, lọc công việc không thuộc không gian, ghi `Activity` (T27).
 - Chưa có: rate limit, giới hạn kích thước body, kiểm tra `Content-Type` / `Origin` (T73).
 - Giao diện vẫn dùng store demo; nối vào API ở T59.
 
@@ -31,7 +44,7 @@
 
 ## Giai đoạn 2 (chưa làm)
 
-- API route `tasks` dùng Prisma + Zod (đã có `spaces`, `projects`, theo cùng mẫu) (`src/domain/validation.ts`); kiểm tra `task.spaceId` khớp `project.spaceId`.
+- Đã có API `spaces`, `projects`, `tasks` (T004–T006). Còn lại: phân trang, ghi `Activity`, gắn file Drive vào công việc.
 - Logic truy vấn đặt ở `src/server/`, route trong `src/app/api/` chỉ parse input, gọi hàm server và trả kết quả.
 - Thay `src/store/workspace-store.ts` bằng TanStack Query gọi API. Giao diện chỉ phụ thuộc `useWorkspace()` / `updateWorkspace()`, nên các file trong `features/` không phải sửa.
 - Khi trang render từ dữ liệu server, đổi `experimental.instantInsights.validationLevel` trong `next.config.ts` về `"warning"`.

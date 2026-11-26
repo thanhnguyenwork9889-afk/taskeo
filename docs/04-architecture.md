@@ -10,9 +10,10 @@ src/
 ├── server/            2. Chỉ chạy trên server ("server-only")
 │   ├── db.ts             Prisma client
 │   ├── crypto.ts         Mã hoá token Google (AES-256-GCM)
-│   ├── http.ts           Phản hồi API dạng { data, error }, đọc JSON, lỗi 400/401/503/500, isValidRouteId
+│   ├── http.ts           Phản hồi API dạng { data, error }, đọc JSON, lỗi 400/401/503/500, isValidRouteId (1–64 ký tự, không NUL)
 │   ├── spaces.ts         Truy vấn không gian, luôn lọc theo userId
 │   ├── projects.ts       Truy vấn dự án: lọc userId, kiểm không gian thuộc user, trùng tên không phân biệt hoa thường
+│   ├── tasks.ts          Truy vấn công việc: lọc userId, kiểm dự án / không gian trong body thuộc user, spaceId theo dự án, completedAt
 │   ├── auth/
 │   │   ├── auth.ts       Cấu hình Auth.js
 │   │   ├── session.ts    getViewer(): người dùng hiện tại · getApiUserId(): userId cho API route
@@ -26,6 +27,8 @@ src/
 │   ├── validation.ts            Schema Zod dùng chung (storage + input API)
 │   ├── space-record.ts          Bản ghi DB → Space phía client
 │   ├── project-record.ts        Bản ghi DB → Project phía client, dueDate ↔ YYYY-MM-DD theo UTC
+│   ├── task-record.ts           Bản ghi DB → Task phía client
+│   ├── task-completion.ts       completedAtFor: quy tắc completedAt dùng chung cho server và store demo
 │   ├── workspace-actions.ts     Thao tác dữ liệu dạng hàm thuần
 │   ├── task-filters.ts stats.ts dates.ts
 │   ├── seed.ts                  Dữ liệu mẫu cho chế độ demo
@@ -43,7 +46,9 @@ src/
 │   ├── api/auth/[...nextauth]/  Auth.js
 │   ├── api/spaces/              CRUD không gian (route chỉ parse input, gọi server/spaces)
 │   ├── api/spaces/[id]/projects/ Danh sách + tạo dự án trong không gian (gọi server/projects)
-│   └── api/projects/[id]/       Xem / sửa / xoá một dự án
+│   ├── api/projects/[id]/       Xem / sửa / xoá một dự án
+│   ├── api/tasks/               Danh sách (lọc qua query) + tạo công việc (gọi server/tasks)
+│   └── api/tasks/[id]/          Xem / sửa / xoá một công việc
 └── proxy.ts           Chuyển về /login khi chưa có cookie phiên (chỉ khi bật auth)
 ```
 
