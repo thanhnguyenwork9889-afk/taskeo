@@ -1,4 +1,5 @@
 import "server-only";
+import { connection } from "next/server";
 import { getAuthMode, missingAuthEnvVars } from "@/config/env";
 
 export interface Viewer {
@@ -28,6 +29,11 @@ export async function getViewer(): Promise<Viewer | null> {
     console.error("Cấu hình đăng nhập thiếu biến môi trường", { missing: missingAuthEnvVars() });
     return null;
   }
+  // auth() tạo CSRF token bằng crypto.getRandomValues() khi request chưa có cookie CSRF.
+  // Với cacheComponents + partialPrefetching, headers() vẫn có giá trị lúc prerender nên phải
+  // chặn bằng connection() (chỉ xong khi có request thật), nếu không Next báo
+  // blocking-prerender-crypto ở mọi trang dùng layout (app).
+  await connection();
   // Import động để chế độ demo không khởi tạo Prisma / Auth.js.
   const { auth } = await import("@/server/auth/auth");
   const session = await auth();

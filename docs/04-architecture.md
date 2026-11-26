@@ -16,7 +16,7 @@ src/
 │   ├── tasks.ts          Truy vấn công việc: lọc userId, kiểm dự án / không gian trong body thuộc user, spaceId theo dự án, completedAt
 │   ├── auth/
 │   │   ├── auth.ts       Cấu hình Auth.js
-│   │   ├── session.ts    getViewer(): người dùng hiện tại · getApiUserId(): userId cho API route
+│   │   ├── session.ts    getViewer(): người dùng hiện tại (configured: chờ connection() trước auth(), không chạy lúc prerender) · getApiUserId(): userId cho API route
 │   │   ├── session-callback.ts  Dựng phiên trả cho client (chỉ id, name, email, image)
 │   │   └── actions.ts    Server action đăng nhập / đăng xuất
 │   └── google/
