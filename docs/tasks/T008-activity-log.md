@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T008-activity-log` |
 | Tạo từ | `develop` @ `826686a` |
-| Trạng thái | 6-rereview |
+| Trạng thái | 7-final |
 | Ngày tạo | 2026-11-26 |
 
 Nguồn: sheet nhiệm vụ, dòng **T27** (backlog B4, phần ghi). Hiển thị thật ở card Hoạt động là T41, chờ nối giao diện vào API (T59).
@@ -140,7 +140,8 @@ Kết quả 4 lệnh sau khi sửa (trước bước 5: `83c705d`): typecheck �
 
 ## 6. Review lại
 
-Vòng 1:
+Vòng 1 (`git diff 83c705d..HEAD -- src`, cùng 3 reviewer): sạch, không CRITICAL / HIGH / MEDIUM. `layer-reviewer` không có phát hiện. `typescript-reviewer` + `security-reviewer` cùng báo một LOW:
+- R11 · LOW · `src/domain/activity-record.ts` `messageFromMeta`: kiểm `trim() === ""` trước khi cắt, nên chuỗi bắt đầu bằng > 200 khoảng trắng rồi mới có chữ bị cắt thành toàn khoảng trắng thay vì câu mặc định. Hiện server chỉ ghi hằng nên không xảy ra → để sau (cắt rồi mới kiểm rỗng khi có luồng ghi câu từ input).
 
 ## 7. Final
 
