@@ -80,7 +80,15 @@ Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-26) 
 
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
-| P1 | | | | | | |
+| P1 | `ed198b1` | 7 test (`google-tokens.test.ts`) | ✅ | ✅ | ✅ 754/754 | ✅ |
+| P2 | `105ed47` | 14 test (`granted-scopes.test.ts`) | ✅ | ✅ | ✅ 754/754 | ✅ |
+| P3 | `1a48ced` | 21 test (`redirect-path.test.ts`) + 8 test (`actions.test.ts`) | ✅ | ✅ | ✅ 788/788 | ✅ |
+| P4 | `744486f` | 5 test mới + 3 test sửa (`session.test.ts`) | ✅ | ✅ | ✅ 788/788 | ✅ |
+| P5 | `e11278c` | 3 test (`drive-status.test.ts`); UI kiểm trong trình duyệt ở `localhost:3000` khi đã đăng nhập: nút hiện ở đáy sidebar, console sạch | ✅ | ✅ | ✅ 791/791 | ✅ |
+| P6 | (commit docs này) | — (docs 02: mục "Xin thêm `drive.file`"; docs 04: cây thư mục) | — | — | — | — |
+| P7 | chờ người dùng | — | | | | |
+
+P3, P4, P5 do Claude tự viết trong phiên (người dùng đồng ý 2026-11-26) vì công cụ giao agent lỗi kiểm tra chế độ auto ba lần; 4 lệnh cũng tự chạy thay `verifier`.
 
 ## 4. Review code
 

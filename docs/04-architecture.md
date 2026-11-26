@@ -17,13 +17,15 @@ src/
 │   ├── activities.ts     Đọc nhật ký hoạt động của user, mới nhất trước
 │   ├── auth/
 │   │   ├── auth.ts       Cấu hình Auth.js
-│   │   ├── google-tokens.ts  Tham số đăng nhập Google (offline, consent) · mã hoá token trước linkAccount · dữ liệu cập nhật token khi đăng nhập lại (hàm thuần, có test)
-│   │   ├── session.ts    getViewer(): người dùng hiện tại (configured: chờ connection() trước auth(), không chạy lúc prerender) · getApiUserId(): userId cho API route
+│   │   ├── google-tokens.ts  Tham số đăng nhập Google (offline, consent) + tham số xin thêm scope · mã hoá token trước linkAccount · dữ liệu cập nhật token khi đăng nhập lại (hàm thuần, có test)
+│   │   ├── session.ts    getViewer(): người dùng hiện tại + driveConnected (configured: chờ connection() trước auth(), không chạy lúc prerender) · getApiUserId(): userId cho API route
+│   │   ├── redirect-path.ts  toSafeRedirectPath: chỉ nhận đường dẫn nội bộ làm đích chuyển hướng
 │   │   ├── session-callback.ts  Dựng phiên trả cho client (chỉ id, name, email, image)
-│   │   └── actions.ts    Server action đăng nhập / đăng xuất
+│   │   └── actions.ts    Server action đăng nhập / đăng xuất / connectGoogleDrive (xin thêm drive.file)
 │   └── google/
 │       ├── client.ts     OAuth client theo user
-│       └── scopes.ts     Scope theo giai đoạn
+│       ├── granted-scopes.ts  Scope user đã cấp (Account.scope): hasGoogleScope, requireGoogleScope, GoogleScopeMissingError
+│       └── scopes.ts     Scope theo giai đoạn (hằng số + hasScope thuần)
 ├── domain/            3. Logic nghiệp vụ thuần, có test, chạy được cả client lẫn server
 │   ├── types.ts labels.ts       Kiểu dữ liệu + nhãn tiếng Việt
 │   ├── validation.ts            Schema Zod dùng chung (storage + input API)
@@ -40,7 +42,7 @@ src/
 │   └── workspace-store.ts       Store chế độ demo (localStorage)
 ├── components/        5. UI dùng chung
 │   ├── ui/                      Badge, modal, checkbox, SpaceIcon, SpaceStylePicker... + styles.ts
-│   └── layout/                  App shell: sidebar, topbar, mobile nav, hộp thoại tạo mới, UI context
+│   └── layout/                  App shell: sidebar (kèm nút Kết nối Google Drive), topbar, mobile nav, hộp thoại tạo mới, UI context, drive-status.ts
 ├── features/          6. Màn hình theo nghiệp vụ
 │   ├── dashboard/  tasks/  spaces/  projects/  docs/  calendar/
 ├── app/               7. Chỉ routing (Next.js App Router), mỏng nhất có thể
