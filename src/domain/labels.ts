@@ -1,9 +1,25 @@
-import type { DocKind, Priority, ProjectStatus, SpaceIcon, TaskStatus } from "@/domain/types";
+import type { ActivityType, DocKind, Priority, ProjectStatus, SpaceIcon, TaskStatus } from "@/domain/types";
 
 export const TASK_STATUSES: readonly TaskStatus[] = ["TODO", "IN_PROGRESS", "PAUSED", "DONE"];
 export const PRIORITIES: readonly Priority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
 export const PROJECT_STATUSES: readonly ProjectStatus[] = ["ACTIVE", "ON_HOLD", "DONE", "ARCHIVED"];
 export const DOC_KINDS: readonly DocKind[] = ["doc", "sheet", "slide"];
+export const ACTIVITY_TYPES = [
+  "task_created",
+  "task_done",
+  "task_updated",
+  "project_created",
+  "doc_created",
+] as const satisfies readonly ActivityType[];
+
+/** Câu thông báo mặc định theo loại hoạt động (demo và server dùng chung). */
+export const ACTIVITY_MESSAGE: Record<ActivityType, string> = {
+  task_created: "Tạo công việc",
+  task_done: "Hoàn thành công việc",
+  task_updated: "Cập nhật công việc",
+  project_created: "Tạo dự án",
+  doc_created: "Tạo tài liệu",
+};
 
 export const STATUS_LABEL: Record<TaskStatus, string> = {
   TODO: "Chưa bắt đầu",

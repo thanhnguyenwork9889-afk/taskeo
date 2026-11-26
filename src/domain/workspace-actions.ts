@@ -1,4 +1,4 @@
-import { DEFAULT_SPACE_ICON, SPACE_PALETTE, STATUS_LABEL, tintForColor } from "@/domain/labels";
+import { ACTIVITY_MESSAGE, DEFAULT_SPACE_ICON, SPACE_PALETTE, STATUS_LABEL, tintForColor } from "@/domain/labels";
 import { completedAtFor } from "@/domain/task-completion";
 import type {
   Activity,
@@ -51,8 +51,8 @@ export function createTask(state: WorkspaceState, input: NewTaskInput, now: Date
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
   };
-  const log = [activity("task_created", task.id, "Tạo công việc", now)];
-  if (status === "DONE") log.push(activity("task_done", task.id, "Hoàn thành công việc", now));
+  const log = [activity("task_created", task.id, ACTIVITY_MESSAGE.task_created, now)];
+  if (status === "DONE") log.push(activity("task_done", task.id, ACTIVITY_MESSAGE.task_done, now));
   return {
     ...state,
     tasks: [...state.tasks, task],
@@ -80,7 +80,7 @@ export function updateTask(state: WorkspaceState, id: string, changes: TaskChang
   const updated: Task = { ...current, ...changes, spaceId, linkedFileIds, completedAt, updatedAt: now.toISOString() };
 
   const log = [activity("task_updated", id, message, now)];
-  if (statusChanged && changes.status === "DONE") log.push(activity("task_done", id, "Hoàn thành công việc", now));
+  if (statusChanged && changes.status === "DONE") log.push(activity("task_done", id, ACTIVITY_MESSAGE.task_done, now));
 
   return {
     ...state,
@@ -204,7 +204,7 @@ export function createProject(state: WorkspaceState, spaceId: string, name: stri
   return {
     ...state,
     projects: [...state.projects, project],
-    activities: [...state.activities, activity("project_created", project.id, "Tạo dự án", now)],
+    activities: [...state.activities, activity("project_created", project.id, ACTIVITY_MESSAGE.project_created, now)],
   };
 }
 
@@ -281,7 +281,7 @@ export function createFile(state: WorkspaceState, input: NewFileInput, now: Date
   return {
     ...state,
     files: [...state.files, file],
-    activities: [...state.activities, activity("doc_created", file.id, "Tạo tài liệu", now)],
+    activities: [...state.activities, activity("doc_created", file.id, ACTIVITY_MESSAGE.doc_created, now)],
   };
 }
 
