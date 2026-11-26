@@ -90,7 +90,7 @@ Bước 5 chỉ đổi hai assertion / mock trong test (R1, R2), không đổi c
 
 **Tài liệu đã cập nhật:** `docs/04-architecture.md` (mô tả `getViewer`), `docs/tasks/README.md`, ghi chú trong file này và comment ở `session.ts`.
 
-**Merge vào develop:** commit `<hash>`, ngày 2026-11-26
+**Merge vào develop:** commit `2a10f08`, ngày 2026-11-26
 
 **Việc để sau:**
 - R3: `connection()` trong `getApiUserId` nếu nó được gọi ngoài route handler.

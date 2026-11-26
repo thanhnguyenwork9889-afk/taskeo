@@ -183,4 +183,4 @@ Vòng 1 (`git diff bf1e0c1..3d7c0af`, cả ba reviewer): R1, R3–R7 sửa đún
 - R11: phân trang hoặc danh sách không kèm mô tả đầy đủ; lọc công việc không thuộc không gian (`spaceId = null`).
 - R12: giới hạn body, kiểm `Content-Type` / `Origin`, rate limit (T73). R13: không log `message` của lỗi Prisma trong `handleUnexpected`.
 - Xác nhận hình dạng lỗi `P2003` thật (test tích hợp DB, T61).
-- Ngoài T006, thấy trong log `next dev`: route `/` báo "unstable value `crypto.getRandomValues()` while prerendering" (code có từ trước, T006 không đụng `app/(app)`, `components`, `features`).
+- ~~Ngoài T006, thấy trong log `next dev`: route `/` báo "unstable value `crypto.getRandomValues()` while prerendering" (code có từ trước, T006 không đụng `app/(app)`, `components`, `features`).~~ → đã sửa ở [T007](T007-prerender-crypto.md) (`2a10f08`).
