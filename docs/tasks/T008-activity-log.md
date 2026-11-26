@@ -159,7 +159,7 @@ Vòng 1 (`git diff 83c705d..HEAD -- src`, cùng 3 reviewer): sạch, không CRIT
 
 **Tài liệu đã cập nhật:** `docs/03-database.md` (cách dùng `Activity`), `docs/04-architecture.md` (`server/activities`, `domain/activity-record`, `api/activities`, `duplicateQueryKeyMessage`), `docs/06-api.md` (route mới, quy ước ghi activity, race đã chấp nhận), `docs/tasks/README.md`.
 
-**Merge vào develop:** commit `<hash>`, ngày 2026-11-26
+**Merge vào develop:** commit `4c62d86`, ngày 2026-11-26
 
 **Việc để sau:**
 - Nối card Hoạt động vào `GET /api/activities` (T41 / T59).
