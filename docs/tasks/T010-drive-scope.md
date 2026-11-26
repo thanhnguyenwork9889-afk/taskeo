@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T010-drive-scope` |
 | Tạo từ | `develop` @ `94d53e9` |
-| Trạng thái | 4-review |
+| Trạng thái | 5-fix |
 | Ngày tạo | 2026-11-26 |
 
 Nguồn: sheet nhiệm vụ, dòng **T30** "Thêm scope drive.file (xin quyền theo từng bước)" (giai đoạn 4 · Google Drive, backlog B5 phần đầu). Mở ra khi bắt đầu T33: T33 phụ thuộc T31, T31 phụ thuộc T30; người dùng chọn làm T30 → T31 trước, mỗi mục sheet một nhiệm vụ riêng.
@@ -103,11 +103,21 @@ P3, P4, P5 do Claude tự viết trong phiên (người dùng đồng ý 2026-11
 
 ## 4. Review code
 
-Reviewer đã chạy:
+Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewer` trên `git diff develop...HEAD` @ `5b2151c`. Không có CRITICAL / HIGH. Đã xác nhận: `toSafeRedirectPath` chặn open redirect (Auth.js còn callback `redirect` cùng origin làm lớp hai); chỉ boolean `driveConnected` ra client; chế độ demo không nạp Prisma; file `"use server"` chỉ export hàm async; token vẫn mã hoá.
 
 | # | Mức | File:dòng | Vấn đề | Reviewer |
 |---|---|---|---|---|
-| R1 | | | | |
+| R1 | MEDIUM | `src/server/google/granted-scopes.ts` `readGrantedScopeString`; cùng mẫu ở `src/server/google/client.ts` `getGoogleAuth` | `findFirst({ userId, provider: "google" })` không `orderBy`: nếu một user có hai Account google (chọn nhầm tài khoản khi kết nối), scope và token đọc ra không xác định, có thể từ hai dòng khác nhau | security, layer, typescript |
+| R2 | MEDIUM | `src/server/auth/actions.ts` `connectGoogleDrive` | Gọi `auth()` hai lần (trong `getApiUserId` và để lấy email cho `login_hint`) | layer, typescript |
+| R3 | LOW | `src/server/google/scopes.ts` `hasScope` so với `granted-scopes.ts` | Tách chuỗi scope không nhất quán: `split(" ")` và `split(/\s+/)` | typescript |
+| R4 | LOW | `src/components/layout/drive-status.ts` | Logic hiển thị nhỏ nằm ở `components/layout` | layer |
+| R5 | LOW | `src/components/layout/sidebar.tsx` | Nhãn tiếng Việt viết cứng trong component | layer |
+| R6 | LOW | `src/server/auth/session.ts` `isDriveConnected` | Thêm một truy vấn mỗi lần render layout; lỗi DB làm hỏng layout vì một nút phụ | typescript |
+| R7 | LOW | `src/server/auth/redirect-path.ts` | Chưa có test cho dạng mã hoá `/%5Cevil`, `/%2F%2Fevil` (đã phân tích: không bypass được) | security |
+| R8 | LOW | `src/server/auth/actions.ts` | Server action không giới hạn tần suất (đã bắt buộc phiên, Next kiểm Origin) | security |
+| R9 | LOW | `src/server/google/granted-scopes.ts` `getGrantedGoogleScopes` | Trả mảng scope thô, hiện chưa dùng; không được đưa ra client | security |
+| R10 | LOW | `src/components/layout/sidebar.tsx` `ConnectDriveForm` | Đường dẫn > 2048 ký tự âm thầm thành `/` | typescript |
+| R11 | LOW | `src/server/auth/redirect-path.ts` | `import "server-only"` cho hàm thuần (Vitest đã alias) | typescript |
 
 ## 5. Fix bug
 
