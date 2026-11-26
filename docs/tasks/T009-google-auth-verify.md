@@ -131,7 +131,7 @@ Vòng 1 (`git diff f53c5bd..e19f4ff`): `layer-reviewer`, `typescript-reviewer`, 
 
 **Tài liệu đã cập nhật:** `docs/02-google-cloud.md` (mục "Đăng nhập giai đoạn 1" + lệnh kiểm tra token mã hoá), `docs/04-architecture.md` (`auth/google-tokens.ts`), `docs/tasks/README.md`.
 
-**Merge vào develop:** commit `<hash>`, 2026-11-26
+**Merge vào develop:** commit `1b9fea9`, 2026-11-26
 
 **Việc để sau:**
 - R6: thay `adapter.linkAccount!` bằng kiểm tra rõ ràng.
