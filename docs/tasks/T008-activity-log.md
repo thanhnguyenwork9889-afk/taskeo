@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T008-activity-log` |
 | Tạo từ | `develop` @ `826686a` |
-| Trạng thái | 3-build |
+| Trạng thái | 4-review |
 | Ngày tạo | 2026-11-26 |
 
 Nguồn: sheet nhiệm vụ, dòng **T27** (backlog B4, phần ghi). Hiển thị thật ở card Hoạt động là T41, chờ nối giao diện vào API (T59).
@@ -95,7 +95,14 @@ Duyệt kế hoạch: ☑ người dùng đã duyệt (2026-11-26)
 
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
-| P1 | | | | | | |
+| P1 | `ab27a20` | `validation.test.ts`: activity types, `listActivitiesQuerySchema` | ✅ | ✅ | ✅ 605 | ✅ |
+| P2 | `4f67809` | mới `activity-record.test.ts` (32) | ✅ | ✅ | ✅ domain 316 | — |
+| P3 | `1ee8371` | `projects.test.ts`: mock `tx`, activity `project_created`, rollback / P2002 | ✅ | ✅ | ✅ 638 | — |
+| P5 | `876a4b8` | mới `activities.test.ts` (5) | ✅ | ✅ | ✅ | — |
+| P6 | `cd58509` | mới `api/activities/route.test.ts` (16) | ✅ | ✅ | ✅ | — |
+| P4 | `bf362b8` | `tasks.test.ts`: mock `tx`, 15 test activity (tạo, tạo DONE, →DONE, không ghi, P2003, count 0, reject) | ✅ | ✅ | ✅ 674 | ✅ |
+
+P2 ∥ P3 và P4 ∥ P5 ∥ P6 chạy song song (khác file). Sau P4 chạy đủ 4 lệnh trên toàn repo: 26 file, 674 test, build xanh.
 
 ## 4. Review code
 
