@@ -74,7 +74,7 @@ Rủi ro / phụ thuộc:
 - `getViewer` thêm một truy vấn nhẹ mỗi lần render layout — chấp nhận.
 - Test server action: mock `redirect` ném lỗi, dùng `rejects`.
 
-Duyệt kế hoạch: ☑ chờ · ☐ người dùng đã duyệt (ngày) · ☐ bỏ qua (`--yes`)
+Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-26) · ☐ bỏ qua (`--yes`)
 
 ## 3. Thực hiện + kiểm thử
 
