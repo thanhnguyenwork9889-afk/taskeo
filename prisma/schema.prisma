@@ -51,7 +51,8 @@ model Account {
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([provider, providerAccountId])
-  @@index([userId])
+  // Một user chỉ một tài khoản mỗi provider (T011). Index có userId đứng đầu nên thay được @@index([userId]).
+  @@unique([userId, provider])
 }
 
 model Session {
