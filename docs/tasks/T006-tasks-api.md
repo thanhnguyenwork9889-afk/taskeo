@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T006-tasks-api` |
 | Tạo từ | `develop` @ `9366d1d` |
-| Trạng thái | 5-fix |
+| Trạng thái | 6-rereview |
 | Ngày tạo | 2026-11-25 |
 
 Nguồn: sheet nhiệm vụ, dòng **T22** (backlog B2, phần `tasks`). Theo cùng mẫu với T004 (không gian) và T005 (dự án).
@@ -127,11 +127,29 @@ Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewe
 
 ## 5. Fix bug
 
+Commit trước bước 5: `bf1e0c1`.
+
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
-| R1 | đã sửa / bỏ qua: lý do | |
+| R1 | đã sửa: test 401 / 503 của cả hai route nạp lại route qua `freshRoute()` = `vi.resetModules()` + `vi.doMock("@/server/tasks", factory)` + `import("./route")`. Chỉ `resetModules` là không đủ (vitest 3.2 giữ cache `mock:*`). Kiểm đột biến: thêm `import "@/server/tasks"` vào hai route → 10 test đỏ; gỡ → xanh | `3d7c0af` |
+| R3 | đã sửa: `title`, `description` của công việc từ chối ` ` ("Không được chứa ký tự NUL") | `3d7c0af` |
+| R4 | đã sửa: chỉ ghi `status` + `completedAt` khi status gửi lên khác status hiện tại; `{ status: <như cũ> }` → `updateMany` với `data: {}`, count 0 vẫn `not_found` | `3d7c0af` |
+| R5 | đã sửa: nhánh `default` kiểu `never` trong `switch` của POST | `3d7c0af` |
+| R6 | đã sửa: thứ tự import | `3d7c0af` |
+| R7 | đã thêm test; `parse({})` → `{}`, nhưng `parse({ spaceId: "" })` → `{ spaceId: undefined }` (Zod 4 giữ khoá sau `preprocess`). Chấp nhận: `listTasks` chỉ kiểm `!== undefined`, test ghi theo hành vi thật | `3d7c0af` |
+| R2 | làm ở bước 7 | — |
+| R8 | chấp nhận: user bị xoá giữa lúc tạo công việc gần như không xảy ra (user xoá → cascade) | — |
+| R9 | kiểm hình dạng lỗi P2003 thật trên DB `dev` ở bước 7 | — |
+| R10 | chấp nhận (mục 2), ghi docs 06 | — |
+| R11 | để sau: phân trang / danh sách không kèm mô tả đầy đủ khi nối UI (T59) | — |
+| R12 | để sau: T73 | — |
+| R13 | để sau: lọc `message` lỗi Prisma trong `handleUnexpected` (có từ T004, ngoài phạm vi) | — |
+| R14 | bỏ qua: nhất quán với không gian / dự án | — |
+| R15 | bỏ qua: chỉ trả về người gửi | — |
 
-Kết quả 4 lệnh sau khi sửa:
+Ngoài phạm vi, phát hiện khi sửa R1: `src/app/api/spaces/[id]/projects/route.test.ts` (T005) có cùng lỗi, test 503 luôn xanh → việc để sau.
+
+Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 564/564 · build ✅.
 
 ## 6. Review lại
 
