@@ -95,6 +95,7 @@ describe("getViewer", () => {
     mocks.getAuthMode.mockReturnValue("misconfigured");
 
     await expect(getViewer()).resolves.toBeNull();
+    expect(mocks.connection).not.toHaveBeenCalled();
     expect(mocks.auth).not.toHaveBeenCalled();
   });
 
@@ -103,10 +104,10 @@ describe("getViewer", () => {
   it("awaits connection() before calling auth in configured mode", async () => {
     mocks.getAuthMode.mockReturnValue("configured");
     const order: string[] = [];
-    mocks.connection.mockImplementation(async () => {
+    mocks.connection.mockImplementationOnce(async () => {
       order.push("connection");
     });
-    mocks.auth.mockImplementation(async () => {
+    mocks.auth.mockImplementationOnce(async () => {
       order.push("auth");
       return { user: { id: "u1", name: "An", email: "an@example.com", image: null }, expires: "2099-01-01" };
     });
