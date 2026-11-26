@@ -1,4 +1,5 @@
 import "server-only";
+import { ACTIVITY_MESSAGE } from "@/domain/labels";
 import { dueDateToDb, projectFromRecord } from "@/domain/project-record";
 import type { Project, ProjectStatus } from "@/domain/types";
 import type { CreateProjectInput, UpdateProjectInput } from "@/domain/validation";
@@ -101,11 +102,15 @@ export async function getProject(userId: string, id: string): Promise<Project | 
   return record ? projectFromRecord(record) : null;
 }
 
-/** Tạo dự án trong không gian của người dùng; không gian lạ / đủ giới hạn / trùng tên → `ok: false`. */
+/**
+ * Tạo dự án trong không gian của người dùng; không gian lạ / đủ giới hạn / trùng tên → `ok: false`.
+ * Dự án và activity `project_created` (createdAt = `now`) ghi trong cùng một transaction.
+ */
 export async function createProject(
   userId: string,
   spaceId: string,
   input: CreateProjectInput,
+  now: Date = new Date(),
 ): Promise<CreateProjectResult> {
   if (!(await spaceBelongsToUser(userId, spaceId))) return { ok: false, reason: "not_found" };
   // count / aggregate rồi create không atomic: hai POST đồng thời có thể cùng `order` (max + 1)
@@ -118,17 +123,33 @@ export async function createProject(
   const order = _max.order === null ? 0 : _max.order + 1;
 
   try {
-    const record = await prisma.project.create({
-      data: {
-        userId,
-        spaceId,
-        name: input.name,
-        description: descriptionToDb(input.description),
-        ...(input.status !== undefined && { status: input.status }),
-        ...(input.dueDate !== undefined && { dueDate: dueDateToDb(input.dueDate) }),
-        order,
-      },
-      select: projectSelect,
+    // Interactive transaction: activity cần id dự án vừa tạo làm `entityId`. Trong callback chỉ
+    // gọi `tx.*`; lỗi ném ra khiến Prisma rollback rồi ném lại lỗi gốc (còn `code`) ra ngoài.
+    const record = await prisma.$transaction(async (tx) => {
+      const created = await tx.project.create({
+        data: {
+          userId,
+          spaceId,
+          name: input.name,
+          description: descriptionToDb(input.description),
+          ...(input.status !== undefined && { status: input.status }),
+          ...(input.dueDate !== undefined && { dueDate: dueDateToDb(input.dueDate) }),
+          order,
+        },
+        select: projectSelect,
+      });
+      await tx.activity.createMany({
+        data: [
+          {
+            userId,
+            type: "project_created",
+            entityId: created.id,
+            meta: { message: ACTIVITY_MESSAGE.project_created },
+            createdAt: now,
+          },
+        ],
+      });
+      return created;
     });
     return { ok: true, project: projectFromRecord(record) };
   } catch (error) {
