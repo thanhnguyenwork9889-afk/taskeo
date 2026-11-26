@@ -1,4 +1,5 @@
 import { DEFAULT_SPACE_ICON, SPACE_PALETTE, STATUS_LABEL, tintForColor } from "@/domain/labels";
+import { completedAtFor } from "@/domain/task-completion";
 import type {
   Activity,
   ActivityType,
@@ -11,7 +12,6 @@ import type {
   WorkspaceFile,
   WorkspaceState,
 } from "@/domain/types";
-import { completedAtFor } from "@/domain/task-completion";
 
 // Các hàm thuần (không side effect): nhận state cũ, trả state mới, không sửa state cũ.
 // `now` được truyền vào để dễ test.

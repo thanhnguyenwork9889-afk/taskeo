@@ -11,7 +11,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("next/server", () => ({ connection: mocks.connection }));
 vi.mock("@/server/auth/session", () => ({ getApiUserId: mocks.getApiUserId }));
-vi.mock("@/server/tasks", () => {
+// Factory đặt tên để `freshRoute` đăng ký lại bằng `vi.doMock` (xoá kết quả mock đã cache).
+const serverTasksModule = vi.hoisted(() => () => {
   mocks.serverModuleLoaded();
   return {
     listTasks: mocks.listTasks,
@@ -19,6 +20,8 @@ vi.mock("@/server/tasks", () => {
     MAX_TASKS_PER_USER: 2000,
   };
 });
+
+vi.mock("@/server/tasks", serverTasksModule);
 
 import { GET, POST } from "./route";
 
@@ -56,6 +59,17 @@ function postJson(value: unknown): Request {
   return postRequest(JSON.stringify(value));
 }
 
+/**
+ * Nạp lại route với module cache sạch: factory `vi.mock("@/server/tasks")` chạy lại nếu route
+ * (tĩnh hoặc động) import `@/server/tasks`, nên `serverModuleLoaded` phản ánh đúng lần gọi này.
+ */
+async function freshRoute(): Promise<typeof import("./route")> {
+  // resetModules không xoá kết quả mock đã cache ("mock:*"); doMock đăng ký lại và xoá cache đó.
+  vi.resetModules();
+  vi.doMock("@/server/tasks", serverTasksModule);
+  return import("./route");
+}
+
 function expectNoServerCall(): void {
   expect(mocks.listTasks).not.toHaveBeenCalled();
   expect(mocks.createTask).not.toHaveBeenCalled();
@@ -74,17 +88,20 @@ describe("GET /api/tasks — phiên", () => {
     expect(mocks.connection).toHaveBeenCalledTimes(1);
   });
 
-  it("trả 401 khi chưa đăng nhập và không gọi hàm server", async () => {
+  it("trả 401 khi chưa đăng nhập, không import và không gọi hàm server", async () => {
     mocks.getApiUserId.mockResolvedValue({ ok: false, status: 401 });
-    const response = await GET(getRequest());
+    const { GET: freshGet } = await freshRoute();
+    const response = await freshGet(getRequest());
     expect(response.status).toBe(401);
     expect((await response.json()).data).toBeNull();
+    expect(mocks.serverModuleLoaded).not.toHaveBeenCalled();
     expectNoServerCall();
   });
 
   it("trả 503 ở chế độ demo và không import @/server/tasks", async () => {
     mocks.getApiUserId.mockResolvedValue({ ok: false, status: 503 });
-    const response = await GET(getRequest());
+    const { GET: freshGet } = await freshRoute();
+    const response = await freshGet(getRequest());
     expect(response.status).toBe(503);
     expect(mocks.serverModuleLoaded).not.toHaveBeenCalled();
     expectNoServerCall();
@@ -158,19 +175,22 @@ describe("GET /api/tasks — query", () => {
 });
 
 describe("POST /api/tasks — phiên", () => {
-  it("trả 401 khi chưa đăng nhập, không đọc body và không gọi hàm server", async () => {
+  it("trả 401 khi chưa đăng nhập, không đọc body, không import và không gọi hàm server", async () => {
     mocks.getApiUserId.mockResolvedValue({ ok: false, status: 401 });
+    const { POST: freshPost } = await freshRoute();
     const request = postJson({ title: "A" });
-    const response = await POST(request);
+    const response = await freshPost(request);
     expect(response.status).toBe(401);
     expect(request.bodyUsed).toBe(false);
+    expect(mocks.serverModuleLoaded).not.toHaveBeenCalled();
     expectNoServerCall();
   });
 
   it("trả 503 ở chế độ demo, không đọc body và không import @/server/tasks", async () => {
     mocks.getApiUserId.mockResolvedValue({ ok: false, status: 503 });
+    const { POST: freshPost } = await freshRoute();
     const request = postJson({ title: "A" });
-    const response = await POST(request);
+    const response = await freshPost(request);
     expect(response.status).toBe(503);
     expect(request.bodyUsed).toBe(false);
     expect(mocks.serverModuleLoaded).not.toHaveBeenCalled();

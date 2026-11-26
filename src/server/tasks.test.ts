@@ -441,12 +441,30 @@ describe("updateTask", () => {
     expect(updateData()).toEqual({ status: "TODO", completedAt: null });
   });
 
-  it("DONE → DONE giữ completedAt cũ", async () => {
+  it("status gửi lên trùng status hiện tại → data không có status lẫn completedAt", async () => {
     arrangeUpdate({ status: "DONE", completedAt: CREATED });
 
-    await updateTask(USER, "t1", { status: "DONE" }, NOW);
+    await updateTask(USER, "t1", { status: "DONE", title: "Đã sửa" }, NOW);
 
-    expect(updateData()).toEqual({ status: "DONE", completedAt: CREATED });
+    expect(updateData()).toEqual({ title: "Đã sửa" });
+  });
+
+  it("chỉ gửi status như cũ → vẫn updateMany với data rỗng, trả task", async () => {
+    arrangeUpdate({ status: "DONE", completedAt: CREATED });
+
+    const result = await updateTask(USER, "t1", { status: "DONE" }, NOW);
+
+    expect(task.updateMany).toHaveBeenCalledTimes(1);
+    expect(updateData()).toEqual({});
+    expect(result.ok).toBe(true);
+  });
+
+  it("chỉ gửi status như cũ, updateMany count 0 → not_found", async () => {
+    task.findFirst.mockResolvedValueOnce({ status: "DONE", completedAt: CREATED });
+    task.updateMany.mockResolvedValue({ count: 0 });
+
+    expect(await updateTask(USER, "t1", { status: "DONE" }, NOW)).toEqual({ ok: false, reason: "not_found" });
+    expect(updateData()).toEqual({});
   });
 
   it("projectId mới → spaceId theo dự án; kiểm dự án theo userId", async () => {

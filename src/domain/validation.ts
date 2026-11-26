@@ -131,17 +131,30 @@ export const entityIdSchema = z.string().min(1).max(ID_MAX_LENGTH);
 export const TASK_TITLE_MAX = 200;
 export const TASK_DESCRIPTION_MAX = 5000;
 
+/** Postgres không lưu được ký tự NUL trong cột text: chặn ở input thay vì để DB trả lỗi 500. */
+function hasNoNul(value: string): boolean {
+  return !value.includes("\u0000");
+}
+const NUL_MESSAGE = "Không được chứa ký tự NUL";
+
 const taskTitle = z
   .string()
   .trim()
   .min(1, "Tiêu đề không được để trống")
-  .max(TASK_TITLE_MAX, `Tiêu đề tối đa ${TASK_TITLE_MAX} ký tự`);
+  .max(TASK_TITLE_MAX, `Tiêu đề tối đa ${TASK_TITLE_MAX} ký tự`)
+  .refine(hasNoNul, NUL_MESSAGE);
+
+const taskDescription = z
+  .string()
+  .trim()
+  .max(TASK_DESCRIPTION_MAX, `Mô tả tối đa ${TASK_DESCRIPTION_MAX} ký tự`)
+  .refine(hasNoNul, NUL_MESSAGE);
 
 // Input tạo / sửa công việc (API). Strict chặn userId, id, order, completedAt, calendarEventId,
 // addToCalendar, createdAt, updatedAt; không `.default()`. PATCH không nhận spaceId (đi theo dự án).
 const taskInputFields = {
   title: taskTitle,
-  description: z.string().trim().max(TASK_DESCRIPTION_MAX, `Mô tả tối đa ${TASK_DESCRIPTION_MAX} ký tự`).optional(),
+  description: taskDescription.optional(),
   status: taskStatusSchema.optional(),
   priority: prioritySchema.optional(),
   dueDate: projectDueDateSchema.optional(),

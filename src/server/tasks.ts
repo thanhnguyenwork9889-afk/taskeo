@@ -161,7 +161,7 @@ export async function createTask(userId: string, input: CreateTaskInput, now: Da
 
 /**
  * Sửa các trường gửi lên trong MỘT `updateMany`. Đổi `projectId` → `spaceId` theo dự án;
- * `projectId: null` → rời dự án, giữ `spaceId`. `completedAt` chỉ đổi khi có `status`.
+ * `projectId: null` → rời dự án, giữ `spaceId`. `completedAt` chỉ đổi khi `status` gửi lên khác status hiện tại.
  */
 export async function updateTask(
   userId: string,
@@ -182,7 +182,9 @@ export async function updateTask(
   } else if (input.projectId === null) {
     data = { ...data, projectId: null };
   }
-  if (input.status !== undefined) {
+  // Status gửi lên trùng status hiện tại → không ghi status / completedAt (giữ mốc hoàn thành).
+  // `data` có thể rỗng: vẫn gọi updateMany (Prisma nhận `{}`), count 0 → not_found như thường.
+  if (input.status !== undefined && input.status !== current.status) {
     const completedAt = completedAtFor<Date>(current.status, current.completedAt, input.status, now);
     data = { ...data, status: input.status, completedAt };
   }

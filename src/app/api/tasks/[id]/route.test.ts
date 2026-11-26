@@ -12,7 +12,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("next/server", () => ({ connection: mocks.connection }));
 vi.mock("@/server/auth/session", () => ({ getApiUserId: mocks.getApiUserId }));
-vi.mock("@/server/tasks", () => {
+// Factory đặt tên để `freshRoute` đăng ký lại bằng `vi.doMock` (xoá kết quả mock đã cache).
+const serverTasksModule = vi.hoisted(() => () => {
   mocks.serverImported();
   return {
     getTask: mocks.getTask,
@@ -20,6 +21,8 @@ vi.mock("@/server/tasks", () => {
     deleteTask: mocks.deleteTask,
   };
 });
+
+vi.mock("@/server/tasks", serverTasksModule);
 
 import { DELETE, GET, PATCH } from "./route";
 
@@ -73,11 +76,24 @@ function expectNoServerCall(): void {
   expect(mocks.deleteTask).not.toHaveBeenCalled();
 }
 
+type RouteModule = typeof import("./route");
+
 const CALLS = [
-  ["GET", (id: string) => GET(getRequest(), context(id))],
-  ["PATCH", (id: string) => PATCH(patchJson({ title: "A" }), context(id))],
-  ["DELETE", (id: string) => DELETE(deleteRequest(), context(id))],
+  ["GET", (id: string, route: RouteModule = { GET, PATCH, DELETE }) => route.GET(getRequest(), context(id))],
+  ["PATCH", (id: string, route: RouteModule = { GET, PATCH, DELETE }) => route.PATCH(patchJson({ title: "A" }), context(id))],
+  ["DELETE", (id: string, route: RouteModule = { GET, PATCH, DELETE }) => route.DELETE(deleteRequest(), context(id))],
 ] as const;
+
+/**
+ * Nạp lại route với module cache sạch: factory `vi.mock("@/server/tasks")` chạy lại nếu route
+ * (tĩnh hoặc động) import `@/server/tasks`, nên `serverImported` phản ánh đúng lần gọi này.
+ */
+async function freshRoute(): Promise<RouteModule> {
+  // resetModules không xoá kết quả mock đã cache ("mock:*"); doMock đăng ký lại và xoá cache đó.
+  vi.resetModules();
+  vi.doMock("@/server/tasks", serverTasksModule);
+  return import("./route");
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -88,7 +104,7 @@ beforeEach(() => {
 describe.each(CALLS)("%s /api/tasks/[id] — phiên và id", (_method, call) => {
   it("trả 401 khi chưa đăng nhập, không import và không gọi hàm server", async () => {
     mocks.getApiUserId.mockResolvedValue({ ok: false, status: 401 });
-    const response = await call("tk_1");
+    const response = await call("tk_1", await freshRoute());
     expect(response.status).toBe(401);
     expect((await response.json()).data).toBeNull();
     expect(mocks.serverImported).not.toHaveBeenCalled();
@@ -97,7 +113,7 @@ describe.each(CALLS)("%s /api/tasks/[id] — phiên và id", (_method, call) => 
 
   it("trả 503 ở chế độ demo, không import và không gọi hàm server", async () => {
     mocks.getApiUserId.mockResolvedValue({ ok: false, status: 503 });
-    const response = await call("tk_1");
+    const response = await call("tk_1", await freshRoute());
     expect(response.status).toBe(503);
     expect(mocks.serverImported).not.toHaveBeenCalled();
     expectNoServerCall();

@@ -80,6 +80,10 @@ export async function POST(request: Request): Promise<Response> {
         return fail(400, SPACE_MISMATCH_MESSAGE);
       case "limit":
         return fail(409, `Đã đạt giới hạn ${MAX_TASKS_PER_USER} công việc`);
+      default: {
+        const unhandled: never = result.reason;
+        throw new Error(`Unhandled createTask reason: ${String(unhandled)}`);
+      }
     }
   } catch (error) {
     return handleUnexpected(error, "POST /api/tasks");

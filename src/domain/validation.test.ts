@@ -431,6 +431,27 @@ describe("updateTaskInputSchema", () => {
   });
 });
 
+describe("task text NUL characters", () => {
+  const NUL_MESSAGE = "Không được chứa ký tự NUL";
+
+  it.each([
+    ["create title", createTaskInputSchema, { title: "a\u0000b" }],
+    ["create description", createTaskInputSchema, { title: "X", description: "mô\u0000tả" }],
+    ["update title", updateTaskInputSchema, { title: "a\u0000b" }],
+    ["update description", updateTaskInputSchema, { description: "\u0000" }],
+  ] as const)("rejects NUL in %s", (_label, schema, input) => {
+    const result = schema.safeParse(input);
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe(NUL_MESSAGE);
+  });
+
+  it("still accepts normal text", () => {
+    const input = { title: "Mua sơn", description: "Màu trắng\nhai lớp" };
+    expect(createTaskInputSchema.parse(input)).toEqual(input);
+    expect(updateTaskInputSchema.parse(input)).toEqual(input);
+  });
+});
+
 describe("listTasksQuerySchema", () => {
   it("accepts all filters", () => {
     const query = { spaceId: "sp-1", projectId: "p-1", status: "DONE" };
@@ -439,6 +460,20 @@ describe("listTasksQuerySchema", () => {
 
   it("accepts no filters", () => {
     expect(listTasksQuerySchema.parse({})).toEqual({});
+  });
+
+  it("returns an object without undefined keys when no filters are sent", () => {
+    const parsed = listTasksQuerySchema.parse({});
+    expect(parsed).toStrictEqual({});
+    expect(Object.keys(parsed)).toEqual([]);
+  });
+
+  // Zod 4: `z.preprocess` trả undefined vẫn giữ khoá → `{ spaceId: undefined }` (không phải `{}`).
+  // Giá trị vẫn là undefined nên bộ lọc coi như không gửi; chỉ không strict-equal `{}`.
+  it("treats an empty spaceId as undefined", () => {
+    const parsed = listTasksQuerySchema.parse({ spaceId: "" });
+    expect(parsed).toEqual({});
+    expect(parsed.spaceId).toBeUndefined();
   });
 
   it("treats empty strings as not sent", () => {
