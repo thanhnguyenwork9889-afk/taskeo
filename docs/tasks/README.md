@@ -10,7 +10,7 @@ Quy trình: [07-workflow.md](../07-workflow.md). Mẫu: [_template.md](_template
 | T003 | [Deploy lên Vercel (production) + bỏ staging](T003-vercel-deploy.md) | `chore/T003-vercel-deploy` | done | `13292dc` |
 | T004 | [API + UI CRUD Không gian](T004-spaces-api.md) | `feat/T004-spaces-api` | done | `c028a2e` |
 | T005 | [API + UI CRUD Dự án trong Không gian](T005-projects-api.md) | `feat/T005-projects-api` | done | `96108c7` |
-| T006 | [API CRUD Công việc](T006-tasks-api.md) | `feat/T006-tasks-api` | 7-final | — |
+| T006 | [API CRUD Công việc](T006-tasks-api.md) | `feat/T006-tasks-api` | done | — |
 
 ## Việc chờ làm (backlog)
 

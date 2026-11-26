@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T006-tasks-api` |
 | Tạo từ | `develop` @ `9366d1d` |
-| Trạng thái | 7-final |
+| Trạng thái | done |
 | Ngày tạo | 2026-11-25 |
 
 Nguồn: sheet nhiệm vụ, dòng **T22** (backlog B2, phần `tasks`). Theo cùng mẫu với T004 (không gian) và T005 (dự án).
@@ -38,15 +38,15 @@ Nguồn: sheet nhiệm vụ, dòng **T22** (backlog B2, phần `tasks`). Theo c�
 - Nối giao diện vào API (T59); sắp xếp `order` bằng kéo thả; phân trang; rate limit (T73); test e2e (T61).
 
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
-- [ ] `GET /api/tasks` và `POST /api/tasks` khi chưa đăng nhập trả 401; ở chế độ demo trả 503 (không import `@/server/tasks`).
-- [ ] `POST /api/tasks` với tiêu đề rỗng / 201 ký tự, `status` / `priority` lạ, `dueDate` sai hoặc `2026-02-31`, key thừa (`userId`, `order`, `completedAt`) hoặc JSON hỏng trả 400; hợp lệ trả 201 kèm công việc mới đủ trường của `Task`.
-- [ ] `POST` với `projectId` của người khác hoặc không có, `spaceId` của người khác, hoặc `spaceId` khác không gian của dự án trả 400; chỉ gửi `projectId` thì `spaceId` của công việc = không gian của dự án.
-- [ ] `POST` / `PATCH` với `status: "DONE"` đặt `completedAt`; chuyển khỏi `DONE` đặt `completedAt = null`; PATCH không đổi `status` thì giữ `completedAt`.
-- [ ] `GET/PATCH/DELETE /api/tasks/[id]` với id của người khác, không có hoặc quá dài trả 404 và không đổi dữ liệu (test kiểm mọi truy vấn Prisma có `userId`).
-- [ ] `PATCH` chỉ đổi các trường gửi lên; `PATCH {}` và `PATCH { spaceId }` trả 400; `projectId` sang dự án ở không gian khác → `spaceId` đổi theo; `projectId: null` giữ `spaceId`; `DELETE` trả 204 body rỗng.
-- [ ] `GET /api/tasks?spaceId=…&status=…` chỉ trả công việc của người dùng khớp bộ lọc; `status` lạ trong query trả 400.
-- [ ] Có unit test cho schema, `taskFromRecord`, `completedAtFor`, `server/tasks.ts`; có test route handler (mock `auth` + Prisma) phủ 401 / 503 / 400 / 404 / 409 / thành công.
-- [ ] typecheck, lint, test, build xanh.
+- [x] `GET /api/tasks` và `POST /api/tasks` khi chưa đăng nhập trả 401; ở chế độ demo trả 503 (không import `@/server/tasks`).
+- [x] `POST /api/tasks` với tiêu đề rỗng / 201 ký tự, `status` / `priority` lạ, `dueDate` sai hoặc `2026-02-31`, key thừa (`userId`, `order`, `completedAt`) hoặc JSON hỏng trả 400; hợp lệ trả 201 kèm công việc mới đủ trường của `Task`.
+- [x] `POST` với `projectId` của người khác hoặc không có, `spaceId` của người khác, hoặc `spaceId` khác không gian của dự án trả 400; chỉ gửi `projectId` thì `spaceId` của công việc = không gian của dự án.
+- [x] `POST` / `PATCH` với `status: "DONE"` đặt `completedAt`; chuyển khỏi `DONE` đặt `completedAt = null`; PATCH không đổi `status` thì giữ `completedAt`.
+- [x] `GET/PATCH/DELETE /api/tasks/[id]` với id của người khác, không có hoặc quá dài trả 404 và không đổi dữ liệu (test kiểm mọi truy vấn Prisma có `userId`).
+- [x] `PATCH` chỉ đổi các trường gửi lên; `PATCH {}` và `PATCH { spaceId }` trả 400; `projectId` sang dự án ở không gian khác → `spaceId` đổi theo; `projectId: null` giữ `spaceId`; `DELETE` trả 204 body rỗng.
+- [x] `GET /api/tasks?spaceId=…&status=…` chỉ trả công việc của người dùng khớp bộ lọc; `status` lạ trong query trả 400.
+- [x] Có unit test cho schema, `taskFromRecord`, `completedAtFor`, `server/tasks.ts`; có test route handler (mock `auth` + Prisma) phủ 401 / 503 / 400 / 404 / 409 / thành công.
+- [x] typecheck, lint, test, build xanh.
 
 **Tài liệu bị ảnh hưởng:** 04 kiến trúc (thêm `server/tasks.ts`, `domain/task-record.ts`, `app/api/tasks`), 06 API (bảng route mới, quy ước công việc).
 
@@ -111,7 +111,7 @@ Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewe
 |---|---|---|---|---|
 | R1 | MEDIUM | `src/app/api/tasks/route.test.ts` (503), `src/app/api/tasks/[id]/route.test.ts` (503) | Test "503 không import `@/server/tasks`" luôn qua: factory của `vi.mock` chỉ chạy lần import đầu, module được cache, `vi.clearAllMocks()` xoá bộ đếm → đổi route sang import tĩnh test vẫn xanh. Tiêu chí nghiệm thu 1 chưa thực sự được kiểm. Đã xác nhận bằng đọc code | typescript |
 | R2 | MEDIUM | `docs/04`, `docs/06` | Chưa cập nhật kiến trúc và bảng route | layer → bước 7 |
-| R3 | LOW | `src/domain/validation.ts` (`taskTitle`, mô tả) | Chuỗi có ` ` qua được Zod; Postgres từ chối → Prisma ném → 500 thay vì 400 | security (nghi ngờ; DB là Postgres nên có thật) |
+| R3 | LOW | `src/domain/validation.ts` (`taskTitle`, mô tả) | Chuỗi có `\u0000` qua được Zod; Postgres từ chối → Prisma ném → 500 thay vì 400 | security (nghi ngờ; DB là Postgres nên có thật) |
 | R4 | LOW | `src/server/tasks.ts` (`updateTask`) | `status` gửi lên bằng status hiện tại vẫn ghi `status` + `completedAt` (giá trị vừa đọc) → nới rộng race ghi đè `completedAt` | typescript |
 | R5 | LOW | `src/app/api/tasks/route.ts` (POST `switch`) | Thiếu nhánh `default` kiểu `never` như PATCH; không nhất quán | layer, typescript |
 | R6 | LOW | `src/domain/workspace-actions.ts:14` | Thứ tự import `task-completion` sau `types` | layer |
@@ -132,7 +132,7 @@ Commit trước bước 5: `bf1e0c1`.
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
 | R1 | đã sửa: test 401 / 503 của cả hai route nạp lại route qua `freshRoute()` = `vi.resetModules()` + `vi.doMock("@/server/tasks", factory)` + `import("./route")`. Chỉ `resetModules` là không đủ (vitest 3.2 giữ cache `mock:*`). Kiểm đột biến: thêm `import "@/server/tasks"` vào hai route → 10 test đỏ; gỡ → xanh | `3d7c0af` |
-| R3 | đã sửa: `title`, `description` của công việc từ chối ` ` ("Không được chứa ký tự NUL") | `3d7c0af` |
+| R3 | đã sửa: `title`, `description` của công việc từ chối `\u0000` ("Không được chứa ký tự NUL") | `3d7c0af` |
 | R4 | đã sửa: chỉ ghi `status` + `completedAt` khi status gửi lên khác status hiện tại; `{ status: <như cũ> }` → `updateMany` với `data: {}`, count 0 vẫn `not_found` | `3d7c0af` |
 | R5 | đã sửa: nhánh `default` kiểu `never` trong `switch` của POST | `3d7c0af` |
 | R6 | đã sửa: thứ tự import | `3d7c0af` |
@@ -161,13 +161,26 @@ Vòng 1 (`git diff bf1e0c1..3d7c0af`, cả ba reviewer): R1, R3–R7 sửa đún
 
 ## 7. Final
 
-**Tóm tắt:**
+**Tóm tắt:** Công việc có đủ CRUD qua API: `GET/POST /api/tasks` (lọc `spaceId` / `projectId` / `status`), `GET/PATCH/DELETE /api/tasks/[id]` (Prisma + Zod, lọc `userId`, phản hồi `{ data, error }`). Công việc thuộc dự án luôn cùng không gian với dự án; dự án / không gian trong body được kiểm thuộc người dùng; `completedAt` do server đặt theo `completedAtFor` (dùng chung với store demo). Mới: `server/tasks.ts`, `domain/task-record.ts`, `domain/task-completion.ts`, schema input + `queryToObject` trong `validation.ts`; `isValidRouteId` và `entityIdSchema` từ chối NUL. Giao diện chưa đổi (vẫn store demo, T59). 569 test (từ 361).
 
-**Tiêu chí nghiệm thu:** (đánh dấu ở mục 1)
+**Tiêu chí nghiệm thu:** cả 9 đạt (đánh dấu ở mục 1). Kiểm thật ngày 2026-11-26 trên `next dev` cổng 3000 (chế độ configured, DB Neon branch `dev`, đăng nhập Google trong browser pane), dữ liệu thử là 2 không gian / 2 dự án / 4 công việc tạo qua API:
+- Chưa đăng nhập: `GET /api/tasks`, `GET /api/spaces` → 401.
+- POST 400: tiêu đề trống / 201 ký tự, `status` / `priority` lạ, `2026-02-31`, key thừa `userId` / `order` / `completedAt`, NUL trong tiêu đề và `projectId`, JSON hỏng; dự án lạ → "Không tìm thấy dự án"; không gian lạ → "Không tìm thấy không gian"; `projectId` của A + `spaceId` của B → "Không gian không khớp với dự án".
+- POST 201: tiêu đề được trim, đủ 13 trường `Task`; chỉ `projectId` (và `projectId` + `spaceId: null`) → `spaceId` theo dự án; chỉ `spaceId` → `projectId: null`; không có cả hai → cả hai `null`; tạo với `DONE` → có `completedAt`.
+- GET: lọc theo không gian, không gian + status, dự án đúng; `?spaceId=&foo=1` → toàn bộ; không gian lạ → `[]`; `status=FOO` → 400; `status` lặp → 400 "Tham số \"status\" chỉ được gửi một lần"; id 65 ký tự trong query → 400.
+- PATCH: chỉ đổi tiêu đề (giữ `priority`, `dueDate`), `updatedAt` đổi (`@updatedAt` chạy với `updateMany`); `DONE` → đặt `completedAt`; gửi lại `DONE` và PATCH không có `status` → giữ nguyên `completedAt`; `TODO` → `null`; `projectId` sang dự án ở không gian B → `spaceId` = B; `projectId: null` → giữ B; `{}`, `{spaceId}`, `{userId}`, dự án lạ, JSON hỏng → 400.
+- 404: id lạ, 65 ký tự, `tk%001` (NUL); PATCH id lạ. DELETE → 204 body rỗng, lần hai → 404, đọc lại → 404.
+- Xoá dự án: công việc còn lại với `projectId = null`, giữ không gian. Dọn: xoá 2 không gian thử (cascade), tài khoản còn 0 không gian / 0 công việc.
+- Không kiểm thật được: 503 ở chế độ demo, truy cập dữ liệu của người dùng khác (cần tài khoản thứ hai), `P2003` khi dự án bị xoá giữa chừng (race) — đều đã có test (mock), riêng hình dạng lỗi `P2003` thật chưa xác nhận.
 
-**Tài liệu đã cập nhật:**
+**Tài liệu đã cập nhật:** `docs/04-architecture.md` (`server/tasks`, `domain/task-record`, `domain/task-completion`, `isValidRouteId`, route mới), `docs/06-api.md` (bảng route, quy ước công việc, cách xử lý query, chỗ không atomic), `docs/tasks/README.md`.
 
-**Merge vào develop:** commit `<hash>`, ngày
+**Merge vào develop:** commit `<hash>`, ngày 2026-11-26
 
 **Việc để sau:**
--
+- Nối giao diện vào API thay store demo (T59 / B3); ghi `Activity` khi tạo / hoàn thành công việc (T27); gắn file Drive (`TaskFile`, T60).
+- Test 503 của `src/app/api/spaces/[id]/projects/route.test.ts` (T005) luôn xanh, cùng lỗi R1 → sửa bằng `freshRoute`, rút thành helper chung (N4).
+- R11: phân trang hoặc danh sách không kèm mô tả đầy đủ; lọc công việc không thuộc không gian (`spaceId = null`).
+- R12: giới hạn body, kiểm `Content-Type` / `Origin`, rate limit (T73). R13: không log `message` của lỗi Prisma trong `handleUnexpected`.
+- Xác nhận hình dạng lỗi `P2003` thật (test tích hợp DB, T61).
+- Ngoài T006, thấy trong log `next dev`: route `/` báo "unstable value `crypto.getRandomValues()` while prerendering" (code có từ trước, T006 không đụng `app/(app)`, `components`, `features`).
