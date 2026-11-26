@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T008-activity-log` |
 | Tạo từ | `develop` @ `826686a` |
-| Trạng thái | 5-fix |
+| Trạng thái | 6-rereview |
 | Ngày tạo | 2026-11-26 |
 
 Nguồn: sheet nhiệm vụ, dòng **T27** (backlog B4, phần ghi). Hiển thị thật ở card Hoạt động là T41, chờ nối giao diện vào API (T59).
@@ -125,9 +125,18 @@ Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewe
 
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
-| R1 | | |
+| R1 | bỏ qua: quyết định 8 đã chấp nhận; đọc status trong tx không đủ dưới READ COMMITTED, cần khoá dòng — ghi docs 06 | — |
+| R2 | đã sửa: `activityRows` + `NewActivityRow` ở `domain/activity-record.ts`, `tasks.ts` / `projects.ts` dùng chung | `ee99de8` |
+| R3 | đã sửa: `ACTIVITY_MESSAGE_MAX = 200`, `messageFromMeta` cắt theo code point | `ee99de8` |
+| R4 | bỏ qua: rate limit chung thuộc T73 | — |
+| R5 | đã sửa: `duplicateQueryKeyMessage` chuyển vào `server/http.ts` | `ee99de8` |
+| R6 | đã sửa: đổi tên test thành "mọi P2002 phát ra trong transaction … đều thành conflict" | `ee99de8` |
+| R7 | để sau (LOW): user bị xoá giữa transaction rất hiếm; ghi chú | — |
+| R8 | để sau (LOW): lệch vài ms giữa `createdAt` activity và task / dự án không ảnh hưởng thống kê | — |
+| R9 | để sau (LOW): rollback thật kiểm trên DB `dev` ở bước 7 | — |
+| R10 | để sau (LOW): gợi ý gọn code, không đổi hành vi | — |
 
-Kết quả 4 lệnh sau khi sửa:
+Kết quả 4 lệnh sau khi sửa (trước bước 5: `83c705d`): typecheck ✅ · lint ✅ · test ✅ 26 file / 686 test · build ✅
 
 ## 6. Review lại
 
