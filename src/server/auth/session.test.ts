@@ -5,7 +5,10 @@ const mocks = vi.hoisted(() => ({
   missingAuthEnvVars: vi.fn(() => [] as string[]),
   auth: vi.fn(),
   connection: vi.fn(async () => undefined),
+  hasGoogleScope: vi.fn(async () => false),
 }));
+
+vi.mock("@/server/google/granted-scopes", () => ({ hasGoogleScope: mocks.hasGoogleScope }));
 
 vi.mock("next/server", () => ({ connection: mocks.connection }));
 
@@ -86,9 +89,10 @@ describe("getViewer", () => {
   it("returns the demo viewer in demo mode without connection() or auth", async () => {
     mocks.getAuthMode.mockReturnValue("demo");
 
-    await expect(getViewer()).resolves.toMatchObject({ isDemo: true });
+    await expect(getViewer()).resolves.toMatchObject({ isDemo: true, driveConnected: false });
     expect(mocks.connection).not.toHaveBeenCalled();
     expect(mocks.auth).not.toHaveBeenCalled();
+    expect(mocks.hasGoogleScope).not.toHaveBeenCalled();
   });
 
   it("returns null in misconfigured mode without auth", async () => {
@@ -112,15 +116,67 @@ describe("getViewer", () => {
       return { user: { id: "u1", name: "An", email: "an@example.com", image: null }, expires: "2099-01-01" };
     });
 
-    await expect(getViewer()).resolves.toEqual({ name: "An", email: "an@example.com", image: null, isDemo: false });
+    await expect(getViewer()).resolves.toEqual({
+      name: "An",
+      email: "an@example.com",
+      image: null,
+      isDemo: false,
+      driveConnected: false,
+    });
     expect(order).toEqual(["connection", "auth"]);
   });
 
-  it("returns null when signed out in configured mode", async () => {
+  it("returns null when signed out in configured mode without checking scopes", async () => {
     mocks.getAuthMode.mockReturnValue("configured");
     mocks.auth.mockResolvedValue(null);
 
     await expect(getViewer()).resolves.toBeNull();
     expect(mocks.connection).toHaveBeenCalledTimes(1);
+    expect(mocks.hasGoogleScope).not.toHaveBeenCalled();
+  });
+
+  it("sets driveConnected from the drive.file scope of the signed-in user", async () => {
+    mocks.getAuthMode.mockReturnValue("configured");
+    mocks.auth.mockResolvedValue({ user: { id: "user-7", name: "An" }, expires: "2099-01-01" });
+    mocks.hasGoogleScope.mockResolvedValueOnce(true);
+
+    await expect(getViewer()).resolves.toMatchObject({ driveConnected: true });
+    expect(mocks.hasGoogleScope).toHaveBeenCalledWith("user-7", "https://www.googleapis.com/auth/drive.file");
+  });
+
+  it("sets driveConnected false when the scope is missing", async () => {
+    mocks.getAuthMode.mockReturnValue("configured");
+    mocks.auth.mockResolvedValue({ user: { id: "user-7", name: "An" }, expires: "2099-01-01" });
+    mocks.hasGoogleScope.mockResolvedValueOnce(false);
+
+    await expect(getViewer()).resolves.toMatchObject({ driveConnected: false });
+  });
+
+  it("sets driveConnected false without a scope query when the session user has no id", async () => {
+    mocks.getAuthMode.mockReturnValue("configured");
+    mocks.auth.mockResolvedValue({ user: { name: "An" }, expires: "2099-01-01" });
+
+    await expect(getViewer()).resolves.toMatchObject({ driveConnected: false });
+    expect(mocks.hasGoogleScope).not.toHaveBeenCalled();
+  });
+
+  it("exposes only the five viewer fields (no scope string or tokens)", async () => {
+    mocks.getAuthMode.mockReturnValue("configured");
+    mocks.auth.mockResolvedValue({
+      user: { id: "user-7", name: "An", email: "an@example.com", image: null, scope: "x", access_token: "t" },
+      expires: "2099-01-01",
+    });
+    mocks.hasGoogleScope.mockResolvedValueOnce(true);
+
+    const viewer = await getViewer();
+    expect(Object.keys(viewer ?? {}).sort()).toEqual(["driveConnected", "email", "image", "isDemo", "name"]);
+  });
+
+  it("propagates scope lookup errors like auth() errors", async () => {
+    mocks.getAuthMode.mockReturnValue("configured");
+    mocks.auth.mockResolvedValue({ user: { id: "user-7", name: "An" }, expires: "2099-01-01" });
+    mocks.hasGoogleScope.mockRejectedValueOnce(new Error("db down"));
+
+    await expect(getViewer()).rejects.toThrow("db down");
   });
 });

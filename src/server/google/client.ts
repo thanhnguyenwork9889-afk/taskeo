@@ -2,6 +2,7 @@ import "server-only";
 import { google, type Auth } from "googleapis";
 import { prisma } from "@/server/db";
 import { decrypt, encrypt } from "@/server/crypto";
+import { GOOGLE_ACCOUNT_ORDER } from "./granted-scopes";
 
 export class GoogleNotConnectedError extends Error {
   constructor() {
@@ -28,7 +29,11 @@ async function persistTokens(providerAccountId: string, tokens: Auth.Credentials
  * googleapis tự refresh access token khi hết hạn; sự kiện "tokens" lưu token mới vào DB.
  */
 export async function getGoogleAuth(userId: string) {
-  const account = await prisma.account.findFirst({ where: { userId, provider: "google" } });
+  // Cùng thứ tự với granted-scopes.ts: token và scope luôn đọc từ cùng một dòng Account.
+  const account = await prisma.account.findFirst({
+    where: { userId, provider: "google" },
+    orderBy: GOOGLE_ACCOUNT_ORDER,
+  });
   if (!account?.refresh_token) throw new GoogleNotConnectedError();
 
   const client = new google.auth.OAuth2(process.env.AUTH_GOOGLE_ID, process.env.AUTH_GOOGLE_SECRET);

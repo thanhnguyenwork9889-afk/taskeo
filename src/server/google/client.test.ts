@@ -73,12 +73,16 @@ afterEach(() => {
 });
 
 describe("getGoogleAuth", () => {
-  it("tìm account google theo userId", async () => {
+  it("tìm account google theo userId, thứ tự xác định giống granted-scopes", async () => {
     db.account.findFirst.mockResolvedValue(accountRow());
 
     await getGoogleAuth(USER);
 
-    expect(db.account.findFirst).toHaveBeenCalledWith({ where: { userId: USER, provider: "google" } });
+    expect(db.account.findFirst).toHaveBeenCalledTimes(1);
+    expect(db.account.findFirst).toHaveBeenCalledWith({
+      where: { userId: USER, provider: "google" },
+      orderBy: { createdAt: "asc" },
+    });
   });
 
   it("ném GoogleNotConnectedError khi không có account", async () => {

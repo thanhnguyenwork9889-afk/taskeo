@@ -2,6 +2,7 @@ import "server-only";
 import type { Account } from "next-auth";
 import type { AdapterAccount } from "next-auth/adapters";
 import { encrypt, encryptOptional } from "@/server/crypto";
+import type { GoogleScope } from "@/server/google/scopes";
 
 /**
  * Tham số ủy quyền Google cho đăng nhập giai đoạn 1.
@@ -18,6 +19,27 @@ export const GOOGLE_AUTHORIZATION_PARAMS = {
   prompt: "consent",
   include_granted_scopes: "true",
 } as const satisfies Record<string, string>;
+
+export type GoogleAuthorizationParams = {
+  readonly [K in keyof typeof GOOGLE_AUTHORIZATION_PARAMS]: string;
+};
+
+/**
+ * Tham số ủy quyền khi xin thêm scope (incremental authorization), dùng làm tham số thứ ba
+ * của `signIn("google", options, params)`.
+ * Tham số thứ ba ghi đè `authorization.params` của provider theo từng key, nên `scope` truyền
+ * vào THAY HẲN scope đăng nhập; vì vậy phải gộp lại "openid email profile" + scope cần thêm.
+ * Bỏ scope trùng (giữ thứ tự), luôn trả object mới, không mutate GOOGLE_AUTHORIZATION_PARAMS.
+ */
+export function buildIncrementalAuthorizationParams(
+  extra: readonly GoogleScope[],
+): GoogleAuthorizationParams {
+  const scopes = [...GOOGLE_AUTHORIZATION_PARAMS.scope.split(" "), ...extra];
+  return {
+    ...GOOGLE_AUTHORIZATION_PARAMS,
+    scope: [...new Set(scopes)].join(" "),
+  };
+}
 
 /** Trả bản sao account với access/refresh/id token đã mã hoá (không mutate input). */
 export function encryptAdapterAccountTokens(account: AdapterAccount): AdapterAccount {

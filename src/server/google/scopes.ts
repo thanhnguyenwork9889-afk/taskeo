@@ -8,7 +8,12 @@ export const GOOGLE_SCOPES = {
 
 export type GoogleScope = (typeof GOOGLE_SCOPES)[keyof typeof GOOGLE_SCOPES];
 
-/** Account.scope là chuỗi các scope cách nhau bởi dấu cách. */
+/** Account.scope là chuỗi các scope cách nhau bởi khoảng trắng; bỏ khoảng trắng thừa và chuỗi rỗng. */
+export function parseScopes(grantedScopes: string | null | undefined): string[] {
+  return (grantedScopes ?? "").split(/\s+/).filter((scope) => scope.length > 0);
+}
+
+/** So khớp nguyên scope, không khớp chuỗi con hay tiền tố. */
 export function hasScope(grantedScopes: string | null | undefined, scope: GoogleScope): boolean {
-  return (grantedScopes ?? "").split(" ").includes(scope);
+  return parseScopes(grantedScopes).includes(scope);
 }

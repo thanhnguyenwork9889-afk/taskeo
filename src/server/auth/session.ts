@@ -1,15 +1,18 @@
 import "server-only";
 import { connection } from "next/server";
 import { getAuthMode, missingAuthEnvVars } from "@/config/env";
+import { GOOGLE_SCOPES } from "@/server/google/scopes";
 
 export interface Viewer {
   name: string;
   email: string | null;
   image: string | null;
   isDemo: boolean;
+  /** Đã cấp scope drive.file hay chưa (chỉ boolean; chuỗi scope không ra client). */
+  driveConnected: boolean;
 }
 
-const DEMO_VIEWER: Viewer = { name: "Bạn", email: null, image: null, isDemo: true };
+const DEMO_VIEWER: Viewer = { name: "Bạn", email: null, image: null, isDemo: true, driveConnected: false };
 
 /** Đủ biến môi trường để bật đăng nhập Google thật hay chưa. */
 export function isAuthConfigured(): boolean {
@@ -43,7 +46,16 @@ export async function getViewer(): Promise<Viewer | null> {
     email: session.user.email ?? null,
     image: session.user.image ?? null,
     isDemo: false,
+    driveConnected: await isDriveConnected(session.user.id),
   };
+}
+
+/** Lỗi DB không bị nuốt (giống auth()), để trang báo lỗi thay vì hiện sai trạng thái. */
+async function isDriveConnected(userId: string | undefined): Promise<boolean> {
+  if (!userId) return false;
+  // Import động: granted-scopes nạp Prisma, chế độ demo không được khởi tạo nó.
+  const { hasGoogleScope } = await import("@/server/google/granted-scopes");
+  return hasGoogleScope(userId, GOOGLE_SCOPES.drive);
 }
 
 export type ApiUserResult = { ok: true; userId: string } | { ok: false; status: 401 | 503 };

@@ -49,6 +49,25 @@ Khai báo ở `src/server/google/scopes.ts`. Đăng nhập lần đầu chỉ xi
 
 Trước giai đoạn 3–4, đối chiếu lại phân loại (non-sensitive / sensitive / restricted) trên Google Cloud Console.
 
+### Xin thêm `drive.file` (T010)
+
+Việc trên Google Cloud Console (làm một lần, cho từng client / môi trường):
+
+1. **OAuth consent screen → Data Access → Add or remove scopes**, thêm `https://www.googleapis.com/auth/drive.file`, lưu.
+2. Consent screen đang ở Testing: tài khoản dùng thử phải có trong **Test users**.
+
+Luồng trong app:
+
+- Người dùng đã đăng nhập thấy nút **Kết nối Google Drive** ở đáy sidebar (`src/components/layout/sidebar.tsx`); đã cấp thì hiện "Đã kết nối Google Drive". Chế độ demo không hiện.
+- Nút gửi form tới server action `connectGoogleDrive` (`src/server/auth/actions.ts`): gọi `signIn("google", { redirectTo }, params)` với `params = buildIncrementalAuthorizationParams([drive])` (`src/server/auth/google-tokens.ts`).
+  - Tham số thứ ba của `signIn` **thay hẳn** `scope` của provider, nên `scope` gửi đi là `openid email profile …/drive.file`; `access_type=offline`, `prompt=consent`, `include_granted_scopes=true` giữ như đăng nhập.
+  - `login_hint` = email trong phiên, để Google chọn sẵn đúng tài khoản.
+  - `redirectTo` lấy từ form, chỉ nhận đường dẫn nội bộ (`toSafeRedirectPath`, `src/server/auth/redirect-path.ts`), ngược lại về `/`.
+- Google quay lại → `events.signIn` (người dùng đã có account) ghi token mới đã mã hoá và `Account.scope` mới.
+- Server kiểm quyền bằng `hasGoogleScope` / `requireGoogleScope` (`src/server/google/granted-scopes.ts`, ném `GoogleScopeMissingError`); `getViewer()` trả `driveConnected` (chỉ boolean, chuỗi scope không ra client).
+- **Granular consent:** người dùng có thể bỏ tick ô Drive ở màn đồng ý → `Account.scope` không có `drive.file`, nút vẫn hiện, không lỗi.
+- **Chọn nhầm tài khoản:** nếu ở màn chọn tài khoản người dùng chọn một tài khoản Google khác chưa liên kết, Auth.js gắn thêm Account đó vào user hiện tại (một user, hai Account google). `login_hint` chỉ giảm khả năng này, chưa chặn hẳn.
+
 ## Bảo mật token
 
 - Token Google được mã hoá AES-256-GCM (`src/server/crypto.ts`) trước khi ghi DB, bằng cách bọc `linkAccount` của Prisma adapter.
