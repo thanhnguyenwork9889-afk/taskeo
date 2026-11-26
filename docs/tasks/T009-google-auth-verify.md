@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `chore/T009-google-auth-verify` |
 | Tạo từ | `develop` @ `e8a8ac7` |
-| Trạng thái | 6-rereview |
+| Trạng thái | done |
 | Ngày tạo | 2026-11-26 |
 
 Nguồn: sheet nhiệm vụ, dòng **T15** "Auth.js + Google provider (openid email profile, access_type=offline, prompt=consent)" — đang *Đang làm*, ghi chú "chưa chạy thử với Google thật" (backlog B1). Liên quan T16 (mã hoá refresh token) và T17 (client tự refresh), cả hai ghi "chưa thử thật".
@@ -31,13 +31,13 @@ Nguồn: sheet nhiệm vụ, dòng **T15** "Auth.js + Google provider (openid em
 - Test e2e đăng nhập qua trình duyệt (cần tài khoản Google thật; T61).
 
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
-- [ ] Test khẳng định tham số Google gồm `scope: "openid email profile"`, `access_type: "offline"`, `prompt: "consent"`.
-- [ ] Test khẳng định token trước `linkAccount` và khi đăng nhập lại đều được mã hoá (`v1:`), giải mã ra đúng giá trị gốc; field không có thì không bị ghi đè.
-- [ ] `crypto.ts` có test cho khứ hồi, dữ liệu bị sửa, sai định dạng, khoá thiếu / sai độ dài.
-- [ ] `google/client.ts` có test cho thiếu refresh token, sự kiện `tokens` lưu token mới đã mã hoá, lỗi lưu không làm lộ token trong log.
-- [ ] Chạy thật trên DB dev: refresh thành công, `expires_at` mới > thời điểm chạy, token mới bắt đầu bằng `v1:` (ghi kết quả vào mục 3, không ghi giá trị token).
-- [ ] `auth.ts` không đổi hành vi (cùng tham số, cùng adapter, cùng callback); 4 lệnh typecheck / lint / test / build xanh.
-- [ ] `docs/02-google-cloud.md` có mục đăng nhập giai đoạn 1.
+- [x] Test khẳng định tham số Google gồm `scope: "openid email profile"`, `access_type: "offline"`, `prompt: "consent"`.
+- [x] Test khẳng định token trước `linkAccount` và khi đăng nhập lại đều được mã hoá (`v1:`), giải mã ra đúng giá trị gốc; field không có thì không bị ghi đè.
+- [x] `crypto.ts` có test cho khứ hồi, dữ liệu bị sửa, sai định dạng, khoá thiếu / sai độ dài.
+- [x] `google/client.ts` có test cho thiếu refresh token, sự kiện `tokens` lưu token mới đã mã hoá, lỗi lưu không làm lộ token trong log.
+- [x] Chạy thật trên DB dev: refresh thành công, `expires_at` mới > thời điểm chạy, token mới bắt đầu bằng `v1:` (ghi kết quả vào mục 3, không ghi giá trị token).
+- [x] `auth.ts` không đổi hành vi (cùng tham số, cùng adapter, cùng callback); 4 lệnh typecheck / lint / test / build xanh.
+- [x] `docs/02-google-cloud.md` có mục đăng nhập giai đoạn 1.
 
 **Tài liệu bị ảnh hưởng:** 02 Google · 04 kiến trúc (nếu thêm file trong `src/server/auth`).
 
@@ -121,17 +121,21 @@ Kết quả 4 lệnh sau khi sửa (verifier): typecheck ✅ · lint ✅ · test
 
 ## 6. Review lại
 
-Vòng 1:
+Vòng 1 (`git diff f53c5bd..e19f4ff`): `layer-reviewer`, `typescript-reviewer`, `security-reviewer` — cả ba **sạch**, xác nhận R1–R5, R8 sửa đúng, không tạo vấn đề mới.
 
 ## 7. Final
 
-**Tóm tắt:**
+**Tóm tắt:** Đóng T15 trong sheet. Cấu hình đăng nhập Google (`openid email profile`, `access_type=offline`, `prompt=consent`, `include_granted_scopes`) được tách vào `src/server/auth/google-tokens.ts` cùng hai hàm thuần mã hoá token (lần đầu qua `linkAccount`, đăng nhập lại qua `events.signIn`); `auth.ts` giữ nguyên hành vi. Thêm 47 test: `crypto.ts` (26), `google-tokens.ts` (11), `google/client.ts` (10). Kiểm thật trên DB dev: refresh token đã lưu lấy được access token mới, `expires_at` được đẩy lên và token mới vẫn mã hoá `v1:`. 4 lệnh lần cuối: typecheck ✅ · lint ✅ · test ✅ 733/733 · build ✅.
 
-**Tiêu chí nghiệm thu:** (đánh dấu ở mục 1)
+**Tiêu chí nghiệm thu:** đạt cả 7 (đánh dấu ở mục 1).
 
-**Tài liệu đã cập nhật:**
+**Tài liệu đã cập nhật:** `docs/02-google-cloud.md` (mục "Đăng nhập giai đoạn 1" + lệnh kiểm tra token mã hoá), `docs/04-architecture.md` (`auth/google-tokens.ts`), `docs/tasks/README.md`.
 
-**Merge vào develop:** commit `<hash>`, ngày
+**Merge vào develop:** commit `<hash>`, 2026-11-26
 
 **Việc để sau:**
--
+- R6: thay `adapter.linkAccount!` bằng kiểm tra rõ ràng.
+- R7: log lỗi Prisma bằng `error.code` / `error.name` thay vì `error.message` (`auth.ts`, `google/client.ts`).
+- R9: bọc lỗi `decipher.final()` (sai tag / sai khoá) thành lỗi thống nhất trong `crypto.ts`.
+- R10: quyết định `encrypt("")` nên throw (cùng lúc với T74, quy trình đổi khoá).
+- Consent screen còn ở Testing → refresh token hết hạn sau 7 ngày (sheet T71).
