@@ -124,18 +124,18 @@ export type UpdateProjectInput = z.infer<typeof updateProjectInputSchema>;
 /** Độ dài tối đa của id (cuid, id mẫu); `server/http.ts` dùng lại cho id trên URL. */
 export const ID_MAX_LENGTH = 64;
 
-/** Id thực thể trong body / query của API: chuỗi 1–ID_MAX_LENGTH ký tự. */
-export const entityIdSchema = z.string().min(1).max(ID_MAX_LENGTH);
+/** Postgres không lưu / so được ký tự NUL trong cột text: chặn ở input thay vì để DB trả lỗi 500. */
+export function hasNoNul(value: string): boolean {
+  return !value.includes("\u0000");
+}
+const NUL_MESSAGE = "Không được chứa ký tự NUL";
+
+/** Id thực thể trong body / query của API: chuỗi 1–ID_MAX_LENGTH ký tự, không có NUL. */
+export const entityIdSchema = z.string().min(1).max(ID_MAX_LENGTH).refine(hasNoNul, NUL_MESSAGE);
 
 /** Độ dài tối đa (ký tự, sau khi trim) của tiêu đề / mô tả công việc; UI dùng cho `maxLength`. */
 export const TASK_TITLE_MAX = 200;
 export const TASK_DESCRIPTION_MAX = 5000;
-
-/** Postgres không lưu được ký tự NUL trong cột text: chặn ở input thay vì để DB trả lỗi 500. */
-function hasNoNul(value: string): boolean {
-  return !value.includes("\u0000");
-}
-const NUL_MESSAGE = "Không được chứa ký tự NUL";
 
 const taskTitle = z
   .string()

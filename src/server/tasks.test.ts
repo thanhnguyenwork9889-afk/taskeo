@@ -449,22 +449,22 @@ describe("updateTask", () => {
     expect(updateData()).toEqual({ title: "Đã sửa" });
   });
 
-  it("chỉ gửi status như cũ → vẫn updateMany với data rỗng, trả task", async () => {
+  it("chỉ gửi status như cũ → không gọi updateMany (data rỗng), đọc lại và trả task", async () => {
     arrangeUpdate({ status: "DONE", completedAt: CREATED });
 
     const result = await updateTask(USER, "t1", { status: "DONE" }, NOW);
 
-    expect(task.updateMany).toHaveBeenCalledTimes(1);
-    expect(updateData()).toEqual({});
+    expect(task.updateMany).not.toHaveBeenCalled();
+    expect(task.findFirst).toHaveBeenCalledTimes(2);
+    expect(task.findFirst.mock.calls[1][0].where).toEqual({ id: "t1", userId: USER });
     expect(result.ok).toBe(true);
   });
 
-  it("chỉ gửi status như cũ, updateMany count 0 → not_found", async () => {
-    task.findFirst.mockResolvedValueOnce({ status: "DONE", completedAt: CREATED });
-    task.updateMany.mockResolvedValue({ count: 0 });
+  it("chỉ gửi status như cũ, đọc lại không thấy (bị xoá giữa chừng) → not_found", async () => {
+    task.findFirst.mockResolvedValueOnce({ status: "DONE", completedAt: CREATED }).mockResolvedValueOnce(null);
 
     expect(await updateTask(USER, "t1", { status: "DONE" }, NOW)).toEqual({ ok: false, reason: "not_found" });
-    expect(updateData()).toEqual({});
+    expect(task.updateMany).not.toHaveBeenCalled();
   });
 
   it("projectId mới → spaceId theo dự án; kiểm dự án theo userId", async () => {

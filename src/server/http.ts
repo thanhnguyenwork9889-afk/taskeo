@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { ID_MAX_LENGTH } from "@/domain/validation";
+import { hasNoNul, ID_MAX_LENGTH } from "@/domain/validation";
 
 /** Lỗi trả cho client: thông điệp ngắn, `details` chỉ có khi là lỗi validate. */
 export interface ApiError {
@@ -65,7 +65,7 @@ export function handleUnexpected(error: unknown, context: string): Response {
   return fail(500, UNEXPECTED_MESSAGE);
 }
 
-/** id trong URL rỗng hoặc quá dài → route coi như không tồn tại (404), không gọi DB. */
+/** id trong URL rỗng, quá dài hoặc có NUL → route coi như không tồn tại (404), không gọi DB. */
 export function isValidRouteId(id: string): boolean {
-  return id.length > 0 && id.length <= ID_MAX_LENGTH;
+  return id.length > 0 && id.length <= ID_MAX_LENGTH && hasNoNul(id);
 }

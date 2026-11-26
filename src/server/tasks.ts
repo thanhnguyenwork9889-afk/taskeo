@@ -183,19 +183,22 @@ export async function updateTask(
     data = { ...data, projectId: null };
   }
   // Status gửi lên trùng status hiện tại → không ghi status / completedAt (giữ mốc hoàn thành).
-  // `data` có thể rỗng: vẫn gọi updateMany (Prisma nhận `{}`), count 0 → not_found như thường.
   if (input.status !== undefined && input.status !== current.status) {
     const completedAt = completedAtFor<Date>(current.status, current.completedAt, input.status, now);
     data = { ...data, status: input.status, completedAt };
   }
 
-  try {
-    const { count } = await prisma.task.updateMany({ where: { id, userId }, data });
-    if (count === 0) return { ok: false, reason: "not_found" };
-  } catch (error) {
-    // Dự án bị xoá giữa bước kiểm và bước ghi → khoá ngoại báo P2003.
-    if (isForeignKeyViolation(error)) return { ok: false, reason: "invalid_project" };
-    throw error;
+  // Không có gì để ghi (vd chỉ gửi status như cũ): bỏ qua updateMany để không phụ thuộc cách Prisma
+  // xử lý `data: {}` (count, @updatedAt); getTask bên dưới vẫn trả not_found nếu bị xoá giữa chừng.
+  if (Object.keys(data).length > 0) {
+    try {
+      const { count } = await prisma.task.updateMany({ where: { id, userId }, data });
+      if (count === 0) return { ok: false, reason: "not_found" };
+    } catch (error) {
+      // Dự án bị xoá giữa bước kiểm và bước ghi → khoá ngoại báo P2003.
+      if (isForeignKeyViolation(error)) return { ok: false, reason: "invalid_project" };
+      throw error;
+    }
   }
 
   const task = await getTask(userId, id);

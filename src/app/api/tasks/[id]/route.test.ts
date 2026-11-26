@@ -78,10 +78,13 @@ function expectNoServerCall(): void {
 
 type RouteModule = typeof import("./route");
 
+/** Handler import tĩnh; test 401 / 503 truyền `await freshRoute()` thay vào. */
+const STATIC_ROUTE: RouteModule = { GET, PATCH, DELETE };
+
 const CALLS = [
-  ["GET", (id: string, route: RouteModule = { GET, PATCH, DELETE }) => route.GET(getRequest(), context(id))],
-  ["PATCH", (id: string, route: RouteModule = { GET, PATCH, DELETE }) => route.PATCH(patchJson({ title: "A" }), context(id))],
-  ["DELETE", (id: string, route: RouteModule = { GET, PATCH, DELETE }) => route.DELETE(deleteRequest(), context(id))],
+  ["GET", (id: string, route: RouteModule) => route.GET(getRequest(), context(id))],
+  ["PATCH", (id: string, route: RouteModule) => route.PATCH(patchJson({ title: "A" }), context(id))],
+  ["DELETE", (id: string, route: RouteModule) => route.DELETE(deleteRequest(), context(id))],
 ] as const;
 
 /**
@@ -122,8 +125,9 @@ describe.each(CALLS)("%s /api/tasks/[id] — phiên và id", (_method, call) => 
   it.each([
     ["quá 64 ký tự", "a".repeat(65)],
     ["rỗng", ""],
+    ["có ký tự NUL", "tk\u00001"],
   ])("trả 404 khi id %s và không gọi hàm server", async (_label, id) => {
-    const response = await call(id);
+    const response = await call(id, STATIC_ROUTE);
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ data: null, error: { message: NOT_FOUND } });
     expectNoServerCall();

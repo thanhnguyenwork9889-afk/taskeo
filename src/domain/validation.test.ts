@@ -302,6 +302,7 @@ describe("entityIdSchema", () => {
     ["empty", ""],
     ["65 characters", "a".repeat(ID_MAX_LENGTH + 1)],
     ["number", 5],
+    ["NUL character", "p\u0000x"],
   ])("rejects %s", (_label, value) => {
     expect(entityIdSchema.safeParse(value).success).toBe(false);
   });
