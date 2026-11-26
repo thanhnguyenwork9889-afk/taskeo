@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `chore/T009-google-auth-verify` |
 | Tạo từ | `develop` @ `e8a8ac7` |
-| Trạng thái | 5-fix |
+| Trạng thái | 6-rereview |
 | Ngày tạo | 2026-11-26 |
 
 Nguồn: sheet nhiệm vụ, dòng **T15** "Auth.js + Google provider (openid email profile, access_type=offline, prompt=consent)" — đang *Đang làm*, ghi chú "chưa chạy thử với Google thật" (backlog B1). Liên quan T16 (mã hoá refresh token) và T17 (client tự refresh), cả hai ghi "chưa thử thật".
@@ -105,9 +105,19 @@ Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewe
 
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
-| R1 | đã sửa / bỏ qua: lý do | |
+| R1 | đã sửa: chờ `update` được gọi rồi mới chờ `console.error` và đọc args | `e19f4ff` |
+| R2 | đã sửa: `expiry_date` dùng timestamp thật | `e19f4ff` |
+| R3 | đã sửa: bỏ `restoreAllMocks` ở afterEach; spy `console.error` tự khôi phục bằng `onTestFinished` (giữ `resetAllMocks` vì nó xoá lịch sử gọi của `vi.fn`) | `e19f4ff` |
+| R4 | đã sửa: `as const satisfies Record<string, string>`, `auth.ts` vẫn typecheck | `e19f4ff` |
+| R5 | đã sửa: `access_token: string`, gọi `encrypt` trực tiếp sau guard; hành vi không đổi | `e19f4ff` |
+| R6 | để sau: `adapter.linkAccount!` có từ trước T009, PrismaAdapter luôn có `linkAccount` | — |
+| R7 | để sau: đổi log sang `error.code` / `error.name` đụng `client.ts` và quy ước log chung; giá trị trong query đã là ciphertext | — |
+| R8 | đã sửa: lệnh kiểm tra dùng `select` chỉ 3 field + ghi chú chỉ chạy với DB dev; đã chạy lại, kết quả đúng | `e19f4ff` |
+| R9 | để sau: bọc lỗi `decipher.final()` — đổi hành vi `crypto.ts`, ngoài phạm vi (không lộ plaintext) | — |
+| R10 | để sau: `encryptOptional` đã chặn `""`; quyết định `encrypt("")` nên throw hay không ở T74 (đổi khoá) | — |
+| R11 | sửa ở bước 7 (tick tiêu chí) | — |
 
-Kết quả 4 lệnh sau khi sửa:
+Kết quả 4 lệnh sau khi sửa (verifier): typecheck ✅ · lint ✅ · test ✅ 733/733 · build ✅.
 
 ## 6. Review lại
 

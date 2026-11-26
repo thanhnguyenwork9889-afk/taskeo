@@ -13,7 +13,7 @@ Quy trình: [07-workflow.md](../07-workflow.md). Mẫu: [_template.md](_template
 | T006 | [API CRUD Công việc](T006-tasks-api.md) | `feat/T006-tasks-api` | done | `891c9af` |
 | T007 | [Sửa lỗi prerender `crypto.getRandomValues()`](T007-prerender-crypto.md) | `fix/T007-prerender-crypto` | done | `2a10f08` |
 | T008 | [Ghi Activity khi tạo / hoàn thành công việc, tạo dự án](T008-activity-log.md) | `feat/T008-activity-log` | done | `4c62d86` |
-| T009 | [Hoàn tất đăng nhập Google: test token + kiểm thử refresh thật](T009-google-auth-verify.md) | `chore/T009-google-auth-verify` | 5-fix | |
+| T009 | [Hoàn tất đăng nhập Google: test token + kiểm thử refresh thật](T009-google-auth-verify.md) | `chore/T009-google-auth-verify` | 6-rereview | |
 
 ## Việc chờ làm (backlog)
 
