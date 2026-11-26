@@ -153,7 +153,7 @@ Vòng 1 (`git diff 1fbd913..ad54736`, cùng ba reviewer): không có CRITICAL / 
 
 **Quy trình:** P3, P4, P5 do Claude tự viết trong phiên (người dùng đồng ý) vì công cụ giao agent lỗi kiểm tra chế độ auto ba lần; review và bản sửa R1/R3 đã quay lại dùng agent.
 
-**Merge vào develop:** commit `<hash>`, 2026-11-26
+**Merge vào develop:** commit `3234e6c`, 2026-11-26
 
 **Việc để sau:**
 - Chặn hẳn việc gắn tài khoản Google thứ hai khi kết nối (`callbacks.signIn` từ chối `providerAccountId` khác Account google sẵn có của user); hiện chỉ giảm bằng `login_hint` và đọc xác định theo `createdAt`. Nên làm trước hoặc cùng T31.

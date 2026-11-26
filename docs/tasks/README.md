@@ -14,7 +14,7 @@ Quy trình: [07-workflow.md](../07-workflow.md). Mẫu: [_template.md](_template
 | T007 | [Sửa lỗi prerender `crypto.getRandomValues()`](T007-prerender-crypto.md) | `fix/T007-prerender-crypto` | done | `2a10f08` |
 | T008 | [Ghi Activity khi tạo / hoàn thành công việc, tạo dự án](T008-activity-log.md) | `feat/T008-activity-log` | done | `4c62d86` |
 | T009 | [Hoàn tất đăng nhập Google: test token + kiểm thử refresh thật](T009-google-auth-verify.md) | `chore/T009-google-auth-verify` | done | `1b9fea9` |
-| T010 | [Thêm scope `drive.file` (xin quyền theo từng bước)](T010-drive-scope.md) | `feat/T010-drive-scope` | done | |
+| T010 | [Thêm scope `drive.file` (xin quyền theo từng bước)](T010-drive-scope.md) | `feat/T010-drive-scope` | done | `3234e6c` |
 
 ## Việc chờ làm (backlog)
 
