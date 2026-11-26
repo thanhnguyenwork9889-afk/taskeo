@@ -1,17 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TaskRecord } from "@/domain/task-record";
 
-const db = vi.hoisted(() => ({
-  space: { findFirst: vi.fn() },
-  project: { findFirst: vi.fn() },
-  task: {
-    findMany: vi.fn(),
-    findFirst: vi.fn(),
-    count: vi.fn(),
-    aggregate: vi.fn(),
-    create: vi.fn(),
-    updateMany: vi.fn(),
-    deleteMany: vi.fn(),
+const { db, tx } = vi.hoisted(() => ({
+  db: {
+    space: { findFirst: vi.fn() },
+    project: { findFirst: vi.fn() },
+    // Không có create / updateMany: ghi phải đi qua `tx` trong `$transaction`.
+    task: {
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+      count: vi.fn(),
+      aggregate: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+    $transaction: vi.fn(),
+  },
+  tx: {
+    task: { create: vi.fn(), updateMany: vi.fn() },
+    activity: { createMany: vi.fn() },
   },
 }));
 
@@ -61,7 +67,7 @@ function prismaError(code: string): Error {
   return Object.assign(new Error(`Prisma ${code}`), { code });
 }
 
-/** Mọi lời gọi Prisma (trừ create, có userId trong data) phải lọc theo userId. */
+/** Mọi lời gọi Prisma (trừ create / createMany, có userId trong data) phải lọc theo userId. */
 function expectAllWhereHaveUserId(): void {
   const mocks = [
     space.findFirst,
@@ -70,7 +76,7 @@ function expectAllWhereHaveUserId(): void {
     task.findFirst,
     task.count,
     task.aggregate,
-    task.updateMany,
+    tx.task.updateMany,
     task.deleteMany,
   ];
   for (const mock of mocks) {
@@ -78,9 +84,20 @@ function expectAllWhereHaveUserId(): void {
       expect(args.where.userId).toBe(USER);
     }
   }
-  for (const [args] of task.create.mock.calls) {
+  for (const [args] of tx.task.create.mock.calls) {
     expect(args.data.userId).toBe(USER);
   }
+  for (const [args] of tx.activity.createMany.mock.calls) {
+    expect(args.data.length).toBeGreaterThan(0);
+    for (const row of args.data) {
+      expect(row.userId).toBe(USER);
+    }
+  }
+}
+
+/** Các dòng activity đã ghi (gộp mọi lời gọi `tx.activity.createMany`). */
+function activityRowsWritten(): Array<Record<string, unknown>> {
+  return tx.activity.createMany.mock.calls.flatMap(([args]) => args.data);
 }
 
 function expectNoUndefinedValues(data: Record<string, unknown>): void {
@@ -91,6 +108,8 @@ function expectNoUndefinedValues(data: Record<string, unknown>): void {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  db.$transaction.mockImplementation(async (fn: (client: typeof tx) => unknown) => fn(tx));
+  tx.activity.createMany.mockImplementation(async ({ data }: { data: unknown[] }) => ({ count: data.length }));
 });
 
 describe("listTasks", () => {
@@ -171,7 +190,7 @@ describe("createTask", () => {
   function arrangeCreate(count = 3, maxOrder: number | null = null): void {
     task.count.mockResolvedValue(count);
     task.aggregate.mockResolvedValue({ _max: { order: maxOrder } });
-    task.create.mockImplementation(async ({ data }) =>
+    tx.task.create.mockImplementation(async ({ data }) =>
       record({
         id: "new",
         spaceId: data.spaceId,
@@ -193,7 +212,7 @@ describe("createTask", () => {
 
     expect(space.findFirst).not.toHaveBeenCalled();
     expect(project.findFirst).not.toHaveBeenCalled();
-    const args = task.create.mock.calls[0][0];
+    const args = tx.task.create.mock.calls[0][0];
     expect(args.data).toEqual({
       userId: USER,
       spaceId: null,
@@ -221,7 +240,7 @@ describe("createTask", () => {
 
     expect(task.count.mock.calls[0][0].where).toEqual({ userId: USER });
     expect(task.aggregate.mock.calls[0][0]).toEqual({ where: { userId: USER }, _max: { order: true } });
-    expect(task.create.mock.calls[0][0].data.order).toBe(10);
+    expect(tx.task.create.mock.calls[0][0].data.order).toBe(10);
   });
 
   it("chỉ gửi status / priority / dueDate khi có mặt; dueDate qua UTC", async () => {
@@ -229,7 +248,7 @@ describe("createTask", () => {
 
     await createTask(USER, { title: "Việc", priority: "HIGH", status: "IN_PROGRESS", dueDate: "2026-12-01" }, NOW);
 
-    const data = task.create.mock.calls[0][0].data;
+    const data = tx.task.create.mock.calls[0][0].data;
     expect(data.priority).toBe("HIGH");
     expect(data.status).toBe("IN_PROGRESS");
     expect(data.dueDate).toEqual(new Date("2026-12-01T00:00:00.000Z"));
@@ -241,7 +260,7 @@ describe("createTask", () => {
 
     const result = await createTask(USER, { title: "Việc", status: "DONE" }, NOW);
 
-    expect(task.create.mock.calls[0][0].data.completedAt).toEqual(NOW);
+    expect(tx.task.create.mock.calls[0][0].data.completedAt).toEqual(NOW);
     expect(result.ok && result.task.completedAt).toBe(NOW.toISOString());
   });
 
@@ -253,7 +272,7 @@ describe("createTask", () => {
 
     expect(project.findFirst.mock.calls[0][0]).toEqual({ where: { id: "p1", userId: USER }, select: { spaceId: true } });
     expect(space.findFirst).not.toHaveBeenCalled();
-    expect(task.create.mock.calls[0][0].data).toMatchObject({ projectId: "p1", spaceId: "s9" });
+    expect(tx.task.create.mock.calls[0][0].data).toMatchObject({ projectId: "p1", spaceId: "s9" });
     expect(result.ok && result.task.spaceId).toBe("s9");
     expectAllWhereHaveUserId();
   });
@@ -264,7 +283,7 @@ describe("createTask", () => {
 
     await createTask(USER, { title: "Việc", projectId: "p1", spaceId: null }, NOW);
 
-    expect(task.create.mock.calls[0][0].data).toMatchObject({ projectId: "p1", spaceId: "s9" });
+    expect(tx.task.create.mock.calls[0][0].data).toMatchObject({ projectId: "p1", spaceId: "s9" });
   });
 
   it("projectId + spaceId trùng không gian của dự án → hợp lệ", async () => {
@@ -274,7 +293,7 @@ describe("createTask", () => {
     const result = await createTask(USER, { title: "Việc", projectId: "p1", spaceId: "s9" }, NOW);
 
     expect(result.ok).toBe(true);
-    expect(task.create.mock.calls[0][0].data).toMatchObject({ projectId: "p1", spaceId: "s9" });
+    expect(tx.task.create.mock.calls[0][0].data).toMatchObject({ projectId: "p1", spaceId: "s9" });
   });
 
   it("spaceId khác không gian của dự án → space_mismatch, không tạo", async () => {
@@ -283,7 +302,7 @@ describe("createTask", () => {
     const result = await createTask(USER, { title: "Việc", projectId: "p1", spaceId: "s1" }, NOW);
 
     expect(result).toEqual({ ok: false, reason: "space_mismatch" });
-    expect(task.create).not.toHaveBeenCalled();
+    expect(tx.task.create).not.toHaveBeenCalled();
   });
 
   it("dự án của người khác / không có → invalid_project, không tạo", async () => {
@@ -292,7 +311,7 @@ describe("createTask", () => {
     const result = await createTask(USER, { title: "Việc", projectId: "p-other" }, NOW);
 
     expect(result).toEqual({ ok: false, reason: "invalid_project" });
-    expect(task.create).not.toHaveBeenCalled();
+    expect(tx.task.create).not.toHaveBeenCalled();
     expectAllWhereHaveUserId();
   });
 
@@ -304,7 +323,7 @@ describe("createTask", () => {
 
     expect(space.findFirst.mock.calls[0][0].where).toEqual({ id: "s1", userId: USER });
     expect(project.findFirst).not.toHaveBeenCalled();
-    expect(task.create.mock.calls[0][0].data).toMatchObject({ spaceId: "s1", projectId: null });
+    expect(tx.task.create.mock.calls[0][0].data).toMatchObject({ spaceId: "s1", projectId: null });
     expectAllWhereHaveUserId();
   });
 
@@ -314,7 +333,7 @@ describe("createTask", () => {
     const result = await createTask(USER, { title: "Việc", spaceId: "s-other" }, NOW);
 
     expect(result).toEqual({ ok: false, reason: "invalid_space" });
-    expect(task.create).not.toHaveBeenCalled();
+    expect(tx.task.create).not.toHaveBeenCalled();
   });
 
   it("projectId: null + spaceId: null → cả hai null, không kiểm gì", async () => {
@@ -324,7 +343,7 @@ describe("createTask", () => {
 
     expect(space.findFirst).not.toHaveBeenCalled();
     expect(project.findFirst).not.toHaveBeenCalled();
-    expect(task.create.mock.calls[0][0].data).toMatchObject({ spaceId: null, projectId: null });
+    expect(tx.task.create.mock.calls[0][0].data).toMatchObject({ spaceId: null, projectId: null });
   });
 
   it("đủ MAX_TASKS_PER_USER → limit, không tạo", async () => {
@@ -333,13 +352,13 @@ describe("createTask", () => {
     const result = await createTask(USER, { title: "Việc" }, NOW);
 
     expect(result).toEqual({ ok: false, reason: "limit" });
-    expect(task.create).not.toHaveBeenCalled();
+    expect(tx.task.create).not.toHaveBeenCalled();
   });
 
   it("P2003 khi có projectId → invalid_project", async () => {
     arrangeCreate();
     project.findFirst.mockResolvedValue({ spaceId: "s9" });
-    task.create.mockRejectedValue(prismaError("P2003"));
+    tx.task.create.mockRejectedValue(prismaError("P2003"));
 
     expect(await createTask(USER, { title: "Việc", projectId: "p1" }, NOW)).toEqual({
       ok: false,
@@ -350,7 +369,7 @@ describe("createTask", () => {
   it("P2003 khi chỉ có spaceId → invalid_space", async () => {
     arrangeCreate();
     space.findFirst.mockResolvedValue({ id: "s1" });
-    task.create.mockRejectedValue(prismaError("P2003"));
+    tx.task.create.mockRejectedValue(prismaError("P2003"));
 
     expect(await createTask(USER, { title: "Việc", spaceId: "s1" }, NOW)).toEqual({
       ok: false,
@@ -361,20 +380,96 @@ describe("createTask", () => {
   it("lỗi khác ném tiếp", async () => {
     arrangeCreate();
     const error = prismaError("P1001");
-    task.create.mockRejectedValue(error);
+    tx.task.create.mockRejectedValue(error);
 
     await expect(createTask(USER, { title: "Việc" }, NOW)).rejects.toBe(error);
+  });
+
+  describe("activity", () => {
+    it("tạo → task.create và activity.createMany cùng một tx; 1 task_created đúng trường", async () => {
+      arrangeCreate();
+
+      const result = await createTask(USER, { title: "Việc" }, NOW);
+
+      expect(db.$transaction).toHaveBeenCalledTimes(1);
+      expect(tx.task.create).toHaveBeenCalledTimes(1);
+      expect(tx.activity.createMany).toHaveBeenCalledTimes(1);
+      expect(activityRowsWritten()).toEqual([
+        { userId: USER, type: "task_created", entityId: "new", meta: { message: "Tạo công việc" }, createdAt: NOW },
+      ]);
+      expect(tx.task.create.mock.invocationCallOrder[0]).toBeLessThan(
+        tx.activity.createMany.mock.invocationCallOrder[0],
+      );
+      expect(result.ok && result.task.id).toBe("new");
+      expectAllWhereHaveUserId();
+    });
+
+    it("tạo DONE → task_created rồi task_done", async () => {
+      arrangeCreate();
+
+      await createTask(USER, { title: "Việc", status: "DONE" }, NOW);
+
+      expect(activityRowsWritten()).toEqual([
+        { userId: USER, type: "task_created", entityId: "new", meta: { message: "Tạo công việc" }, createdAt: NOW },
+        { userId: USER, type: "task_done", entityId: "new", meta: { message: "Hoàn thành công việc" }, createdAt: NOW },
+      ]);
+      expectAllWhereHaveUserId();
+    });
+
+    it("P2003 từ task.create → reason cũ, không ghi activity", async () => {
+      arrangeCreate();
+      project.findFirst.mockResolvedValue({ spaceId: "s9" });
+      tx.task.create.mockRejectedValue(prismaError("P2003"));
+
+      expect(await createTask(USER, { title: "Việc", projectId: "p1" }, NOW)).toEqual({
+        ok: false,
+        reason: "invalid_project",
+      });
+      expect(tx.activity.createMany).not.toHaveBeenCalled();
+    });
+
+    it("activity.createMany reject → hàm ném lại đúng lỗi đó", async () => {
+      arrangeCreate();
+      const error = prismaError("P1001");
+      tx.activity.createMany.mockRejectedValue(error);
+
+      await expect(createTask(USER, { title: "Việc" }, NOW)).rejects.toBe(error);
+      expect(tx.task.create).toHaveBeenCalledTimes(1);
+    });
+
+    it("space_mismatch / invalid_project / invalid_space / limit → không mở $transaction", async () => {
+      project.findFirst.mockResolvedValueOnce({ spaceId: "s9" }).mockResolvedValueOnce(null);
+      space.findFirst.mockResolvedValue(null);
+      arrangeCreate(MAX_TASKS_PER_USER);
+
+      expect(await createTask(USER, { title: "Việc", projectId: "p1", spaceId: "s1" }, NOW)).toEqual({
+        ok: false,
+        reason: "space_mismatch",
+      });
+      expect(await createTask(USER, { title: "Việc", projectId: "p-other" }, NOW)).toEqual({
+        ok: false,
+        reason: "invalid_project",
+      });
+      expect(await createTask(USER, { title: "Việc", spaceId: "s-other" }, NOW)).toEqual({
+        ok: false,
+        reason: "invalid_space",
+      });
+      expect(await createTask(USER, { title: "Việc" }, NOW)).toEqual({ ok: false, reason: "limit" });
+
+      expect(db.$transaction).not.toHaveBeenCalled();
+      expect(tx.activity.createMany).not.toHaveBeenCalled();
+    });
   });
 });
 
 describe("updateTask", () => {
   function arrangeUpdate(current: { status: string; completedAt: Date | null } = { status: "TODO", completedAt: null }): void {
     task.findFirst.mockResolvedValueOnce(current).mockResolvedValueOnce(record({ title: "Đã sửa" }));
-    task.updateMany.mockResolvedValue({ count: 1 });
+    tx.task.updateMany.mockResolvedValue({ count: 1 });
   }
 
   function updateData(): Record<string, unknown> {
-    return task.updateMany.mock.calls[0][0].data;
+    return tx.task.updateMany.mock.calls[0][0].data;
   }
 
   it("đọc hiện trạng theo id + userId, một updateMany theo id + userId, đọc lại bằng getTask", async () => {
@@ -386,8 +481,8 @@ describe("updateTask", () => {
       where: { id: "t1", userId: USER },
       select: { status: true, completedAt: true },
     });
-    expect(task.updateMany).toHaveBeenCalledTimes(1);
-    expect(task.updateMany.mock.calls[0][0].where).toEqual({ id: "t1", userId: USER });
+    expect(tx.task.updateMany).toHaveBeenCalledTimes(1);
+    expect(tx.task.updateMany.mock.calls[0][0].where).toEqual({ id: "t1", userId: USER });
     expect(updateData()).toEqual({ title: "Đã sửa" });
     expect(task.findFirst.mock.calls[1][0]).toEqual({ where: { id: "t1", userId: USER }, select: TASK_SELECT });
     expect(result.ok && result.task.title).toBe("Đã sửa");
@@ -454,7 +549,7 @@ describe("updateTask", () => {
 
     const result = await updateTask(USER, "t1", { status: "DONE" }, NOW);
 
-    expect(task.updateMany).not.toHaveBeenCalled();
+    expect(tx.task.updateMany).not.toHaveBeenCalled();
     expect(task.findFirst).toHaveBeenCalledTimes(2);
     expect(task.findFirst.mock.calls[1][0].where).toEqual({ id: "t1", userId: USER });
     expect(result.ok).toBe(true);
@@ -464,7 +559,7 @@ describe("updateTask", () => {
     task.findFirst.mockResolvedValueOnce({ status: "DONE", completedAt: CREATED }).mockResolvedValueOnce(null);
 
     expect(await updateTask(USER, "t1", { status: "DONE" }, NOW)).toEqual({ ok: false, reason: "not_found" });
-    expect(task.updateMany).not.toHaveBeenCalled();
+    expect(tx.task.updateMany).not.toHaveBeenCalled();
   });
 
   it("projectId mới → spaceId theo dự án; kiểm dự án theo userId", async () => {
@@ -495,7 +590,7 @@ describe("updateTask", () => {
     const result = await updateTask(USER, "t1", { projectId: "p-other" }, NOW);
 
     expect(result).toEqual({ ok: false, reason: "invalid_project" });
-    expect(task.updateMany).not.toHaveBeenCalled();
+    expect(tx.task.updateMany).not.toHaveBeenCalled();
   });
 
   it("công việc của người khác / không có → not_found, không gọi updateMany", async () => {
@@ -504,13 +599,13 @@ describe("updateTask", () => {
     const result = await updateTask(USER, "t-other", { title: "x" }, NOW);
 
     expect(result).toEqual({ ok: false, reason: "not_found" });
-    expect(task.updateMany).not.toHaveBeenCalled();
+    expect(tx.task.updateMany).not.toHaveBeenCalled();
     expectAllWhereHaveUserId();
   });
 
   it("updateMany count 0 → not_found", async () => {
     task.findFirst.mockResolvedValueOnce({ status: "TODO", completedAt: null });
-    task.updateMany.mockResolvedValue({ count: 0 });
+    tx.task.updateMany.mockResolvedValue({ count: 0 });
 
     expect(await updateTask(USER, "t1", { title: "x" }, NOW)).toEqual({ ok: false, reason: "not_found" });
     expect(task.findFirst).toHaveBeenCalledTimes(1);
@@ -518,7 +613,7 @@ describe("updateTask", () => {
 
   it("đọc lại không thấy (bị xoá giữa chừng) → not_found", async () => {
     task.findFirst.mockResolvedValueOnce({ status: "TODO", completedAt: null }).mockResolvedValueOnce(null);
-    task.updateMany.mockResolvedValue({ count: 1 });
+    tx.task.updateMany.mockResolvedValue({ count: 1 });
 
     expect(await updateTask(USER, "t1", { title: "x" }, NOW)).toEqual({ ok: false, reason: "not_found" });
   });
@@ -526,7 +621,7 @@ describe("updateTask", () => {
   it("P2003 → invalid_project", async () => {
     task.findFirst.mockResolvedValueOnce({ status: "TODO", completedAt: null });
     project.findFirst.mockResolvedValue({ spaceId: "s9" });
-    task.updateMany.mockRejectedValue(prismaError("P2003"));
+    tx.task.updateMany.mockRejectedValue(prismaError("P2003"));
 
     expect(await updateTask(USER, "t1", { projectId: "p2" }, NOW)).toEqual({ ok: false, reason: "invalid_project" });
   });
@@ -534,9 +629,118 @@ describe("updateTask", () => {
   it("lỗi khác ném tiếp", async () => {
     task.findFirst.mockResolvedValueOnce({ status: "TODO", completedAt: null });
     const error = prismaError("P2025");
-    task.updateMany.mockRejectedValue(error);
+    tx.task.updateMany.mockRejectedValue(error);
 
     await expect(updateTask(USER, "t1", { title: "x" }, NOW)).rejects.toBe(error);
+  });
+
+  describe("activity", () => {
+    it("TODO → DONE → updateMany và 1 task_done cùng một tx; getTask sau commit", async () => {
+      arrangeUpdate();
+
+      const result = await updateTask(USER, "t1", { status: "DONE" }, NOW);
+
+      expect(db.$transaction).toHaveBeenCalledTimes(1);
+      expect(activityRowsWritten()).toEqual([
+        { userId: USER, type: "task_done", entityId: "t1", meta: { message: "Hoàn thành công việc" }, createdAt: NOW },
+      ]);
+      expect(tx.task.updateMany.mock.invocationCallOrder[0]).toBeLessThan(
+        tx.activity.createMany.mock.invocationCallOrder[0],
+      );
+      expect(task.findFirst.mock.invocationCallOrder[1]).toBeGreaterThan(
+        tx.activity.createMany.mock.invocationCallOrder[0],
+      );
+      expect(result.ok).toBe(true);
+      expectAllWhereHaveUserId();
+    });
+
+    it("IN_PROGRESS → DONE kèm title → 1 task_done", async () => {
+      arrangeUpdate({ status: "IN_PROGRESS", completedAt: null });
+
+      await updateTask(USER, "t1", { status: "DONE", title: "Đã sửa" }, NOW);
+
+      expect(activityRowsWritten().map((row) => row.type)).toEqual(["task_done"]);
+      expectAllWhereHaveUserId();
+    });
+
+    it("PATCH không có status (chỉ title / ưu tiên) → không ghi activity", async () => {
+      arrangeUpdate();
+
+      await updateTask(USER, "t1", { title: "Đã sửa", priority: "HIGH" }, NOW);
+
+      expect(tx.task.updateMany).toHaveBeenCalledTimes(1);
+      expect(tx.activity.createMany).not.toHaveBeenCalled();
+    });
+
+    it("DONE → DONE (data rỗng) → không mở tx, không ghi activity", async () => {
+      arrangeUpdate({ status: "DONE", completedAt: CREATED });
+
+      await updateTask(USER, "t1", { status: "DONE" }, NOW);
+
+      expect(db.$transaction).not.toHaveBeenCalled();
+      expect(tx.activity.createMany).not.toHaveBeenCalled();
+    });
+
+    it("DONE → DONE kèm title → updateMany, không ghi activity", async () => {
+      arrangeUpdate({ status: "DONE", completedAt: CREATED });
+
+      await updateTask(USER, "t1", { status: "DONE", title: "Đã sửa" }, NOW);
+
+      expect(tx.task.updateMany).toHaveBeenCalledTimes(1);
+      expect(tx.activity.createMany).not.toHaveBeenCalled();
+    });
+
+    it("DONE → TODO / TODO → IN_PROGRESS → không ghi activity", async () => {
+      arrangeUpdate({ status: "DONE", completedAt: CREATED });
+      await updateTask(USER, "t1", { status: "TODO" }, NOW);
+      arrangeUpdate({ status: "TODO", completedAt: null });
+      await updateTask(USER, "t1", { status: "IN_PROGRESS" }, NOW);
+
+      expect(tx.task.updateMany).toHaveBeenCalledTimes(2);
+      expect(tx.activity.createMany).not.toHaveBeenCalled();
+    });
+
+    it("updateMany count 0 → not_found, không ghi activity, không getTask", async () => {
+      task.findFirst.mockResolvedValueOnce({ status: "TODO", completedAt: null });
+      tx.task.updateMany.mockResolvedValue({ count: 0 });
+
+      expect(await updateTask(USER, "t1", { status: "DONE" }, NOW)).toEqual({ ok: false, reason: "not_found" });
+      expect(tx.activity.createMany).not.toHaveBeenCalled();
+      expect(task.findFirst).toHaveBeenCalledTimes(1);
+    });
+
+    it("P2003 từ updateMany → invalid_project, không ghi activity", async () => {
+      task.findFirst.mockResolvedValueOnce({ status: "TODO", completedAt: null });
+      project.findFirst.mockResolvedValue({ spaceId: "s9" });
+      tx.task.updateMany.mockRejectedValue(prismaError("P2003"));
+
+      expect(await updateTask(USER, "t1", { projectId: "p2", status: "DONE" }, NOW)).toEqual({
+        ok: false,
+        reason: "invalid_project",
+      });
+      expect(tx.activity.createMany).not.toHaveBeenCalled();
+    });
+
+    it("activity.createMany reject → hàm ném lại đúng lỗi đó, không getTask", async () => {
+      arrangeUpdate();
+      const error = prismaError("P1001");
+      tx.activity.createMany.mockRejectedValue(error);
+
+      await expect(updateTask(USER, "t1", { status: "DONE" }, NOW)).rejects.toBe(error);
+      expect(task.findFirst).toHaveBeenCalledTimes(1);
+    });
+
+    it("not_found / invalid_project trước tx → không mở $transaction", async () => {
+      task.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ status: "TODO", completedAt: null });
+      project.findFirst.mockResolvedValue(null);
+
+      expect(await updateTask(USER, "t-other", { status: "DONE" }, NOW)).toEqual({ ok: false, reason: "not_found" });
+      expect(await updateTask(USER, "t1", { status: "DONE", projectId: "p-other" }, NOW)).toEqual({
+        ok: false,
+        reason: "invalid_project",
+      });
+      expect(db.$transaction).not.toHaveBeenCalled();
+    });
   });
 });
 

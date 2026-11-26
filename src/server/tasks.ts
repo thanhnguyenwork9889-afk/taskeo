@@ -1,8 +1,10 @@
 import "server-only";
+import { taskActivityTypes } from "@/domain/activity-record";
+import { ACTIVITY_MESSAGE } from "@/domain/labels";
 import { dueDateToDb } from "@/domain/project-record";
 import { completedAtFor } from "@/domain/task-completion";
 import { taskFromRecord } from "@/domain/task-record";
-import type { Priority, Task, TaskStatus } from "@/domain/types";
+import type { ActivityType, Priority, Task, TaskStatus } from "@/domain/types";
 import type { CreateTaskInput, ListTasksQuery, UpdateTaskInput } from "@/domain/validation";
 import { prisma } from "@/server/db";
 
@@ -48,6 +50,19 @@ interface TaskUpdateData extends TaskFieldsData {
 type PlacementResult =
   | { ok: true; spaceId: string | null; projectId: string | null }
   | { ok: false; reason: "invalid_project" | "invalid_space" | "space_mismatch" };
+
+interface ActivityRow {
+  userId: string;
+  type: ActivityType;
+  entityId: string;
+  meta: { message: string };
+  createdAt: Date;
+}
+
+/** Dữ liệu `activity.createMany`: một dòng mỗi loại, câu mặc định theo loại, mốc `now` (khớp completedAt). */
+function activityRows(userId: string, entityId: string, types: readonly ActivityType[], now: Date): ActivityRow[] {
+  return types.map((type) => ({ userId, type, entityId, meta: { message: ACTIVITY_MESSAGE[type] }, createdAt: now }));
+}
 
 /** Mô tả rỗng (schema đã trim) lưu `null`, để DB chỉ có một kiểu "không có mô tả". */
 function descriptionToDb(description: string | undefined): string | null {
@@ -135,20 +150,28 @@ export async function createTask(userId: string, input: CreateTaskInput, now: Da
   const order = _max.order === null ? 0 : _max.order + 1;
 
   try {
-    const record = await prisma.task.create({
-      data: {
-        userId,
-        spaceId: placement.spaceId,
-        projectId: placement.projectId,
-        title: input.title,
-        description: descriptionToDb(input.description),
-        ...(input.status !== undefined && { status: input.status }),
-        ...(input.priority !== undefined && { priority: input.priority }),
-        ...(input.dueDate !== undefined && { dueDate: dueDateToDb(input.dueDate) }),
-        completedAt: completedAtFor<Date>("TODO", null, input.status ?? "TODO", now),
-        order,
-      },
-      select: taskSelect,
+    // Interactive transaction: activity cần id công việc vừa tạo làm `entityId`. Trong callback chỉ
+    // gọi `tx.*`; lỗi ném ra khiến Prisma rollback rồi ném lại lỗi gốc (còn `code`) ra ngoài.
+    const record = await prisma.$transaction(async (tx) => {
+      const created = await tx.task.create({
+        data: {
+          userId,
+          spaceId: placement.spaceId,
+          projectId: placement.projectId,
+          title: input.title,
+          description: descriptionToDb(input.description),
+          ...(input.status !== undefined && { status: input.status }),
+          ...(input.priority !== undefined && { priority: input.priority }),
+          ...(input.dueDate !== undefined && { dueDate: dueDateToDb(input.dueDate) }),
+          completedAt: completedAtFor<Date>("TODO", null, input.status ?? "TODO", now),
+          order,
+        },
+        select: taskSelect,
+      });
+      await tx.activity.createMany({
+        data: activityRows(userId, created.id, taskActivityTypes(null, input.status), now),
+      });
+      return created;
     });
     return { ok: true, task: taskFromRecord(record) };
   } catch (error) {
@@ -188,12 +211,23 @@ export async function updateTask(
     data = { ...data, status: input.status, completedAt };
   }
 
-  // Không có gì để ghi (vd chỉ gửi status như cũ): bỏ qua updateMany để không phụ thuộc cách Prisma
-  // xử lý `data: {}` (count, @updatedAt); getTask bên dưới vẫn trả not_found nếu bị xoá giữa chừng.
+  // Chỉ ghi activity khi status thực sự được ghi (DONE → DONE đã bị bỏ ở trên).
+  const activityTypes = data.status !== undefined ? taskActivityTypes(current.status, data.status) : [];
+
+  // Không có gì để ghi (vd chỉ gửi status như cũ): bỏ qua updateMany (và transaction) để không phụ thuộc
+  // cách Prisma xử lý `data: {}` (count, @updatedAt); getTask bên dưới vẫn trả not_found nếu bị xoá giữa chừng.
   if (Object.keys(data).length > 0) {
     try {
-      const { count } = await prisma.task.updateMany({ where: { id, userId }, data });
-      if (count === 0) return { ok: false, reason: "not_found" };
+      // Trong callback chỉ gọi `tx.*`; count 0 → thoát trước khi ghi activity.
+      const updated = await prisma.$transaction(async (tx) => {
+        const { count } = await tx.task.updateMany({ where: { id, userId }, data });
+        if (count === 0) return false;
+        if (activityTypes.length > 0) {
+          await tx.activity.createMany({ data: activityRows(userId, id, activityTypes, now) });
+        }
+        return true;
+      });
+      if (!updated) return { ok: false, reason: "not_found" };
     } catch (error) {
       // Dự án bị xoá giữa bước kiểm và bước ghi → khoá ngoại báo P2003.
       if (isForeignKeyViolation(error)) return { ok: false, reason: "invalid_project" };
