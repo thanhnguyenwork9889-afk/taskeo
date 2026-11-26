@@ -10,10 +10,11 @@ src/
 ├── server/            2. Chỉ chạy trên server ("server-only")
 │   ├── db.ts             Prisma client
 │   ├── crypto.ts         Mã hoá token Google (AES-256-GCM)
-│   ├── http.ts           Phản hồi API dạng { data, error }, đọc JSON, lỗi 400/401/503/500, isValidRouteId (1–64 ký tự, không NUL)
+│   ├── http.ts           Phản hồi API dạng { data, error }, đọc JSON, lỗi 400/401/503/500, isValidRouteId (1–64 ký tự, không NUL), duplicateQueryKeyMessage
 │   ├── spaces.ts         Truy vấn không gian, luôn lọc theo userId
-│   ├── projects.ts       Truy vấn dự án: lọc userId, kiểm không gian thuộc user, trùng tên không phân biệt hoa thường
-│   ├── tasks.ts          Truy vấn công việc: lọc userId, kiểm dự án / không gian trong body thuộc user, spaceId theo dự án, completedAt
+│   ├── projects.ts       Truy vấn dự án: lọc userId, kiểm không gian thuộc user, trùng tên không phân biệt hoa thường; tạo dự án + activity project_created trong một transaction
+│   ├── tasks.ts          Truy vấn công việc: lọc userId, kiểm dự án / không gian trong body thuộc user, spaceId theo dự án, completedAt; ghi activity task_created / task_done trong cùng transaction
+│   ├── activities.ts     Đọc nhật ký hoạt động của user, mới nhất trước
 │   ├── auth/
 │   │   ├── auth.ts       Cấu hình Auth.js
 │   │   ├── session.ts    getViewer(): người dùng hiện tại (configured: chờ connection() trước auth(), không chạy lúc prerender) · getApiUserId(): userId cho API route
@@ -29,6 +30,7 @@ src/
 │   ├── project-record.ts        Bản ghi DB → Project phía client, dueDate ↔ YYYY-MM-DD theo UTC
 │   ├── task-record.ts           Bản ghi DB → Task phía client
 │   ├── task-completion.ts       completedAtFor: quy tắc completedAt dùng chung cho server và store demo
+│   ├── activity-record.ts       Bản ghi DB → Activity phía client; taskActivityTypes, activityRows (dòng activity cần ghi)
 │   ├── workspace-actions.ts     Thao tác dữ liệu dạng hàm thuần
 │   ├── task-filters.ts stats.ts dates.ts
 │   ├── seed.ts                  Dữ liệu mẫu cho chế độ demo
@@ -48,7 +50,8 @@ src/
 │   ├── api/spaces/[id]/projects/ Danh sách + tạo dự án trong không gian (gọi server/projects)
 │   ├── api/projects/[id]/       Xem / sửa / xoá một dự án
 │   ├── api/tasks/               Danh sách (lọc qua query) + tạo công việc (gọi server/tasks)
-│   └── api/tasks/[id]/          Xem / sửa / xoá một công việc
+│   ├── api/tasks/[id]/          Xem / sửa / xoá một công việc
+│   └── api/activities/          Nhật ký hoạt động (gọi server/activities)
 └── proxy.ts           Chuyển về /login khi chưa có cookie phiên (chỉ khi bật auth)
 ```
 

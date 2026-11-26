@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T008-activity-log` |
 | Tạo từ | `develop` @ `826686a` |
-| Trạng thái | 7-final |
+| Trạng thái | done |
 | Ngày tạo | 2026-11-26 |
 
 Nguồn: sheet nhiệm vụ, dòng **T27** (backlog B4, phần ghi). Hiển thị thật ở card Hoạt động là T41, chờ nối giao diện vào API (T59).
@@ -36,15 +36,15 @@ Nguồn: sheet nhiệm vụ, dòng **T27** (backlog B4, phần ghi). Hiển th�
 - Nối card Hoạt động vào API (T41/T59), phân trang theo con trỏ, lọc theo `type`.
 
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
-- [ ] `POST /api/tasks` thành công ghi đúng một `Activity` `task_created` (`entityId` = id công việc, `meta.message` = "Tạo công việc"); tạo với `status: "DONE"` ghi thêm `task_done` "Hoàn thành công việc".
-- [ ] `PATCH /api/tasks/[id]` chuyển sang `DONE` ghi một `task_done`; PATCH không có `status`, `status` khác `DONE`, hoặc `DONE` khi đã `DONE` không ghi activity.
-- [ ] `POST /api/spaces/[id]/projects` thành công ghi một `project_created` "Tạo dự án".
-- [ ] Ghi công việc / dự án và ghi activity nằm trong một `prisma.$transaction`; activity lỗi thì không có bản ghi nào (test mock kiểm), và các lỗi 400 / 404 / 409 cũ không ghi activity.
-- [ ] Mọi bản ghi `Activity` có `userId` của người gọi; `listActivities` lọc `userId`, sắp `createdAt` giảm dần, `take` = `limit`.
-- [ ] `GET /api/activities`: 401 chưa đăng nhập, 503 chế độ demo (không import `@/server/activities`), 400 `limit` không phải số nguyên 1–200 hoặc gửi lặp, 200 trả mảng `Activity` đủ trường `{ id, type, entityId, message, createdAt }`.
-- [ ] `activityFromRecord` có unit test (meta thiếu / sai kiểu, type lạ); test cũ của `workspace-actions` vẫn xanh sau khi dùng `ACTIVITY_MESSAGE`.
-- [ ] Kiểm trên DB `dev`: tạo công việc, hoàn thành nó, tạo dự án → thấy 3 dòng `Activity` và `GET /api/activities` trả chúng.
-- [ ] typecheck, lint, test, build xanh.
+- [x] `POST /api/tasks` thành công ghi đúng một `Activity` `task_created` (`entityId` = id công việc, `meta.message` = "Tạo công việc"); tạo với `status: "DONE"` ghi thêm `task_done` "Hoàn thành công việc".
+- [x] `PATCH /api/tasks/[id]` chuyển sang `DONE` ghi một `task_done`; PATCH không có `status`, `status` khác `DONE`, hoặc `DONE` khi đã `DONE` không ghi activity.
+- [x] `POST /api/spaces/[id]/projects` thành công ghi một `project_created` "Tạo dự án".
+- [x] Ghi công việc / dự án và ghi activity nằm trong một `prisma.$transaction`; activity lỗi thì không có bản ghi nào (test mock kiểm), và các lỗi 400 / 404 / 409 cũ không ghi activity.
+- [x] Mọi bản ghi `Activity` có `userId` của người gọi; `listActivities` lọc `userId`, sắp `createdAt` giảm dần, `take` = `limit`.
+- [x] `GET /api/activities`: 401 chưa đăng nhập, 503 chế độ demo (không import `@/server/activities`), 400 `limit` không phải số nguyên 1–200 hoặc gửi lặp, 200 trả mảng `Activity` đủ trường `{ id, type, entityId, message, createdAt }`.
+- [x] `activityFromRecord` có unit test (meta thiếu / sai kiểu, type lạ); test cũ của `workspace-actions` vẫn xanh sau khi dùng `ACTIVITY_MESSAGE`.
+- [x] Kiểm trên DB `dev`: tạo công việc, hoàn thành nó, tạo dự án → thấy 3 dòng `Activity` và `GET /api/activities` trả chúng.
+- [x] typecheck, lint, test, build xanh.
 
 **Tài liệu bị ảnh hưởng:** 03 DB (cách dùng `Activity.meta`), 04 kiến trúc (`server/activities.ts`, `domain/activity-record.ts`, `app/api/activities`), 06 API (route mới, quy ước ghi activity).
 
@@ -145,13 +145,24 @@ Vòng 1 (`git diff 83c705d..HEAD -- src`, cùng 3 reviewer): sạch, không CRIT
 
 ## 7. Final
 
-**Tóm tắt:**
+**Tóm tắt:** Server ghi `Activity` cùng transaction với thay đổi: tạo công việc → `task_created` (+ `task_done` nếu tạo sẵn `DONE`), chuyển công việc sang `DONE` → `task_done`, tạo dự án → `project_created`; câu thông báo dùng chung với store demo (`ACTIVITY_MESSAGE`). Route mới `GET /api/activities?limit=` (1–200, mặc định 50). Mới: `domain/activity-record.ts` (`activityFromRecord`, `taskActivityTypes`, `activityRows`), `server/activities.ts`, `app/api/activities`; `duplicateQueryKeyMessage` chuyển vào `server/http.ts`. Không có migration, giao diện chưa đổi. 686 test (từ 569).
 
-**Tiêu chí nghiệm thu:** (đánh dấu ở mục 1)
+**Tiêu chí nghiệm thu:** cả 9 đạt (đánh dấu ở mục 1). Kiểm thật ngày 2026-11-26 trên `next dev` cổng 3000 (chế độ configured, DB Neon branch `dev`, đã đăng nhập trong browser pane):
+- Tạo không gian → dự án (201) → công việc thuộc dự án (201) → công việc tạo sẵn `DONE` (201); PATCH tiêu đề, `IN_PROGRESS`, `DONE`, `DONE` lần hai, `DONE` + tiêu đề, công việc 2 về `TODO` (đều 200).
+- `GET /api/activities` trả đúng 5 dòng, mới nhất trước: `task_done` (việc 1), `task_done` + `task_created` (việc 2, cùng mốc), `task_created` (việc 1), `project_created`; đủ 5 trường, câu đúng; không có dòng thừa cho các PATCH không chuyển sang `DONE`. `?limit=2` → 2 dòng; `limit=0` / `201` / `abc` / gửi lặp → 400.
+- Rollback thật: script Prisma trên DB `dev` mở interactive transaction, tạo task rồi ép `activity.createMany` lỗi khoá ngoại → transaction ném `P2003` (giữ `code`), task không còn trong DB, số activity không đổi.
+- Dọn: xoá không gian thử (204, cascade) và 5 dòng activity thử; DB `dev` còn 0 không gian / 0 công việc / 0 activity.
+- Lần gọi `GET /api/activities` đầu tiên sau khi đổi code trả 500 một lần (log dev chỉ ghi `{}`), các lần sau 200, không tái hiện được; nghi do server dev nạp module cũ khi hot reload.
+- Không kiểm thật được: 503 ở chế độ demo, dữ liệu của người dùng khác — đều có test (mock).
 
-**Tài liệu đã cập nhật:**
+**Kết quả 4 lệnh cuối:** typecheck ✅ · lint ✅ · test ✅ 26 file / 686 test · build ✅ (chạy trên `ee99de8`; sau đó chỉ đổi docs).
 
-**Merge vào develop:** commit `<hash>`, ngày
+**Tài liệu đã cập nhật:** `docs/03-database.md` (cách dùng `Activity`), `docs/04-architecture.md` (`server/activities`, `domain/activity-record`, `api/activities`, `duplicateQueryKeyMessage`), `docs/06-api.md` (route mới, quy ước ghi activity, race đã chấp nhận), `docs/tasks/README.md`.
+
+**Merge vào develop:** commit `<hash>`, ngày 2026-11-26
 
 **Việc để sau:**
--
+- Nối card Hoạt động vào `GET /api/activities` (T41 / T59).
+- `task_updated` cho các sửa khác (server tự sinh câu); khi đó cắt `meta.message` trước rồi mới kiểm rỗng (R11).
+- R1: hai PATCH `DONE` đồng thời ghi 2 `task_done` — cần khoá dòng nếu muốn chặt. R7: P2003 từ activity (user bị xoá giữa chừng) map thành `invalid_project` / `invalid_space`. R8, R10: gọn code.
+- R4: rate limit (T73).
