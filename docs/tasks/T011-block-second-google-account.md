@@ -72,7 +72,7 @@ Rủi ro / phụ thuộc:
 - Migration: có dòng trùng thì dừng, không tự xoá. **Production chưa áp** — khi release `develop` → `main` chạy lại SQL kiểm trùng trên Neon `main` rồi `db:deploy`; trước đó production vẫn được callback chặn.
 - `GOOGLE_ACCOUNT_ORDER` thừa sau ràng buộc nhưng vô hại; giữ nguyên.
 
-Duyệt kế hoạch: ☑ chờ · ☐ người dùng đã duyệt (ngày) · ☐ bỏ qua (`--yes`)
+Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-26) · ☐ bỏ qua (`--yes`)
 
 ## 3. Thực hiện + kiểm thử
 
