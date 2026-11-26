@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `chore/T009-google-auth-verify` |
 | Tạo từ | `develop` @ `e8a8ac7` |
-| Trạng thái | 3-build |
+| Trạng thái | 4-review |
 | Ngày tạo | 2026-11-26 |
 
 Nguồn: sheet nhiệm vụ, dòng **T15** "Auth.js + Google provider (openid email profile, access_type=offline, prompt=consent)" — đang *Đang làm*, ghi chú "chưa chạy thử với Google thật" (backlog B1). Liên quan T16 (mã hoá refresh token) và T17 (client tự refresh), cả hai ghi "chưa thử thật".
@@ -59,13 +59,29 @@ Rủi ro / phụ thuộc:
 - Kiểu `GOOGLE_AUTHORIZATION_PARAMS` phải khớp kiểu provider Google để typecheck qua.
 - Kiểm thật cần đúng `TOKEN_ENCRYPTION_KEY` + client dev trong `.env.local`; refresh token có thể đã bị thu hồi (consent screen Testing: refresh token hết hạn sau 7 ngày) → khi đó cần người dùng đăng nhập lại ở `localhost:3000` rồi chạy lại.
 
-Duyệt kế hoạch: ☐ chờ · ☐ người dùng đã duyệt (ngày) · ☐ bỏ qua (`--yes`)
+Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-26) · ☐ bỏ qua (`--yes`)
 
 ## 3. Thực hiện + kiểm thử
 
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
-| P1 | | | | | | |
+| P1 | `8fd07db` | `crypto.test.ts` 26 test | ✅ | ✅ | ✅ | ✅ |
+| P2 | `25742e8` | `google-tokens.test.ts` 11 test | ✅ | ✅ | ✅ | ✅ |
+| P3 | `84427fa` | `client.test.ts` 10 test | ✅ | ✅ | ✅ | ✅ |
+| P4 | `1ef875b` | — (docs 02, 04) | — | — | — | — |
+
+P1–P3 làm song song, verifier chạy một lần trên cả ba: typecheck, lint, build xanh; `npm test` 733/733.
+
+**Kiểm thật refresh trên DB dev** (2026-11-26, lệnh dùng một lần qua `vite-node`, gọi `getGoogleAuth(userId).getAccessToken()` cho từng `Account` google; không in token):
+
+| Tài khoản | `expires_at` trước | `expires_at` sau | Token mới | Ghi chú |
+|---|---|---|---|---|
+| #1 | 2026-11-26T15:25:03Z (đã hết hạn) | 2026-11-26T16:25:45Z | access + refresh `v1:` | refresh thành công, sự kiện `tokens` ghi DB |
+| #2 | 2026-11-25T15:53:14Z (đã hết hạn) | 2026-11-26T16:25:44Z | access + refresh `v1:` | như trên |
+
+Chạy lần hai: token còn hạn nên không refresh, `expires_at` giữ nguyên — đúng hành vi.
+
+Ghi chú từ P1 (chưa sửa, đưa vào review): `encrypt("")` tạo payload mà `decrypt` từ chối (`!data`). Hiện không xảy ra vì `encryptOptional` đổi `""` thành `null`.
 
 ## 4. Review code
 
