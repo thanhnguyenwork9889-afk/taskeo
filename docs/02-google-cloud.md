@@ -29,10 +29,10 @@ Cấu hình ở `src/server/auth/auth.ts`; tham số nằm trong `GOOGLE_AUTHORI
 - `src/server/google/client.ts` dùng refresh token để lấy access token mới (sống khoảng 1 giờ) và lưu lại (đã mã hoá).
 - Consent screen đang ở **Testing**: refresh token hết hạn sau 7 ngày, phải đăng nhập lại (hết khi chuyển In production, sheet T71).
 
-Kiểm tra token đã lưu mã hoá (chỉ xem tiền tố, không in giá trị token):
+Kiểm tra token đã lưu mã hoá (chỉ chạy với `.env.local` trỏ DB dev; chỉ xem tiền tố, không in giá trị token):
 
 ```bash
-node --env-file=.env.local -e 'const {PrismaClient}=require("@prisma/client");const p=new PrismaClient();p.account.findMany({where:{provider:"google"}}).then(a=>console.log(a.map(x=>({refresh:(x.refresh_token||"").startsWith("v1:"),access:(x.access_token||"").startsWith("v1:"),scope:x.scope})))).finally(()=>p.$disconnect())'
+node --env-file=.env.local -e 'const {PrismaClient}=require("@prisma/client");const p=new PrismaClient();p.account.findMany({where:{provider:"google"},select:{refresh_token:true,access_token:true,scope:true}}).then(a=>console.log(a.map(x=>({refresh:(x.refresh_token||"").startsWith("v1:"),access:(x.access_token||"").startsWith("v1:"),scope:x.scope})))).finally(()=>p.$disconnect())'
 ```
 
 Cả `refresh` và `access` phải là `true`.

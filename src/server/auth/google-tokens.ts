@@ -1,7 +1,7 @@
 import "server-only";
 import type { Account } from "next-auth";
 import type { AdapterAccount } from "next-auth/adapters";
-import { encryptOptional } from "@/server/crypto";
+import { encrypt, encryptOptional } from "@/server/crypto";
 
 /**
  * Tham số ủy quyền Google cho đăng nhập giai đoạn 1.
@@ -12,12 +12,12 @@ import { encryptOptional } from "@/server/crypto";
  *   ép consent để lần đăng nhập lại cũng nhận refresh token mới (tránh token cũ / bị thu hồi).
  * - include_granted_scopes=true: giữ các scope đã cấp trước đó khi xin thêm.
  */
-export const GOOGLE_AUTHORIZATION_PARAMS: Record<string, string> = {
+export const GOOGLE_AUTHORIZATION_PARAMS = {
   scope: "openid email profile",
   access_type: "offline",
   prompt: "consent",
   include_granted_scopes: "true",
-};
+} as const satisfies Record<string, string>;
 
 /** Trả bản sao account với access/refresh/id token đã mã hoá (không mutate input). */
 export function encryptAdapterAccountTokens(account: AdapterAccount): AdapterAccount {
@@ -30,7 +30,7 @@ export function encryptAdapterAccountTokens(account: AdapterAccount): AdapterAcc
 }
 
 export interface ReSignInTokenUpdate {
-  access_token: string | null;
+  access_token: string;
   refresh_token?: string | null;
   id_token?: string | null;
   expires_at?: number;
@@ -44,7 +44,7 @@ export interface ReSignInTokenUpdate {
 export function buildReSignInTokenUpdate(account: Account | null): ReSignInTokenUpdate | null {
   if (!account || account.provider !== "google" || !account.access_token) return null;
   return {
-    access_token: encryptOptional(account.access_token),
+    access_token: encrypt(account.access_token),
     ...(account.refresh_token ? { refresh_token: encryptOptional(account.refresh_token) } : {}),
     ...(account.id_token ? { id_token: encryptOptional(account.id_token) } : {}),
     ...(account.expires_at ? { expires_at: account.expires_at } : {}),

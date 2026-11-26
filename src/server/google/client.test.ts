@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 type TokensHandler = (tokens: Record<string, unknown>) => void;
 
@@ -70,7 +70,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllEnvs();
-  vi.restoreAllMocks();
 });
 
 describe("getGoogleAuth", () => {
@@ -189,10 +188,16 @@ describe("sự kiện tokens", () => {
 
   it("lỗi DB: log userId + message, không chứa token gốc lẫn token đã mã hoá", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    onTestFinished(() => errorSpy.mockRestore());
     db.account.update.mockRejectedValue(new Error("db down"));
     await getGoogleAuth(USER);
 
-    tokensHandler()({ access_token: "ya29.secret-new", refresh_token: "1//secret-refresh", expiry_date: 1 });
+    tokensHandler()({
+      access_token: "ya29.secret-new",
+      refresh_token: "1//secret-refresh",
+      expiry_date: 1_900_000_000_000,
+    });
+    await vi.waitFor(() => expect(db.account.update).toHaveBeenCalledTimes(1));
     await vi.waitFor(() => expect(errorSpy).toHaveBeenCalledTimes(1));
 
     const args = errorSpy.mock.calls[0];
