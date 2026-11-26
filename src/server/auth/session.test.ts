@@ -4,7 +4,10 @@ const mocks = vi.hoisted(() => ({
   getAuthMode: vi.fn(),
   missingAuthEnvVars: vi.fn(() => [] as string[]),
   auth: vi.fn(),
+  connection: vi.fn(async () => undefined),
 }));
+
+vi.mock("next/server", () => ({ connection: mocks.connection }));
 
 vi.mock("@/config/env", () => ({
   getAuthMode: mocks.getAuthMode,
@@ -13,7 +16,7 @@ vi.mock("@/config/env", () => ({
 
 vi.mock("@/server/auth/auth", () => ({ auth: mocks.auth }));
 
-import { getApiUserId } from "./session";
+import { getApiUserId, getViewer } from "./session";
 
 describe("getApiUserId", () => {
   beforeEach(() => {
@@ -71,5 +74,52 @@ describe("getApiUserId", () => {
     mocks.auth.mockRejectedValue(new Error("db down"));
 
     await expect(getApiUserId()).rejects.toThrow("db down");
+  });
+});
+
+describe("getViewer", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  it("returns the demo viewer in demo mode without connection() or auth", async () => {
+    mocks.getAuthMode.mockReturnValue("demo");
+
+    await expect(getViewer()).resolves.toMatchObject({ isDemo: true });
+    expect(mocks.connection).not.toHaveBeenCalled();
+    expect(mocks.auth).not.toHaveBeenCalled();
+  });
+
+  it("returns null in misconfigured mode without auth", async () => {
+    mocks.getAuthMode.mockReturnValue("misconfigured");
+
+    await expect(getViewer()).resolves.toBeNull();
+    expect(mocks.auth).not.toHaveBeenCalled();
+  });
+
+  // auth() tạo CSRF token bằng crypto.getRandomValues() khi chưa có cookie; với cacheComponents
+  // giá trị ngẫu nhiên phải nằm sau connection(), nếu không prerender báo blocking-prerender-crypto.
+  it("awaits connection() before calling auth in configured mode", async () => {
+    mocks.getAuthMode.mockReturnValue("configured");
+    const order: string[] = [];
+    mocks.connection.mockImplementation(async () => {
+      order.push("connection");
+    });
+    mocks.auth.mockImplementation(async () => {
+      order.push("auth");
+      return { user: { id: "u1", name: "An", email: "an@example.com", image: null }, expires: "2099-01-01" };
+    });
+
+    await expect(getViewer()).resolves.toEqual({ name: "An", email: "an@example.com", image: null, isDemo: false });
+    expect(order).toEqual(["connection", "auth"]);
+  });
+
+  it("returns null when signed out in configured mode", async () => {
+    mocks.getAuthMode.mockReturnValue("configured");
+    mocks.auth.mockResolvedValue(null);
+
+    await expect(getViewer()).resolves.toBeNull();
+    expect(mocks.connection).toHaveBeenCalledTimes(1);
   });
 });
