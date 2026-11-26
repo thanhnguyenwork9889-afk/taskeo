@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T008-activity-log` |
 | Tạo từ | `develop` @ `826686a` |
-| Trạng thái | 4-review |
+| Trạng thái | 5-fix |
 | Ngày tạo | 2026-11-26 |
 
 Nguồn: sheet nhiệm vụ, dòng **T27** (backlog B4, phần ghi). Hiển thị thật ở card Hoạt động là T41, chờ nối giao diện vào API (T59).
@@ -106,11 +106,20 @@ P2 ∥ P3 và P4 ∥ P5 ∥ P6 chạy song song (khác file). Sau P4 chạy đ�
 
 ## 4. Review code
 
-Reviewer đã chạy:
+Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewer` trên `git diff develop...HEAD` @ `23e9380`. Không có CRITICAL / HIGH.
 
 | # | Mức | File:dòng | Vấn đề | Reviewer |
 |---|---|---|---|---|
-| R1 | | | | |
+| R1 | MEDIUM | `src/server/tasks.ts` `updateTask` | `current.status` đọc ngoài transaction: hai PATCH `DONE` đồng thời có thể ghi 2 `task_done` (quyết định 8 đã chấp nhận) | typescript, layer (LOW) |
+| R2 | MEDIUM | `src/server/tasks.ts` `activityRows`, `src/server/projects.ts` `createProject` | Dựng dòng activity lặp ở hai file (một bên helper, một bên literal) | typescript |
+| R3 | MEDIUM | `src/domain/activity-record.ts` `messageFromMeta` | `meta.message` không giới hạn độ dài khi trả client; hiện chỉ server ghi hằng, rủi ro khi sau này ghi câu từ input | security |
+| R4 | MEDIUM | `src/app/api/activities/route.ts` | Chưa có rate limit (chung cho mọi route) | security |
+| R5 | LOW | `src/app/api/activities/route.ts` | `duplicateQueryKeyMessage` chép từ `tasks/route.ts` | Claude (từ báo cáo P6) |
+| R6 | LOW | `src/server/projects.test.ts` | Test "`activity.createMany` ném P2002 → conflict" mô tả tình huống không xảy ra (Activity không có unique), tên gây hiểu nhầm | typescript |
+| R7 | LOW | `src/server/tasks.ts` catch P2003 | P2003 từ `activity.createMany` (user bị xoá giữa chừng) bị map thành `invalid_project` / `invalid_space` | typescript |
+| R8 | LOW | `src/server/projects.ts`, `tasks.ts` | `createdAt` của activity = `now` (JS), của task / dự án = DB default, lệch nhỏ | typescript |
+| R9 | LOW | mock `$transaction` | Không kiểm được rollback thật | typescript |
+| R10 | LOW | `validation.ts`, `activity-record.ts`, `labels.ts`, `activities.ts` | Gợi ý gọn schema `limit`, bỏ phụ thuộc zod trong type guard, `ACTIVITY_TYPES` duy trì tay, sort thêm theo `id` | typescript, layer, security |
 
 ## 5. Fix bug
 
