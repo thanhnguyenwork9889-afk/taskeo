@@ -1,4 +1,5 @@
 import { DEFAULT_SPACE_ICON, SPACE_PALETTE, STATUS_LABEL, tintForColor } from "@/domain/labels";
+import { completedAtFor } from "@/domain/task-completion";
 import type {
   Activity,
   ActivityType,
@@ -44,7 +45,7 @@ export function createTask(state: WorkspaceState, input: NewTaskInput, now: Date
     status,
     priority: "MEDIUM",
     dueDate: input.dueDate ?? null,
-    completedAt: status === "DONE" ? now.toISOString() : null,
+    completedAt: completedAtFor("TODO", null, status, now.toISOString()),
     addToCalendar: false,
     linkedFileIds: [],
     createdAt: now.toISOString(),
@@ -69,7 +70,7 @@ export function updateTask(state: WorkspaceState, id: string, changes: TaskChang
   if (!current) return state;
 
   const statusChanged = changes.status !== undefined && changes.status !== current.status;
-  const completedAt = !statusChanged ? current.completedAt : changes.status === "DONE" ? now.toISOString() : null;
+  const completedAt = completedAtFor(current.status, current.completedAt, changes.status, now.toISOString());
   const project = changes.projectId ? state.projects.find((p) => p.id === changes.projectId) : undefined;
   const spaceId = project?.spaceId ?? current.spaceId;
   // Đổi sang không gian khác thì bỏ các file thuộc không gian cũ.

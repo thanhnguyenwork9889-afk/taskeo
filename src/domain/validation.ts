@@ -121,6 +121,90 @@ export const updateProjectInputSchema = z
 export type CreateProjectInput = z.infer<typeof createProjectInputSchema>;
 export type UpdateProjectInput = z.infer<typeof updateProjectInputSchema>;
 
+/** Độ dài tối đa của id (cuid, id mẫu); `server/http.ts` dùng lại cho id trên URL. */
+export const ID_MAX_LENGTH = 64;
+
+/** Postgres không lưu / so được ký tự NUL trong cột text: chặn ở input thay vì để DB trả lỗi 500. */
+export function hasNoNul(value: string): boolean {
+  return !value.includes("\u0000");
+}
+const NUL_MESSAGE = "Không được chứa ký tự NUL";
+
+/** Id thực thể trong body / query của API: chuỗi 1–ID_MAX_LENGTH ký tự, không có NUL. */
+export const entityIdSchema = z.string().min(1).max(ID_MAX_LENGTH).refine(hasNoNul, NUL_MESSAGE);
+
+/** Độ dài tối đa (ký tự, sau khi trim) của tiêu đề / mô tả công việc; UI dùng cho `maxLength`. */
+export const TASK_TITLE_MAX = 200;
+export const TASK_DESCRIPTION_MAX = 5000;
+
+const taskTitle = z
+  .string()
+  .trim()
+  .min(1, "Tiêu đề không được để trống")
+  .max(TASK_TITLE_MAX, `Tiêu đề tối đa ${TASK_TITLE_MAX} ký tự`)
+  .refine(hasNoNul, NUL_MESSAGE);
+
+const taskDescription = z
+  .string()
+  .trim()
+  .max(TASK_DESCRIPTION_MAX, `Mô tả tối đa ${TASK_DESCRIPTION_MAX} ký tự`)
+  .refine(hasNoNul, NUL_MESSAGE);
+
+// Input tạo / sửa công việc (API). Strict chặn userId, id, order, completedAt, calendarEventId,
+// addToCalendar, createdAt, updatedAt; không `.default()`. PATCH không nhận spaceId (đi theo dự án).
+const taskInputFields = {
+  title: taskTitle,
+  description: taskDescription.optional(),
+  status: taskStatusSchema.optional(),
+  priority: prioritySchema.optional(),
+  dueDate: projectDueDateSchema.optional(),
+  projectId: entityIdSchema.nullable().optional(),
+};
+
+export const createTaskInputSchema = z.strictObject({
+  ...taskInputFields,
+  spaceId: entityIdSchema.nullable().optional(),
+});
+
+export const updateTaskInputSchema = z
+  .strictObject({ ...taskInputFields, title: taskTitle.optional() })
+  .refine((input) => Object.keys(input).length > 0, "Cần gửi ít nhất một trường để cập nhật");
+
+/** Chuỗi rỗng trong query (`?spaceId=`) coi như không gửi. */
+function emptyToUndefined<T extends z.ZodType>(schema: T) {
+  return z.preprocess((value) => (value === "" ? undefined : value), schema.optional());
+}
+
+/** Query lọc công việc. Không strict: key lạ (vd tham số chống cache) bị bỏ qua. */
+export const listTasksQuerySchema = z.object({
+  spaceId: emptyToUndefined(entityIdSchema),
+  projectId: emptyToUndefined(entityIdSchema),
+  status: emptyToUndefined(taskStatusSchema),
+});
+
+/** Danh sách key query mà `GET /api/tasks` đọc. */
+export const LIST_TASKS_QUERY_KEYS = ["spaceId", "projectId", "status"] as const;
+
+export type CreateTaskInput = z.infer<typeof createTaskInputSchema>;
+export type UpdateTaskInput = z.infer<typeof updateTaskInputSchema>;
+export type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;
+
+export type QueryObjectResult = { ok: true; value: Record<string, string> } | { ok: false; key: string };
+
+/**
+ * Dựng object từ query string, chỉ lấy các key trong `keys` (key khác bỏ qua).
+ * Không dùng `Object.fromEntries` vì nó nuốt giá trị lặp: key xuất hiện > 1 lần → `ok: false`.
+ */
+export function queryToObject(params: URLSearchParams, keys: readonly string[]): QueryObjectResult {
+  const value: Record<string, string> = {};
+  for (const key of keys) {
+    const values = params.getAll(key);
+    if (values.length > 1) return { ok: false, key };
+    if (values.length === 1) value[key] = values[0];
+  }
+  return { ok: true, value };
+}
+
 export const projectSchema = z.object({
   id: z.string(),
   spaceId: z.string(),

@@ -98,4 +98,8 @@ describe("isValidRouteId", () => {
     expect(isValidRouteId("")).toBe(false);
     expect(isValidRouteId("x".repeat(65))).toBe(false);
   });
+
+  it("từ chối id có ký tự NUL (Postgres không so được → 500)", () => {
+    expect(isValidRouteId("a\u0000b")).toBe(false);
+  });
 });
