@@ -89,7 +89,7 @@ Rủi ro / phụ thuộc:
 - P3 / P4 sửa mock dùng chung, dễ làm đỏ test cũ hàng loạt.
 - Race PATCH DONE đồng thời và đếm-rồi-tạo còn như T006; chưa phân trang con trỏ (T41 / T59), chưa rate limit (T73).
 
-Duyệt kế hoạch: ☐ chờ · ☐ người dùng đã duyệt (ngày) · ☐ bỏ qua (`--yes`)
+Duyệt kế hoạch: ☑ người dùng đã duyệt (2026-11-26)
 
 ## 3. Thực hiện + kiểm thử
 
