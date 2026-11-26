@@ -7,6 +7,7 @@ const db = vi.hoisted(() => ({
 vi.mock("@/server/db", () => ({ prisma: db }));
 
 import {
+  GOOGLE_ACCOUNT_ORDER,
   GoogleScopeMissingError,
   getGrantedGoogleScopes,
   hasGoogleScope,
@@ -26,6 +27,7 @@ function expectQueriedFor(userId: string) {
   expect(db.account.findFirst).toHaveBeenCalledTimes(1);
   expect(db.account.findFirst).toHaveBeenCalledWith({
     where: { userId, provider: "google" },
+    orderBy: { createdAt: "asc" },
     select: { scope: true },
   });
 }
@@ -112,6 +114,19 @@ describe("requireGoogleScope", () => {
   it("ném khi không có account", async () => {
     db.account.findFirst.mockResolvedValue(null);
     await expect(requireGoogleScope(USER, DRIVE)).rejects.toBeInstanceOf(GoogleScopeMissingError);
+  });
+});
+
+describe("GOOGLE_ACCOUNT_ORDER", () => {
+  it("chọn tài khoản Google liên kết đầu tiên (createdAt tăng dần)", () => {
+    expect(GOOGLE_ACCOUNT_ORDER).toEqual({ createdAt: "asc" });
+  });
+
+  it("tab và xuống dòng trong Account.scope vẫn tách đúng", async () => {
+    mockScope(`openid	${DRIVE}
+`);
+    await expect(getGrantedGoogleScopes(USER)).resolves.toEqual(["openid", DRIVE]);
+    await expect(hasGoogleScope(USER, DRIVE)).resolves.toBe(true);
   });
 });
 

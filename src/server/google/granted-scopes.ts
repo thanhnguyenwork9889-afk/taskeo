@@ -1,6 +1,13 @@
 import "server-only";
 import { prisma } from "@/server/db";
-import { GOOGLE_SCOPES, hasScope, type GoogleScope } from "./scopes";
+import { GOOGLE_SCOPES, hasScope, parseScopes, type GoogleScope } from "./scopes";
+
+/**
+ * Thứ tự chọn Account Google khi một user có nhiều dòng (ví dụ chọn nhầm tài khoản lúc kết nối):
+ * luôn lấy tài khoản liên kết đầu tiên, tức tài khoản đăng nhập gốc. Dùng chung cho đọc scope
+ * và đọc token (client.ts) để hai bên không bao giờ đọc từ hai dòng khác nhau.
+ */
+export const GOOGLE_ACCOUNT_ORDER = { createdAt: "asc" } as const;
 
 const SCOPE_LABELS: Record<GoogleScope, string> = {
   [GOOGLE_SCOPES.drive]: "Google Drive",
@@ -23,6 +30,7 @@ export class GoogleScopeMissingError extends Error {
 async function readGrantedScopeString(userId: string): Promise<string | null> {
   const account = await prisma.account.findFirst({
     where: { userId, provider: "google" },
+    orderBy: GOOGLE_ACCOUNT_ORDER,
     select: { scope: true },
   });
   return account?.scope ?? null;
@@ -30,7 +38,7 @@ async function readGrantedScopeString(userId: string): Promise<string | null> {
 
 export async function getGrantedGoogleScopes(userId: string): Promise<string[]> {
   const granted = await readGrantedScopeString(userId);
-  return (granted ?? "").split(/\s+/).filter((scope) => scope.length > 0);
+  return parseScopes(granted);
 }
 
 export async function hasGoogleScope(userId: string, scope: GoogleScope): Promise<boolean> {
