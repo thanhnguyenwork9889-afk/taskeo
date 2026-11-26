@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T006-tasks-api` |
 | Tạo từ | `develop` @ `9366d1d` |
-| Trạng thái | 6-rereview |
+| Trạng thái | 7-final |
 | Ngày tạo | 2026-11-25 |
 
 Nguồn: sheet nhiệm vụ, dòng **T22** (backlog B2, phần `tasks`). Theo cùng mẫu với T004 (không gian) và T005 (dự án).
@@ -153,7 +153,11 @@ Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 564/56
 
 ## 6. Review lại
 
-Vòng 1:
+Vòng 1 (`git diff bf1e0c1..3d7c0af`, cả ba reviewer): R1, R3–R7 sửa đúng; security không có phát hiện mới. Không có CRITICAL / HIGH → sang bước 7. Ba phát hiện mới, sửa ngay vì nhỏ (`e3639a7`, typecheck ✅ · lint ✅ · test ✅ 569/569 · build ✅):
+- N1 (LOW, layer + typescript): R3 sót id — `projectId` / `spaceId` trong body, query và `[id]` trên URL vẫn nhận `\u0000` → 500. Đã sửa: `entityIdSchema` từ chối NUL (400), `isValidRouteId` từ chối NUL (404); `hasNoNul` export từ `validation.ts`, `http.ts` dùng lại.
+- N2 (MEDIUM chưa kiểm chứng, typescript): `updateMany({ data: {} })` phụ thuộc Prisma trả `count` / ghi `@updatedAt` thế nào. Đã sửa: `data` rỗng (vd chỉ gửi status như cũ) thì bỏ qua `updateMany`, đọc lại bằng `getTask` (bị xoá → `not_found`).
+- N3 (LOW): tham số mặc định `route` trong `CALLS` của `[id]/route.test.ts` dễ gọi nhầm bản cache → bỏ mặc định, dùng hằng `STATIC_ROUTE` tường minh.
+- N4 (LOW, để sau): `freshRoute` lặp ở hai file test; rút thành helper chung khi sửa test T005 cùng lỗi.
 
 ## 7. Final
 
