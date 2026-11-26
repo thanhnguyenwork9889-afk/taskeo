@@ -3,8 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Account } from "next-auth";
 import type { AdapterAccount } from "next-auth/adapters";
 import { decrypt } from "@/server/crypto";
+import { GOOGLE_SCOPES } from "@/server/google/scopes";
 import {
   GOOGLE_AUTHORIZATION_PARAMS,
+  buildIncrementalAuthorizationParams,
   buildReSignInTokenUpdate,
   encryptAdapterAccountTokens,
 } from "@/server/auth/google-tokens";
@@ -55,6 +57,56 @@ describe("GOOGLE_AUTHORIZATION_PARAMS", () => {
       prompt: "consent",
       include_granted_scopes: "true",
     });
+  });
+});
+
+describe("buildIncrementalAuthorizationParams", () => {
+  it("gộp scope đăng nhập với drive.file", () => {
+    const params = buildIncrementalAuthorizationParams([GOOGLE_SCOPES.drive]);
+    expect(params.scope).toBe("openid email profile https://www.googleapis.com/auth/drive.file");
+  });
+
+  it("giữ access_type, prompt, include_granted_scopes như đăng nhập", () => {
+    const params = buildIncrementalAuthorizationParams([GOOGLE_SCOPES.drive]);
+    expect(params).toEqual({
+      scope: "openid email profile https://www.googleapis.com/auth/drive.file",
+      access_type: "offline",
+      prompt: "consent",
+      include_granted_scopes: "true",
+    });
+  });
+
+  it("bỏ scope trùng, giữ thứ tự", () => {
+    const params = buildIncrementalAuthorizationParams([
+      GOOGLE_SCOPES.drive,
+      GOOGLE_SCOPES.calendarRead,
+      GOOGLE_SCOPES.drive,
+    ]);
+    expect(params.scope).toBe(
+      `openid email profile ${GOOGLE_SCOPES.drive} ${GOOGLE_SCOPES.calendarRead}`,
+    );
+  });
+
+  it("gọi lặp cho kết quả như nhau và không tích luỹ scope", () => {
+    const first = buildIncrementalAuthorizationParams([GOOGLE_SCOPES.drive]);
+    const second = buildIncrementalAuthorizationParams([GOOGLE_SCOPES.drive]);
+    expect(second).toEqual(first);
+    expect(second).not.toBe(first);
+  });
+
+  it("không mutate GOOGLE_AUTHORIZATION_PARAMS", () => {
+    const result = buildIncrementalAuthorizationParams([GOOGLE_SCOPES.drive]);
+    expect(GOOGLE_AUTHORIZATION_PARAMS.scope).toBe("openid email profile");
+    expect(result).not.toBe(GOOGLE_AUTHORIZATION_PARAMS);
+  });
+
+  it("mảng rỗng chỉ còn scope đăng nhập", () => {
+    expect(buildIncrementalAuthorizationParams([])).toEqual(GOOGLE_AUTHORIZATION_PARAMS);
+  });
+
+  it("dùng được làm tham số thứ ba của signIn (Record<string, string>)", () => {
+    const params: Record<string, string> = buildIncrementalAuthorizationParams([GOOGLE_SCOPES.drive]);
+    expect(Object.values(params).every((v) => typeof v === "string")).toBe(true);
   });
 });
 
