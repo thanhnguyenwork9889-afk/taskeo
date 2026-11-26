@@ -11,7 +11,7 @@ Quy trình: [07-workflow.md](../07-workflow.md). Mẫu: [_template.md](_template
 | T004 | [API + UI CRUD Không gian](T004-spaces-api.md) | `feat/T004-spaces-api` | done | `c028a2e` |
 | T005 | [API + UI CRUD Dự án trong Không gian](T005-projects-api.md) | `feat/T005-projects-api` | done | `96108c7` |
 | T006 | [API CRUD Công việc](T006-tasks-api.md) | `feat/T006-tasks-api` | done | `891c9af` |
-| T007 | [Sửa lỗi prerender `crypto.getRandomValues()`](T007-prerender-crypto.md) | `fix/T007-prerender-crypto` | 4-review | — |
+| T007 | [Sửa lỗi prerender `crypto.getRandomValues()`](T007-prerender-crypto.md) | `fix/T007-prerender-crypto` | done | — |
 
 ## Việc chờ làm (backlog)
 

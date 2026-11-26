@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `fix/T007-prerender-crypto` |
 | Tạo từ | `develop` @ `477042a` |
-| Trạng thái | 4-review |
+| Trạng thái | done |
 | Ngày tạo | 2026-11-26 |
 
 Nguồn: phát hiện trong log `next dev` lúc kiểm thật T006; người dùng yêu cầu sửa, ghi chú lại, kiểm xong thì push `develop` (2026-11-26). Kế hoạch coi như đã duyệt cùng yêu cầu (`--yes`).
@@ -24,10 +24,10 @@ Nguồn: phát hiện trong log `next dev` lúc kiểm thật T006; người dù
 **Ngoài phạm vi:** `getApiUserId()` (chỉ dùng trong API route: GET đã gọi `connection()`, POST / PATCH / DELETE không prerender). Đổi cấu hình `next.config.ts`.
 
 **Tiêu chí nghiệm thu:**
-- [ ] Test: ở chế độ configured, `getViewer()` gọi `connection()` trước `auth()`; demo không gọi `connection()` / `auth()`.
-- [ ] Trên `next dev`: biên dịch lại `session.ts` bản cũ → log có lỗi (tái hiện); bản sửa → biên dịch lại và tải `/` không còn lỗi.
-- [ ] Trang `/` vẫn hiện người dùng đăng nhập; `npm run build` vẫn cho `/` là `◐` (có static shell).
-- [ ] typecheck, lint, test, build xanh.
+- [x] Test: ở chế độ configured, `getViewer()` gọi `connection()` trước `auth()`; demo không gọi `connection()` / `auth()`.
+- [x] Trên `next dev`: biên dịch lại `session.ts` bản cũ → log có lỗi (tái hiện); bản sửa → biên dịch lại và tải `/` không còn lỗi.
+- [x] Trang `/` vẫn hiện người dùng đăng nhập; `npm run build` vẫn cho `/` là `◐` (có static shell).
+- [x] typecheck, lint, test, build xanh.
 
 **Tài liệu bị ảnh hưởng:** không (ghi chú nằm ở file này và comment trong code).
 
@@ -52,26 +52,46 @@ Kiểm trên `next dev` cổng 3000 (configured, đã đăng nhập), đếm dò
 
 ## 4. Review code
 
-Reviewer đã chạy:
+Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewer` trên `git diff develop...HEAD` @ `7a30f40`. Không có CRITICAL / HIGH. Security: không có đường nào để phiên của một người vào static shell (trước và sau khi sửa); `proxy.ts`, `SessionGuard` không đổi; demo / misconfigured trả về trước `connection()`.
 
 | # | Mức | File:dòng | Vấn đề | Reviewer |
 |---|---|---|---|---|
-| R1 | | | | |
+| R1 | LOW | `src/server/auth/session.test.ts` (ca thứ tự) | `mockImplementation` của `connection` / `auth` dính sang ca sau (`clearAllMocks` không reset implementation) | layer |
+| R2 | LOW | `src/server/auth/session.test.ts` (misconfigured) | Không kiểm `connection()` không được gọi; dời `connection()` lên đầu hàm test vẫn xanh | typescript |
+| R3 | LOW | `src/server/auth/session.ts` (`getApiUserId`) | Không có `connection()`; route handler không prerender nên không lỗi, nhưng nếu sau này gọi từ Server Component sẽ gặp lỗi tương tự | security, typescript |
+| R4 | LOW | `src/components/layout/ui-context.tsx` (`useViewer`) | Sidebar / Topbar / Hero `use(viewerPromise)` không có `<Suspense>` riêng; hiện an toàn vì server chỉ render skeleton, có từ trước | typescript |
+| R5 | LOW | `docs/04-architecture.md` | Mô tả `getViewer()` chưa nói nhánh configured chờ `connection()` | layer |
+| R6 | LOW | — | Test mock không chứng minh hết lỗi prerender; cần `next build` / kiểm `next dev` | security, typescript |
 
 ## 5. Fix bug
 
+Commit trước bước 5: `7a30f40`.
+
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
+| R1 | đã sửa: `mockImplementationOnce` | `0291145` |
+| R2 | đã sửa: thêm `expect(mocks.connection).not.toHaveBeenCalled()` | `0291145` |
+| R3 | để sau: thêm `connection()` nếu `getApiUserId` được gọi ngoài route handler | — |
+| R4 | để sau: Suspense riêng cho chỗ dùng `useViewer` khi giai đoạn 2 render shell trên server (T59) | — |
+| R5 | đã sửa ở bước 7 (`docs/04`) | — |
+| R6 | đã làm: `npm run build` xanh, `/` = `◐`; kiểm `next dev` tái hiện rồi hết lỗi (mục 3) | — |
+
+Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 573/573 · build ✅ (`/` = `◐`).
 
 ## 6. Review lại
 
+Bước 5 chỉ đổi hai assertion / mock trong test (R1, R2), không đổi code chạy; 11/11 test `session` xanh. Không cần vòng review lại.
+
 ## 7. Final
 
-**Tóm tắt:**
+**Tóm tắt:** Lỗi `blocking-prerender-crypto` trên `/` do `getViewer()` gọi `auth()` của Auth.js lúc prerender; Auth.js tạo CSRF token bằng `crypto.getRandomValues()` khi request chưa có cookie CSRF. Sửa bằng `await connection()` trước `auth()` (nhánh configured), đúng hướng dẫn của Next cho giá trị ngẫu nhiên khi bật `cacheComponents`. Layout vẫn không chặn, `/` vẫn có static shell.
 
-**Tiêu chí nghiệm thu:** (đánh dấu ở mục 1)
+**Tiêu chí nghiệm thu:** cả 4 đạt (đánh dấu ở mục 1); bằng chứng ở mục 3.
 
-**Merge vào develop:** commit `<hash>`, ngày
+**Tài liệu đã cập nhật:** `docs/04-architecture.md` (mô tả `getViewer`), `docs/tasks/README.md`, ghi chú trong file này và comment ở `session.ts`.
+
+**Merge vào develop:** commit `<hash>`, ngày 2026-11-26
 
 **Việc để sau:**
--
+- R3: `connection()` trong `getApiUserId` nếu nó được gọi ngoài route handler.
+- R4: `<Suspense>` riêng cho chỗ dùng `useViewer` khi render shell trên server (T59).
