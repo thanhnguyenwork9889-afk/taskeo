@@ -8,6 +8,8 @@ export interface ViewerInfo {
   email: string | null;
   image: string | null;
   isDemo: boolean;
+  /** Đã cấp quyền Google Drive (drive.file) hay chưa. */
+  driveConnected: boolean;
 }
 
 export type CreateRequest =
@@ -36,7 +38,7 @@ export function useUI(): UIContextValue {
   return value;
 }
 
-const SIGNED_OUT: ViewerInfo = { name: "Bạn", email: null, image: null, isDemo: false };
+const SIGNED_OUT: ViewerInfo = { name: "Bạn", email: null, image: null, isDemo: false, driveConnected: false };
 
 /** Người dùng hiện tại. Component gọi hook này phải nằm trong <Suspense>. */
 export function useViewer(): ViewerInfo {

@@ -3,11 +3,13 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { LayoutGrid, Plus } from "lucide-react";
+import { HardDrive, LayoutGrid, Plus } from "lucide-react";
 import { APP_NAME, appEnvLabel, getAppEnv, type AppEnv } from "@/config/app";
+import { connectGoogleDrive } from "@/server/auth/actions";
 import { useWorkspace } from "@/store/workspace-store";
 import { SpaceIcon } from "@/components/ui/space-icon";
-import { control, cx } from "@/components/ui/styles";
+import { control, cx, secondaryButton } from "@/components/ui/styles";
+import { driveStatus } from "./drive-status";
 import { isNavActive, NAV_ITEMS } from "./navigation";
 import { useUI, useViewer } from "./ui-context";
 
@@ -113,12 +115,16 @@ export function Sidebar({ open, onNavigate }: SidebarProps) {
       </nav>
 
       <div className="mt-auto pt-10">
-        <div className="flex items-center gap-2 px-2 text-xs text-[#737380]">
-          <span className="h-1.5 w-1.5 rounded-full bg-brand" />
-          <Suspense fallback="Đang kiểm tra phiên...">
-            <SessionStatus />
-          </Suspense>
-        </div>
+        <Suspense
+          fallback={
+            <div className="flex items-center gap-2 px-2 text-xs text-[#737380]">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand" />
+              Đang kiểm tra phiên...
+            </div>
+          }
+        >
+          <SessionStatus />
+        </Suspense>
       </div>
     </aside>
   );
@@ -126,5 +132,36 @@ export function Sidebar({ open, onNavigate }: SidebarProps) {
 
 function SessionStatus() {
   const viewer = useViewer();
-  return <>{viewer.isDemo ? "Chế độ demo · Dữ liệu mẫu trên trình duyệt" : "Đã đăng nhập Google"}</>;
+  const drive = driveStatus(viewer);
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 px-2 text-xs text-[#737380]">
+        <span className="h-1.5 w-1.5 rounded-full bg-brand" />
+        {viewer.isDemo ? "Chế độ demo · Dữ liệu mẫu trên trình duyệt" : "Đã đăng nhập Google"}
+      </div>
+      {drive === "connected" && (
+        <div className="flex items-center gap-2 px-2 text-xs text-[#737380]">
+          <HardDrive className="h-3.5 w-3.5 text-brand" aria-hidden />
+          Đã kết nối Google Drive
+        </div>
+      )}
+      {drive === "connect" && <ConnectDriveForm />}
+    </div>
+  );
+}
+
+/** Xin thêm quyền drive.file; quay lại đúng trang hiện tại sau khi Google đồng ý. */
+function ConnectDriveForm() {
+  const pathname = usePathname();
+  const search = useSearchParams().toString();
+  const redirectTo = search ? `${pathname}?${search}` : pathname;
+  return (
+    <form action={connectGoogleDrive}>
+      <input type="hidden" name="redirectTo" value={redirectTo} />
+      <button type="submit" className={cx(secondaryButton, "w-full text-xs")}>
+        <HardDrive className="h-4 w-4" aria-hidden />
+        Kết nối Google Drive
+      </button>
+    </form>
+  );
 }
