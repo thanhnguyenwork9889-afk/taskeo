@@ -175,7 +175,7 @@ Vòng 1 (`git diff bf1e0c1..3d7c0af`, cả ba reviewer): R1, R3–R7 sửa đún
 
 **Tài liệu đã cập nhật:** `docs/04-architecture.md` (`server/tasks`, `domain/task-record`, `domain/task-completion`, `isValidRouteId`, route mới), `docs/06-api.md` (bảng route, quy ước công việc, cách xử lý query, chỗ không atomic), `docs/tasks/README.md`.
 
-**Merge vào develop:** commit `<hash>`, ngày 2026-11-26
+**Merge vào develop:** commit `891c9af`, ngày 2026-11-26
 
 **Việc để sau:**
 - Nối giao diện vào API thay store demo (T59 / B3); ghi `Activity` khi tạo / hoàn thành công việc (T27); gắn file Drive (`TaskFile`, T60).
