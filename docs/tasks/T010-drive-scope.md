@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T010-drive-scope` |
 | Tạo từ | `develop` @ `94d53e9` |
-| Trạng thái | 6-rereview |
+| Trạng thái | done |
 | Ngày tạo | 2026-11-26 |
 
 Nguồn: sheet nhiệm vụ, dòng **T30** "Thêm scope drive.file (xin quyền theo từng bước)" (giai đoạn 4 · Google Drive, backlog B5 phần đầu). Mở ra khi bắt đầu T33: T33 phụ thuộc T31, T31 phụ thuộc T30; người dùng chọn làm T30 → T31 trước, mỗi mục sheet một nhiệm vụ riêng.
@@ -36,14 +36,14 @@ Nguồn: sheet nhiệm vụ, dòng **T30** "Thêm scope drive.file (xin quyền 
 - Thêm scope trên Google Cloud Console: **người dùng tự làm** (ghi hướng dẫn ở docs 02).
 
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
-- [ ] Test: tham số xin thêm scope có `scope` = `openid email profile https://www.googleapis.com/auth/drive.file`, cùng `access_type: "offline"`, `prompt: "consent"`, `include_granted_scopes: "true"`; không trùng scope khi gọi lại; đăng nhập thường vẫn chỉ `openid email profile`.
-- [ ] Test: `connectGoogleDrive` ở demo / misconfigured không gọi `signIn`; chưa đăng nhập → về `/login`; `redirectTo` ngoài (`https://…`, `//evil`) bị thay bằng `/`.
-- [ ] Test: `hasGoogleScope` trả `true` khi `Account.scope` có `drive.file`, `false` khi thiếu, khi `scope` null, khi không có account; `requireGoogleScope` ném `GoogleScopeMissingError` khi thiếu. Truy vấn luôn lọc theo `userId`.
-- [ ] Test: `getViewer` trả `driveConnected` đúng theo scope; demo → `false`; không đưa chuỗi scope hay token ra client.
-- [ ] Sidebar hiện nút Kết nối Google Drive khi chưa cấp, nhãn đã kết nối khi đã cấp, không hiện ở demo (kiểm tay hoặc test component).
-- [ ] Chạy thật trên dev (cần người dùng bấm đồng ý ở `localhost:3000`): sau khi cấp, `Account.scope` trong DB dev có `drive.file`, token vẫn `v1:`, refresh token còn dùng được.
-- [ ] 4 lệnh typecheck / lint / test / build xanh; chế độ demo vẫn chạy.
-- [ ] `docs/02-google-cloud.md`, `docs/04-architecture.md` cập nhật.
+- [x] Test: tham số xin thêm scope có `scope` = `openid email profile https://www.googleapis.com/auth/drive.file`, cùng `access_type: "offline"`, `prompt: "consent"`, `include_granted_scopes: "true"`; không trùng scope khi gọi lại; đăng nhập thường vẫn chỉ `openid email profile`.
+- [x] Test: `connectGoogleDrive` ở demo / misconfigured không gọi `signIn`; chưa đăng nhập → về `/login`; `redirectTo` ngoài (`https://…`, `//evil`) bị thay bằng `/`.
+- [x] Test: `hasGoogleScope` trả `true` khi `Account.scope` có `drive.file`, `false` khi thiếu, khi `scope` null, khi không có account; `requireGoogleScope` ném `GoogleScopeMissingError` khi thiếu. Truy vấn luôn lọc theo `userId`.
+- [x] Test: `getViewer` trả `driveConnected` đúng theo scope; demo → `false`; không đưa chuỗi scope hay token ra client.
+- [x] Sidebar hiện nút Kết nối Google Drive khi chưa cấp, nhãn đã kết nối khi đã cấp, không hiện ở demo (kiểm tay hoặc test component).
+- [x] Chạy thật trên dev (cần người dùng bấm đồng ý ở `localhost:3000`): sau khi cấp, `Account.scope` trong DB dev có `drive.file`, token vẫn `v1:`, refresh token còn dùng được.
+- [x] 4 lệnh typecheck / lint / test / build xanh; chế độ demo vẫn chạy.
+- [x] `docs/02-google-cloud.md`, `docs/04-architecture.md` cập nhật.
 
 **Tài liệu bị ảnh hưởng:** 02 Google · 04 kiến trúc.
 
@@ -141,17 +141,21 @@ Kết quả 4 lệnh sau khi sửa (tự chạy): typecheck ✅ · lint ✅ · t
 
 ## 6. Review lại
 
-Vòng 1:
+Vòng 1 (`git diff 1fbd913..ad54736`, cùng ba reviewer): không có CRITICAL / HIGH / MEDIUM; cả ba xác nhận R1 (scope và token cùng `where` + `orderBy`, không có vòng import, `Account.createdAt` có trong schema) và R3 (`parseScopes` dùng chung, vẫn so khớp nguyên scope) đúng. Ghi chú LOW (để sau): `GOOGLE_ACCOUNT_ORDER` có thể chuyển sang `scopes.ts` hoặc file chung; test tab/xuống dòng trong `granted-scopes.test.ts` nằm lệch `describe`; `createdAt` trùng nhau thì vẫn không xác định (có thể thêm `providerAccountId` làm tiêu chí phụ); `persistTokens` ghi `scope` từ sự kiện refresh (có từ trước). → `7-final`.
 
 ## 7. Final
 
-**Tóm tắt:**
+**Tóm tắt:** Đóng T30 trong sheet. Người dùng đã đăng nhập bấm **Kết nối Google Drive** ở sidebar → server action `connectGoogleDrive` gọi lại đăng nhập Google với `scope = openid email profile …/drive.file` (gộp vì tham số thứ ba của `signIn` thay hẳn scope), `offline` + `consent` + `include_granted_scopes`, `login_hint` = email phiên, `redirectTo` chỉ nhận đường dẫn nội bộ. `events.signIn` có sẵn lưu `Account.scope` mới. Server có `hasGoogleScope` / `requireGoogleScope` / `GoogleScopeMissingError` cho T31; `getViewer()` trả `driveConnected` (chỉ boolean). Scope và token luôn đọc từ cùng một dòng Account (`GOOGLE_ACCOUNT_ORDER`). Thêm 68 test (repo: 733 → 801). Kiểm thật trên DB dev: tài khoản đã kết nối có `drive.file`, refresh vẫn chạy, token `v1:`, gọi Drive API thành công. 4 lệnh lần cuối: typecheck ✅ · lint ✅ · test ✅ 801/801 · build ✅.
 
-**Tiêu chí nghiệm thu:** (đánh dấu ở mục 1)
+**Tiêu chí nghiệm thu:** đạt cả 8 (mục 1). Ghi chú: nhãn "Đã kết nối Google Drive" và trạng thái ẩn ở chế độ demo được bảo đảm bằng test `driveStatus` / `getViewer`, chưa xem tận mắt trong trình duyệt; chế độ demo kiểm bằng test (không gọi Google, không nạp Prisma), chưa chạy app không có `.env.local`.
 
-**Tài liệu đã cập nhật:**
+**Tài liệu đã cập nhật:** `docs/02-google-cloud.md` (mục "Xin thêm `drive.file`": việc trên Console, luồng, granular consent, chọn nhầm tài khoản), `docs/04-architecture.md` (cây thư mục `server/auth`, `server/google`, `components/layout`), `docs/tasks/README.md`.
 
-**Merge vào develop:** commit `<hash>`, ngày
+**Quy trình:** P3, P4, P5 do Claude tự viết trong phiên (người dùng đồng ý) vì công cụ giao agent lỗi kiểm tra chế độ auto ba lần; review và bản sửa R1/R3 đã quay lại dùng agent.
+
+**Merge vào develop:** commit `<hash>`, 2026-11-26
 
 **Việc để sau:**
--
+- Chặn hẳn việc gắn tài khoản Google thứ hai khi kết nối (`callbacks.signIn` từ chối `providerAccountId` khác Account google sẵn có của user); hiện chỉ giảm bằng `login_hint` và đọc xác định theo `createdAt`. Nên làm trước hoặc cùng T31.
+- LOW ở mục 4–6: R5 nhãn UI, R6 truy vấn scope mỗi lần render layout, R7 test dạng mã hoá, vị trí `GOOGLE_ACCOUNT_ORDER`, nhóm test lệch `describe`.
+- Tiếp theo theo sheet: T31 (tạo thư mục Drive khi tạo không gian / dự án), rồi T33.

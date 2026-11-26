@@ -24,8 +24,8 @@ src/
 │   │   └── actions.ts    Server action đăng nhập / đăng xuất / connectGoogleDrive (xin thêm drive.file)
 │   └── google/
 │       ├── client.ts     OAuth client theo user
-│       ├── granted-scopes.ts  Scope user đã cấp (Account.scope): hasGoogleScope, requireGoogleScope, GoogleScopeMissingError
-│       └── scopes.ts     Scope theo giai đoạn (hằng số + hasScope thuần)
+│       ├── granted-scopes.ts  Scope user đã cấp (Account.scope): hasGoogleScope, requireGoogleScope, GoogleScopeMissingError · GOOGLE_ACCOUNT_ORDER (thứ tự chọn Account google, dùng chung với client.ts)
+│       └── scopes.ts     Scope theo giai đoạn (hằng số + parseScopes / hasScope thuần)
 ├── domain/            3. Logic nghiệp vụ thuần, có test, chạy được cả client lẫn server
 │   ├── types.ts labels.ts       Kiểu dữ liệu + nhãn tiếng Việt
 │   ├── validation.ts            Schema Zod dùng chung (storage + input API)
