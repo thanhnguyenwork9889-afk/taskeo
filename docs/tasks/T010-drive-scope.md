@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T010-drive-scope` |
 | Tạo từ | `develop` @ `94d53e9` |
-| Trạng thái | 3-build |
+| Trạng thái | 4-review |
 | Ngày tạo | 2026-11-26 |
 
 Nguồn: sheet nhiệm vụ, dòng **T30** "Thêm scope drive.file (xin quyền theo từng bước)" (giai đoạn 4 · Google Drive, backlog B5 phần đầu). Mở ra khi bắt đầu T33: T33 phụ thuộc T31, T31 phụ thuộc T30; người dùng chọn làm T30 → T31 trước, mỗi mục sheet một nhiệm vụ riêng.
@@ -86,9 +86,20 @@ Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-26) 
 | P4 | `744486f` | 5 test mới + 3 test sửa (`session.test.ts`) | ✅ | ✅ | ✅ 788/788 | ✅ |
 | P5 | `e11278c` | 3 test (`drive-status.test.ts`); UI kiểm trong trình duyệt ở `localhost:3000` khi đã đăng nhập: nút hiện ở đáy sidebar, console sạch | ✅ | ✅ | ✅ 791/791 | ✅ |
 | P6 | (commit docs này) | — (docs 02: mục "Xin thêm `drive.file`"; docs 04: cây thư mục) | — | — | — | — |
-| P7 | chờ người dùng | — | | | | |
+| P7 | không commit (kiểm thật) | — | ✅ | ✅ | ✅ 791/791 | ✅ |
 
 P3, P4, P5 do Claude tự viết trong phiên (người dùng đồng ý 2026-11-26) vì công cụ giao agent lỗi kiểm tra chế độ auto ba lần; 4 lệnh cũng tự chạy thay `verifier`.
+
+**Kiểm thật trên DB dev** (2026-11-26; người dùng thêm `drive.file` vào Data Access của consent screen và bấm Kết nối Google Drive; lệnh dùng một lần qua `vite-node`, không commit, không in token):
+
+| Tài khoản | `drive.file` trong `Account.scope` | `hasGoogleScope` | Ép refresh: `expires_at` trước → sau | Token sau refresh | Gọi Drive API (`files.list`) |
+|---|---|---|---|---|---|
+| `…pmwenu` (đã bấm kết nối) | có, vẫn còn sau refresh | `true` | 17:03:47Z → 17:04:32Z | access + refresh `v1:` | thành công, 0 file (đúng với `drive.file`: app chưa tạo file nào) |
+| `…iplrmt` (chưa kết nối) | không | `false` | 16:25:44Z → 17:04:30Z | access + refresh `v1:` | bỏ qua |
+
+- Hai dòng Account google thuộc hai user khác nhau: không có trường hợp một user bị gắn hai tài khoản.
+- Trình duyệt (`localhost:3000`, đăng nhập bằng `…iplrmt`): sidebar hiện nút **Kết nối Google Drive**, console sạch. Nhãn "Đã kết nối Google Drive" chưa xem tận mắt (pane không đăng nhập bằng tài khoản đã kết nối); hành vi có test `driveStatus` + `getViewer`.
+- Chưa thử trường hợp bỏ tick ô Drive ở màn đồng ý (granular consent); có test cho `scope` thiếu `drive.file`.
 
 ## 4. Review code
 
