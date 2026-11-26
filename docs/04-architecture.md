@@ -17,6 +17,7 @@ src/
 │   ├── activities.ts     Đọc nhật ký hoạt động của user, mới nhất trước
 │   ├── auth/
 │   │   ├── auth.ts       Cấu hình Auth.js
+│   │   ├── google-tokens.ts  Tham số đăng nhập Google (offline, consent) · mã hoá token trước linkAccount · dữ liệu cập nhật token khi đăng nhập lại (hàm thuần, có test)
 │   │   ├── session.ts    getViewer(): người dùng hiện tại (configured: chờ connection() trước auth(), không chạy lúc prerender) · getApiUserId(): userId cho API route
 │   │   ├── session-callback.ts  Dựng phiên trả cho client (chỉ id, name, email, image)
 │   │   └── actions.ts    Server action đăng nhập / đăng xuất

@@ -13,6 +13,30 @@
    URL preview ngẫu nhiên của Vercel cho từng commit không đăng nhập Google được; dùng domain cố định của nhánh.
 5. Điền Client ID / Secret vào `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`: development trong `.env.local`, production trên Vercel (xem [01-environment.md](01-environment.md#hai-môi-trường), [08-deploy.md](08-deploy.md)).
 
+## Đăng nhập giai đoạn 1
+
+Cấu hình ở `src/server/auth/auth.ts`; tham số nằm trong `GOOGLE_AUTHORIZATION_PARAMS` (`src/server/auth/google-tokens.ts`).
+
+| Tham số | Giá trị | Vì sao |
+|---|---|---|
+| `scope` | `openid email profile` | Chỉ xin quyền đăng nhập; Drive / Calendar xin sau (xem dưới) |
+| `access_type` | `offline` | Google trả refresh token để server gọi API khi người dùng không có mặt |
+| `prompt` | `consent` | Google chỉ trả refresh token ở lần đồng ý đầu; bắt hiện màn đồng ý mỗi lần để luôn có refresh token mới |
+| `include_granted_scopes` | `true` | Giữ các scope đã cấp khi xin thêm scope sau này |
+
+- Lần đăng nhập đầu: Auth.js gọi `linkAccount`, token được mã hoá trước khi ghi bảng `Account`.
+- Đăng nhập lại: Auth.js không ghi lại `Account`; `events.signIn` cập nhật token mới (đã mã hoá), chỉ ghi field Google trả về.
+- `src/server/google/client.ts` dùng refresh token để lấy access token mới (sống khoảng 1 giờ) và lưu lại (đã mã hoá).
+- Consent screen đang ở **Testing**: refresh token hết hạn sau 7 ngày, phải đăng nhập lại (hết khi chuyển In production, sheet T71).
+
+Kiểm tra token đã lưu mã hoá (chỉ chạy với `.env.local` trỏ DB dev; chỉ xem tiền tố, không in giá trị token):
+
+```bash
+node --env-file=.env.local -e 'const {PrismaClient}=require("@prisma/client");const p=new PrismaClient();p.account.findMany({where:{provider:"google"},select:{refresh_token:true,access_token:true,scope:true}}).then(a=>console.log(a.map(x=>({refresh:(x.refresh_token||"").startsWith("v1:"),access:(x.access_token||"").startsWith("v1:"),scope:x.scope})))).finally(()=>p.$disconnect())'
+```
+
+Cả `refresh` và `access` phải là `true`.
+
 ## Scope theo giai đoạn
 
 Khai báo ở `src/server/google/scopes.ts`. Đăng nhập lần đầu chỉ xin scope cơ bản; scope Drive / Calendar xin thêm khi cần (incremental authorization).
