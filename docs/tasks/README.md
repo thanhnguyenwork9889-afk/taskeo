@@ -12,6 +12,7 @@ Quy trình: [07-workflow.md](../07-workflow.md). Mẫu: [_template.md](_template
 | T005 | [API + UI CRUD Dự án trong Không gian](T005-projects-api.md) | `feat/T005-projects-api` | done | `96108c7` |
 | T006 | [API CRUD Công việc](T006-tasks-api.md) | `feat/T006-tasks-api` | done | `891c9af` |
 | T007 | [Sửa lỗi prerender `crypto.getRandomValues()`](T007-prerender-crypto.md) | `fix/T007-prerender-crypto` | done | `2a10f08` |
+| T008 | [Ghi Activity khi tạo / hoàn thành công việc, tạo dự án](T008-activity-log.md) | `feat/T008-activity-log` | 3-build | |
 
 ## Việc chờ làm (backlog)
 
