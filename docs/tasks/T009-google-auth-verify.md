@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `chore/T009-google-auth-verify` |
 | Tạo từ | `develop` @ `e8a8ac7` |
-| Trạng thái | 4-review |
+| Trạng thái | 5-fix |
 | Ngày tạo | 2026-11-26 |
 
 Nguồn: sheet nhiệm vụ, dòng **T15** "Auth.js + Google provider (openid email profile, access_type=offline, prompt=consent)" — đang *Đang làm*, ghi chú "chưa chạy thử với Google thật" (backlog B1). Liên quan T16 (mã hoá refresh token) và T17 (client tự refresh), cả hai ghi "chưa thử thật".
@@ -85,11 +85,21 @@ Ghi chú từ P1 (chưa sửa, đưa vào review): `encrypt("")` tạo payload m
 
 ## 4. Review code
 
-Reviewer đã chạy:
+Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewer` trên `git diff develop...HEAD` @ `da84ae9`. Không có CRITICAL / HIGH; cả ba xác nhận `auth.ts` giữ nguyên hành vi, không có đường token ra plaintext / log / client, test không chứa secret thật.
 
 | # | Mức | File:dòng | Vấn đề | Reviewer |
 |---|---|---|---|---|
-| R1 | | | | |
+| R1 | MEDIUM | `src/server/google/client.test.ts:190-211` | Test lỗi DB lấy args của `update` sau khi chỉ chờ `console.error` — phụ thuộc thứ tự bên trong `persistTokens` | typescript |
+| R2 | LOW | `src/server/google/client.test.ts:195` | `expiry_date: 1` → `expires_at = 0`, giá trị vô nghĩa | typescript |
+| R3 | LOW | `src/server/google/client.test.ts:73` | `restoreAllMocks` (afterEach) trùng `resetAllMocks` (beforeEach) | typescript |
+| R4 | LOW | `src/server/auth/google-tokens.ts:16` | `Record<string, string>` mất kiểu literal; nên `as const satisfies Record<string, string>` | layer, typescript |
+| R5 | LOW | `src/server/auth/google-tokens.ts:34` | `ReSignInTokenUpdate.access_token` kiểu `string \| null` dù sau guard luôn là string | typescript |
+| R6 | LOW | `src/server/auth/auth.ts:18` | `adapter.linkAccount!` (có từ trước) + dòng > 100 ký tự | typescript |
+| R7 | LOW | `src/server/auth/auth.ts:88`, `src/server/google/client.ts:43` | Log `error.message` của Prisma có thể chứa mảnh query (giá trị đã mã hoá) | security |
+| R8 | LOW | `docs/02-google-cloud.md` | Lệnh kiểm tra nạp cả bản ghi `Account` (có token) rồi mới map; nên `select` chỉ field cần + ghi chú chỉ chạy trên dev | security |
+| R9 | LOW | `src/server/crypto.ts` | Lỗi sai tag / sai khoá từ `decipher.final()` không được bọc thành lỗi thống nhất | security |
+| R10 | LOW | `src/server/crypto.ts` | `encrypt("")` tạo payload mà `decrypt` từ chối (ghi chú từ P1) | P1 |
+| R11 | LOW | `docs/tasks/T009-google-auth-verify.md:11` | Tiêu chí nghiệm thu chưa tick | layer |
 
 ## 5. Fix bug
 
