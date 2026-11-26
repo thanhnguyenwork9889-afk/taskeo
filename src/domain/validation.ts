@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  ACTIVITY_TYPES,
   DEFAULT_SPACE_ICON,
   DOC_KINDS,
   PRIORITIES,
@@ -38,6 +39,7 @@ export const taskStatusSchema = z.enum(TASK_STATUSES);
 export const prioritySchema = z.enum(PRIORITIES);
 export const projectStatusSchema = z.enum(PROJECT_STATUSES);
 export const docKindSchema = z.enum(DOC_KINDS);
+export const activityTypeSchema = z.enum(ACTIVITY_TYPES);
 
 const PALETTE_COLORS = new Set(SPACE_PALETTE.map((entry) => entry.color));
 
@@ -189,6 +191,35 @@ export type CreateTaskInput = z.infer<typeof createTaskInputSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskInputSchema>;
 export type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;
 
+/** Số hoạt động mặc định / tối đa mà `GET /api/activities` trả. */
+export const ACTIVITY_LIST_DEFAULT = 50;
+export const ACTIVITY_LIST_MAX = 200;
+const LIMIT_MESSAGE = `limit phải là số nguyên từ 1 đến ${ACTIVITY_LIST_MAX}`;
+
+/**
+ * `limit` chỉ gồm chữ số (không dùng `z.coerce`: nó nhận `1e2`, ` 5`, `0x10`).
+ * Thiếu hoặc rỗng → mặc định.
+ */
+const activityLimitSchema = z
+  .string()
+  .regex(/^\d+$/, LIMIT_MESSAGE)
+  .transform(Number)
+  .pipe(z.number().int().min(1, LIMIT_MESSAGE).max(ACTIVITY_LIST_MAX, LIMIT_MESSAGE));
+
+/** Query đọc nhật ký hoạt động. Không strict: key lạ bị bỏ qua. */
+export const listActivitiesQuerySchema = z.object({
+  limit: z
+    .string()
+    .optional()
+    .transform((value) => (value === undefined || value === "" ? String(ACTIVITY_LIST_DEFAULT) : value))
+    .pipe(activityLimitSchema),
+});
+
+/** Danh sách key query mà `GET /api/activities` đọc. */
+export const LIST_ACTIVITIES_QUERY_KEYS = ["limit"] as const;
+
+export type ListActivitiesQuery = z.infer<typeof listActivitiesQuerySchema>;
+
 export type QueryObjectResult = { ok: true; value: Record<string, string> } | { ok: false; key: string };
 
 /**
@@ -243,7 +274,7 @@ export const fileSchema = z.object({
 
 export const activitySchema = z.object({
   id: z.string(),
-  type: z.enum(["task_created", "task_done", "task_updated", "project_created", "doc_created"]),
+  type: activityTypeSchema,
   entityId: z.string().nullable(),
   message: z.string(),
   createdAt: z.string(),

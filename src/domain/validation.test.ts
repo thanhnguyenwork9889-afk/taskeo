@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SPACE_ICON, SPACE_ICONS, SPACE_ICON_LABEL, SPACE_PALETTE, tintForColor } from "./labels";
+import {
+  ACTIVITY_MESSAGE,
+  ACTIVITY_TYPES,
+  DEFAULT_SPACE_ICON,
+  SPACE_ICONS, SPACE_ICON_LABEL, SPACE_PALETTE, tintForColor } from "./labels";
 import { createSeedState } from "./seed";
 import {
+  ACTIVITY_LIST_DEFAULT,
+  ACTIVITY_LIST_MAX,
   ID_MAX_LENGTH,
+  LIST_ACTIVITIES_QUERY_KEYS,
   PROJECT_DESCRIPTION_MAX,
   PROJECT_DUE_YEAR_MAX,
   PROJECT_DUE_YEAR_MIN,
@@ -14,7 +21,9 @@ import {
   createProjectInputSchema,
   createSpaceInputSchema,
   createTaskInputSchema,
+  activityTypeSchema,
   entityIdSchema,
+  listActivitiesQuerySchema,
   listTasksQuerySchema,
   projectDueDateSchema,
   queryToObject,
@@ -532,5 +541,78 @@ describe("queryToObject", () => {
     const params = new URLSearchParams("status=TODO&spaceId=a");
     queryToObject(params, KEYS);
     expect(params.toString()).toBe("status=TODO&spaceId=a");
+  });
+});
+
+describe("activity types", () => {
+  it("has a non-empty Vietnamese message for every activity type", () => {
+    expect(Object.keys(ACTIVITY_MESSAGE).sort()).toEqual([...ACTIVITY_TYPES].sort());
+    expect(ACTIVITY_MESSAGE).toEqual({
+      task_created: "Tạo công việc",
+      task_done: "Hoàn thành công việc",
+      task_updated: "Cập nhật công việc",
+      project_created: "Tạo dự án",
+      doc_created: "Tạo tài liệu",
+    });
+  });
+
+  it("lists exactly the five activity types", () => {
+    expect(ACTIVITY_TYPES).toEqual(["task_created", "task_done", "task_updated", "project_created", "doc_created"]);
+  });
+
+  it.each(ACTIVITY_TYPES.map((type) => [type]))("activityTypeSchema accepts %s", (type) => {
+    expect(activityTypeSchema.parse(type)).toBe(type);
+  });
+
+  it.each([["task_deleted"], [""], ["TASK_DONE"], [" task_done"]])("activityTypeSchema rejects %j", (type) => {
+    expect(activityTypeSchema.safeParse(type).success).toBe(false);
+  });
+});
+
+describe("listActivitiesQuerySchema", () => {
+  it("exposes the list limits and query keys", () => {
+    expect(ACTIVITY_LIST_DEFAULT).toBe(50);
+    expect(ACTIVITY_LIST_MAX).toBe(200);
+    expect(LIST_ACTIVITIES_QUERY_KEYS).toEqual(["limit"]);
+  });
+
+  it("defaults limit to 50 when not sent", () => {
+    expect(listActivitiesQuerySchema.parse({})).toEqual({ limit: ACTIVITY_LIST_DEFAULT });
+  });
+
+  it("defaults limit to 50 when empty", () => {
+    expect(listActivitiesQuerySchema.parse({ limit: "" })).toEqual({ limit: ACTIVITY_LIST_DEFAULT });
+  });
+
+  it.each([
+    ["1", 1],
+    ["200", 200],
+    ["050", 50],
+    ["7", 7],
+  ])("accepts limit %j as %d", (limit, expected) => {
+    expect(listActivitiesQuerySchema.parse({ limit })).toEqual({ limit: expected });
+  });
+
+  it.each([["0"], ["201"], ["1.5"], ["-1"], ["1e2"], [" 5"], ["5 "], ["abc"], ["0x10"], ["+5"], ["99999999999999999999"]])(
+    "rejects limit %j",
+    (limit) => {
+      expect(listActivitiesQuerySchema.safeParse({ limit }).success).toBe(false);
+    },
+  );
+
+  it("ignores unknown keys", () => {
+    expect(listActivitiesQuerySchema.parse({ limit: "10", _: "1" })).toEqual({ limit: 10 });
+  });
+
+  it("works with queryToObject output", () => {
+    const result = queryToObject(new URLSearchParams("limit=25&x=1"), LIST_ACTIVITIES_QUERY_KEYS);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(listActivitiesQuerySchema.parse(result.value)).toEqual({ limit: 25 });
+  });
+
+  it("does not modify the input", () => {
+    const query = { limit: "10" };
+    listActivitiesQuerySchema.parse(query);
+    expect(query).toEqual({ limit: "10" });
   });
 });

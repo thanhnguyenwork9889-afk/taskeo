@@ -1,16 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProjectRecord } from "@/domain/project-record";
 
-const db = vi.hoisted(() => ({
-  space: { findFirst: vi.fn() },
-  project: {
-    findMany: vi.fn(),
-    findFirst: vi.fn(),
-    count: vi.fn(),
-    aggregate: vi.fn(),
-    create: vi.fn(),
-    updateMany: vi.fn(),
-    deleteMany: vi.fn(),
+// Lệnh ghi của createProject chỉ được gọi qua `tx` trong `$transaction`; `db.project` không có
+// `create`, nên gọi nhầm `prisma.project.create` (ngoài transaction) thì test hỏng.
+const { db, tx } = vi.hoisted(() => ({
+  db: {
+    space: { findFirst: vi.fn() },
+    project: {
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+      count: vi.fn(),
+      aggregate: vi.fn(),
+      updateMany: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+    $transaction: vi.fn(),
+  },
+  tx: {
+    project: { create: vi.fn() },
+    activity: { createMany: vi.fn() },
   },
 }));
 
@@ -27,6 +35,7 @@ import {
 } from "./projects";
 
 const USER = "user-1";
+const NOW = new Date("2026-11-26T08:00:00.000Z");
 const SPACE = "s1";
 const { space, project } = db;
 
@@ -46,7 +55,7 @@ function uniqueViolation(): Error {
   return Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
 }
 
-/** Mọi lời gọi Prisma (trừ create, có userId trong data) phải lọc theo userId. */
+/** Mọi lời gọi Prisma phải lọc theo userId; lệnh tạo phải ghi userId vào từng `data`. */
 function expectAllWhereHaveUserId(): void {
   const mocks = [space.findFirst, project.findMany, project.findFirst, project.count, project.aggregate, project.updateMany, project.deleteMany];
   for (const mock of mocks) {
@@ -54,10 +63,20 @@ function expectAllWhereHaveUserId(): void {
       expect(args.where.userId).toBe(USER);
     }
   }
+  for (const [args] of tx.project.create.mock.calls) {
+    expect(args.data.userId).toBe(USER);
+  }
+  for (const [args] of tx.activity.createMany.mock.calls) {
+    for (const row of args.data) {
+      expect(row.userId).toBe(USER);
+    }
+  }
 }
 
 beforeEach(() => {
   vi.resetAllMocks();
+  db.$transaction.mockImplementation(async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx));
+  tx.activity.createMany.mockImplementation(async ({ data }: { data: unknown[] }) => ({ count: data.length }));
 });
 
 describe("escapeLikePattern", () => {
@@ -135,7 +154,7 @@ describe("createProject", () => {
     project.count.mockResolvedValue(count);
     project.aggregate.mockResolvedValue({ _max: { order: maxOrder } });
     project.findFirst.mockResolvedValue(null);
-    project.create.mockImplementation(async ({ data }) => ({
+    tx.project.create.mockImplementation(async ({ data }) => ({
       id: "new",
       spaceId: data.spaceId,
       name: data.name,
@@ -160,7 +179,7 @@ describe("createProject", () => {
       spaceId: SPACE,
       name: { equals: "Mới", mode: "insensitive" },
     });
-    const { data } = project.create.mock.calls[0][0];
+    const { data } = tx.project.create.mock.calls[0][0];
     expect(data).toEqual({ userId: USER, spaceId: SPACE, name: "Mới", description: null, order: 8 });
     expect(Object.values(data)).not.toContain(undefined);
     expect(result).toEqual({
@@ -184,7 +203,7 @@ describe("createProject", () => {
 
     const result = await createProject(USER, SPACE, input);
 
-    const { data } = project.create.mock.calls[0][0];
+    const { data } = tx.project.create.mock.calls[0][0];
     expect(data).toEqual({
       userId: USER,
       spaceId: SPACE,
@@ -202,7 +221,7 @@ describe("createProject", () => {
 
     await createProject(USER, SPACE, { name: "A" });
 
-    expect(project.create.mock.calls[0][0].data.order).toBe(0);
+    expect(tx.project.create.mock.calls[0][0].data.order).toBe(0);
   });
 
   it("tên có _ và % gửi equals đã thoát (ILIKE không coi là ký tự đại diện)", async () => {
@@ -211,7 +230,7 @@ describe("createProject", () => {
     await createProject(USER, SPACE, { name: "Q1_plan%" });
 
     expect(project.findFirst.mock.calls[0][0].where.name).toEqual({ equals: "Q1\\_plan\\%", mode: "insensitive" });
-    expect(project.create.mock.calls[0][0].data.name).toBe("Q1_plan%");
+    expect(tx.project.create.mock.calls[0][0].data.name).toBe("Q1_plan%");
   });
 
   it("dueDate null lưu null", async () => {
@@ -219,7 +238,7 @@ describe("createProject", () => {
 
     await createProject(USER, SPACE, { name: "A", dueDate: null });
 
-    expect(project.create.mock.calls[0][0].data.dueDate).toBeNull();
+    expect(tx.project.create.mock.calls[0][0].data.dueDate).toBeNull();
   });
 
   it("không gian của người khác → not_found, không đếm, không tạo", async () => {
@@ -228,14 +247,14 @@ describe("createProject", () => {
     expect(await createProject(USER, "s-other", { name: "A" })).toEqual({ ok: false, reason: "not_found" });
     expect(space.findFirst.mock.calls[0][0].where).toEqual({ id: "s-other", userId: USER });
     expect(project.count).not.toHaveBeenCalled();
-    expect(project.create).not.toHaveBeenCalled();
+    expect(db.$transaction).not.toHaveBeenCalled();
   });
 
   it.each([MAX_PROJECTS_PER_SPACE, MAX_PROJECTS_PER_SPACE + 1])("đã có %i dự án → limit", async (count) => {
     arrangeCreate(count);
 
     expect(await createProject(USER, SPACE, { name: "A" })).toEqual({ ok: false, reason: "limit" });
-    expect(project.create).not.toHaveBeenCalled();
+    expect(db.$transaction).not.toHaveBeenCalled();
   });
 
   it("vẫn tạo khi có MAX_PROJECTS_PER_SPACE - 1 dự án", async () => {
@@ -249,12 +268,63 @@ describe("createProject", () => {
     project.findFirst.mockResolvedValue({ id: "p-dup" });
 
     expect(await createProject(USER, SPACE, { name: "dự ÁN" })).toEqual({ ok: false, reason: "conflict" });
-    expect(project.create).not.toHaveBeenCalled();
+    expect(db.$transaction).not.toHaveBeenCalled();
   });
 
-  it("create ném P2002 (đồng thời) → conflict", async () => {
+  it("create ném P2002 (đồng thời) → conflict, không ghi activity", async () => {
     arrangeCreate(1);
-    project.create.mockRejectedValue(uniqueViolation());
+    tx.project.create.mockRejectedValue(uniqueViolation());
+
+    expect(await createProject(USER, SPACE, { name: "A" })).toEqual({ ok: false, reason: "conflict" });
+    expect(tx.activity.createMany).not.toHaveBeenCalled();
+  });
+
+  it("ghi dự án và activity project_created qua cùng một transaction", async () => {
+    arrangeCreate(2);
+
+    const result = await createProject(USER, SPACE, { name: "Mới" }, NOW);
+
+    expect(result.ok).toBe(true);
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+    expect(tx.project.create).toHaveBeenCalledTimes(1);
+    expect(tx.activity.createMany).toHaveBeenCalledTimes(1);
+    expect(tx.activity.createMany.mock.calls[0][0]).toEqual({
+      data: [
+        {
+          userId: USER,
+          type: "project_created",
+          entityId: "new",
+          meta: { message: "Tạo dự án" },
+          createdAt: NOW,
+        },
+      ],
+    });
+    expect(tx.project.create.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.activity.createMany.mock.invocationCallOrder[0],
+    );
+    expectAllWhereHaveUserId();
+  });
+
+  it("không truyền now → createdAt của activity là Date lúc gọi", async () => {
+    arrangeCreate(0);
+
+    await createProject(USER, SPACE, { name: "A" });
+
+    expect(tx.activity.createMany.mock.calls[0][0].data[0].createdAt).toBeInstanceOf(Date);
+  });
+
+  it("activity.createMany lỗi → createProject ném lại đúng lỗi đó", async () => {
+    arrangeCreate(1);
+    const error = new Error("ghi activity thất bại");
+    tx.activity.createMany.mockRejectedValue(error);
+
+    await expect(createProject(USER, SPACE, { name: "A" })).rejects.toBe(error);
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("mọi P2002 phát ra trong transaction (kể cả từ activity.createMany) đều thành conflict", async () => {
+    arrangeCreate(1);
+    tx.activity.createMany.mockRejectedValue(uniqueViolation());
 
     expect(await createProject(USER, SPACE, { name: "A" })).toEqual({ ok: false, reason: "conflict" });
   });
@@ -262,7 +332,7 @@ describe("createProject", () => {
   it("lỗi Prisma khác ném tiếp", async () => {
     arrangeCreate(1);
     const error = Object.assign(new Error("FK"), { code: "P2003" });
-    project.create.mockRejectedValue(error);
+    tx.project.create.mockRejectedValue(error);
 
     await expect(createProject(USER, SPACE, { name: "A" })).rejects.toBe(error);
   });

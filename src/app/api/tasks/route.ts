@@ -7,6 +7,7 @@ import {
 } from "@/domain/validation";
 import { getApiUserId } from "@/server/auth/session";
 import {
+  duplicateQueryKeyMessage,
   fail,
   handleUnexpected,
   ok,
@@ -21,10 +22,6 @@ import {
 const PROJECT_NOT_FOUND_MESSAGE = "Không tìm thấy dự án";
 const SPACE_NOT_FOUND_MESSAGE = "Không tìm thấy không gian";
 const SPACE_MISMATCH_MESSAGE = "Không gian không khớp với dự án";
-
-function duplicateQueryKeyMessage(key: string): string {
-  return `Tham số "${key}" chỉ được gửi một lần`;
-}
 
 /**
  * GET /api/tasks?spaceId=&projectId=&status=

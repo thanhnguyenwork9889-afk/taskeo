@@ -21,6 +21,7 @@
 | `GET /api/tasks/[id]` | `src/app/api/tasks/[id]/route.ts` | Một công việc → 200 / 404 |
 | `PATCH /api/tasks/[id]` | `src/app/api/tasks/[id]/route.ts` | Sửa các trường gửi lên (≥ 1 trường: `title`, `description`, `status`, `priority`, `dueDate`, `projectId`) → 200 / 404 / 400 dự án lạ. Không nhận `spaceId` |
 | `DELETE /api/tasks/[id]` | `src/app/api/tasks/[id]/route.ts` | Xoá công việc → 204 / 404 |
+| `GET /api/activities` | `src/app/api/activities/route.ts` | Nhật ký hoạt động của người dùng, mới nhất trước. `?limit=` số nguyên 1–200 (mặc định 50) → 200; 400 `limit` sai hoặc gửi lặp |
 
 ### Quy ước chung (từ T004)
 
@@ -36,7 +37,12 @@
   - Phản hồi: kiểu `Task` của client; `addToCalendar` suy từ `calendarEventId`, `linkedFileIds` luôn `[]` (chưa nối `TaskFile`, T60).
   - Query `GET /api/tasks`: chuỗi rỗng coi như không gửi, tham số lạ bị bỏ qua, một tham số gửi nhiều lần → 400. Lọc theo không gian / dự án không có hoặc của người khác → 200 `[]` (không phân biệt). Id quá dài / có NUL trong body hoặc query → 400; trên URL → 404.
   - Không atomic, chấp nhận: kiểm dự án rồi ghi (dự án bị xoá giữa chừng → lỗi khoá ngoại `P2003` → 400), đếm rồi tạo (có thể vượt 2000 một chút, trùng `order`), đọc status rồi ghi `completedAt`.
-  - Chưa có: phân trang, lọc công việc không thuộc không gian, ghi `Activity` (T27).
+  - Chưa có: phân trang, lọc công việc không thuộc không gian.
+- Activity (T008):
+  - Ghi tự động trong cùng `prisma.$transaction` (interactive) với thay đổi: `POST /api/tasks` → `task_created` (+ `task_done` nếu tạo với `DONE`); `PATCH /api/tasks/[id]` đổi status từ khác `DONE` sang `DONE` → `task_done`; `POST /api/spaces/[id]/projects` → `project_created`. Ghi activity lỗi → cả thay đổi bị rollback (đã kiểm trên DB `dev`). Request lỗi 400 / 404 / 409 không ghi gì.
+  - Không ghi: các sửa khác (tiêu đề, ưu tiên, hạn… — `task_updated` để sau), DONE → DONE, chuyển khỏi `DONE`, xoá, không gian.
+  - Phản hồi: kiểu `Activity` `{ id, type, entityId, message, createdAt }`; `type` lạ trong DB bị bỏ (có thể trả ít hơn `limit`). Sắp `createdAt` giảm dần rồi `id` giảm dần.
+  - Không atomic, chấp nhận: đọc status rồi ghi — hai PATCH `DONE` đồng thời có thể ghi 2 `task_done` (`completionsByDay` vẫn đếm mỗi công việc một lần).
 - Chưa có: rate limit, giới hạn kích thước body, kiểm tra `Content-Type` / `Origin` (T73).
 - Giao diện vẫn dùng store demo; nối vào API ở T59.
 
@@ -44,7 +50,7 @@
 
 ## Giai đoạn 2 (chưa làm)
 
-- Đã có API `spaces`, `projects`, `tasks` (T004–T006). Còn lại: phân trang, ghi `Activity`, gắn file Drive vào công việc.
+- Đã có API `spaces`, `projects`, `tasks` (T004–T006) và nhật ký `activities` (T008). Còn lại: phân trang, gắn file Drive vào công việc, nối card Hoạt động vào API (T41).
 - Logic truy vấn đặt ở `src/server/`, route trong `src/app/api/` chỉ parse input, gọi hàm server và trả kết quả.
 - Thay `src/store/workspace-store.ts` bằng TanStack Query gọi API. Giao diện chỉ phụ thuộc `useWorkspace()` / `updateWorkspace()`, nên các file trong `features/` không phải sửa.
 - Khi trang render từ dữ liệu server, đổi `experimental.instantInsights.validationLevel` trong `next.config.ts` về `"warning"`.

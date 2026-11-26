@@ -52,4 +52,5 @@ Mô hình dữ liệu: **Không gian → Dự án → Công việc**. Enum trong
 
 - Bỏ trạng thái "Quá hạn": quá hạn = `dueDate` < hôm nay và chưa xong.
 - Thêm bảng `TaskFile` (gắn file Drive vào công việc) và `Activity.meta` (nhật ký từng thay đổi).
+- `Activity` (T008): server ghi `task_created`, `task_done`, `project_created` trong cùng transaction với thay đổi; `meta = { message }` (câu theo `ACTIVITY_MESSAGE` trong `domain/labels.ts`, đọc ra cắt tối đa 200 ký tự), `createdAt` = cùng mốc với `completedAt`. `entityId` không có khoá ngoại: xoá công việc / dự án không xoá activity (`completionsByDay` bỏ công việc không còn `DONE`); xoá user thì cascade.
 - `Task.space` dùng `onDelete: Cascade`; `Task.project` dùng `SetNull` (công việc rơi về không gian).
