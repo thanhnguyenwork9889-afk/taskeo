@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T010-drive-scope` |
 | Tạo từ | `develop` @ `94d53e9` |
-| Trạng thái | 5-fix |
+| Trạng thái | 6-rereview |
 | Ngày tạo | 2026-11-26 |
 
 Nguồn: sheet nhiệm vụ, dòng **T30** "Thêm scope drive.file (xin quyền theo từng bước)" (giai đoạn 4 · Google Drive, backlog B5 phần đầu). Mở ra khi bắt đầu T33: T33 phụ thuộc T31, T31 phụ thuộc T30; người dùng chọn làm T30 → T31 trước, mỗi mục sheet một nhiệm vụ riêng.
@@ -121,11 +121,23 @@ Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewe
 
 ## 5. Fix bug
 
+Commit trước bước 5: `1fbd913`.
+
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
-| R1 | | |
+| R1 | đã sửa: `GOOGLE_ACCOUNT_ORDER = { createdAt: "asc" }` trong `granted-scopes.ts`, dùng cho cả `readGrantedScopeString` và `getGoogleAuth` (`client.ts`), nên scope và token luôn đọc từ cùng một dòng Account (tài khoản liên kết đầu tiên). Test khẳng định `orderBy` ở cả hai. Chặn hẳn việc gắn tài khoản Google thứ hai: để sau | `ad54736` |
+| R2 | bỏ qua: hành động hiếm (người dùng bấm nút), giữ `getApiUserId` làm cổng duy nhất cho demo / misconfigured / chưa đăng nhập; lần `auth()` thứ hai chỉ để lấy email cho `login_hint` | — |
+| R3 | đã sửa: hàm thuần `parseScopes` (`/\s+/`, bỏ chuỗi rỗng) trong `scopes.ts`, `hasScope` và `getGrantedGoogleScopes` cùng dùng; thêm `scopes.test.ts` | `ad54736` |
+| R4 | bỏ qua: hàm thuần, có test, chỉ sidebar dùng; chuyển sang `domain/` khi có nơi thứ hai cần | — |
+| R5 | để sau (LOW): gom nhãn UI khi có file nhãn chung | — |
+| R6 | để sau (LOW): truy vấn nhẹ theo index `userId`; lỗi DB lan ra giống `auth()` (đã chấp nhận ở kế hoạch) | — |
+| R7 | để sau (LOW): đã phân tích không bypass được | — |
+| R8 | chấp nhận: đã bắt buộc phiên, Next kiểm Origin; rate limit chung ở T73 | — |
+| R9 | chấp nhận: file có `server-only`, chưa có nơi đưa ra client | — |
+| R10 | chấp nhận: đường dẫn thật không dài tới 2048 ký tự | — |
+| R11 | chấp nhận: Vitest đã alias `server-only` | — |
 
-Kết quả 4 lệnh sau khi sửa:
+Kết quả 4 lệnh sau khi sửa (tự chạy): typecheck ✅ · lint ✅ · test ✅ 801/801 · build ✅.
 
 ## 6. Review lại
 
