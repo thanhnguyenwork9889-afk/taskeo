@@ -1,10 +1,9 @@
 import "server-only";
-import { taskActivityTypes } from "@/domain/activity-record";
-import { ACTIVITY_MESSAGE } from "@/domain/labels";
+import { activityRows, taskActivityTypes } from "@/domain/activity-record";
 import { dueDateToDb } from "@/domain/project-record";
 import { completedAtFor } from "@/domain/task-completion";
 import { taskFromRecord } from "@/domain/task-record";
-import type { ActivityType, Priority, Task, TaskStatus } from "@/domain/types";
+import type { Priority, Task, TaskStatus } from "@/domain/types";
 import type { CreateTaskInput, ListTasksQuery, UpdateTaskInput } from "@/domain/validation";
 import { prisma } from "@/server/db";
 
@@ -50,19 +49,6 @@ interface TaskUpdateData extends TaskFieldsData {
 type PlacementResult =
   | { ok: true; spaceId: string | null; projectId: string | null }
   | { ok: false; reason: "invalid_project" | "invalid_space" | "space_mismatch" };
-
-interface ActivityRow {
-  userId: string;
-  type: ActivityType;
-  entityId: string;
-  meta: { message: string };
-  createdAt: Date;
-}
-
-/** Dữ liệu `activity.createMany`: một dòng mỗi loại, câu mặc định theo loại, mốc `now` (khớp completedAt). */
-function activityRows(userId: string, entityId: string, types: readonly ActivityType[], now: Date): ActivityRow[] {
-  return types.map((type) => ({ userId, type, entityId, meta: { message: ACTIVITY_MESSAGE[type] }, createdAt: now }));
-}
 
 /** Mô tả rỗng (schema đã trim) lưu `null`, để DB chỉ có một kiểu "không có mô tả". */
 function descriptionToDb(description: string | undefined): string | null {

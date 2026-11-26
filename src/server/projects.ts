@@ -1,5 +1,5 @@
 import "server-only";
-import { ACTIVITY_MESSAGE } from "@/domain/labels";
+import { activityRows } from "@/domain/activity-record";
 import { dueDateToDb, projectFromRecord } from "@/domain/project-record";
 import type { Project, ProjectStatus } from "@/domain/types";
 import type { CreateProjectInput, UpdateProjectInput } from "@/domain/validation";
@@ -138,17 +138,7 @@ export async function createProject(
         },
         select: projectSelect,
       });
-      await tx.activity.createMany({
-        data: [
-          {
-            userId,
-            type: "project_created",
-            entityId: created.id,
-            meta: { message: ACTIVITY_MESSAGE.project_created },
-            createdAt: now,
-          },
-        ],
-      });
+      await tx.activity.createMany({ data: activityRows(userId, created.id, ["project_created"], now) });
       return created;
     });
     return { ok: true, project: projectFromRecord(record) };

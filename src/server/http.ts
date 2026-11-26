@@ -65,6 +65,11 @@ export function handleUnexpected(error: unknown, context: string): Response {
   return fail(500, UNEXPECTED_MESSAGE);
 }
 
+/** Query có key gửi lặp (vd `?limit=1&limit=2`) → thông điệp 400. */
+export function duplicateQueryKeyMessage(key: string): string {
+  return `Tham số "${key}" chỉ được gửi một lần`;
+}
+
 /** id trong URL rỗng, quá dài hoặc có NUL → route coi như không tồn tại (404), không gọi DB. */
 export function isValidRouteId(id: string): boolean {
   return id.length > 0 && id.length <= ID_MAX_LENGTH && hasNoNul(id);

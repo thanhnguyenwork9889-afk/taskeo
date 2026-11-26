@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import {
+  duplicateQueryKeyMessage,
   fail,
   handleUnexpected,
   isValidRouteId,
@@ -101,5 +102,11 @@ describe("isValidRouteId", () => {
 
   it("từ chối id có ký tự NUL (Postgres không so được → 500)", () => {
     expect(isValidRouteId("a\u0000b")).toBe(false);
+  });
+});
+
+describe("duplicateQueryKeyMessage", () => {
+  it("nêu tên key bị gửi lặp", () => {
+    expect(duplicateQueryKeyMessage("limit")).toBe('Tham số "limit" chỉ được gửi một lần');
   });
 });

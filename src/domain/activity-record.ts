@@ -11,12 +11,33 @@ export interface ActivityRecord {
   createdAt: Date;
 }
 
-/** Lấy `meta.message` nếu meta là object (không phải mảng) và message là chuỗi có nội dung. */
+/** Một dòng activity cần ghi xuống DB (dạng `data` của `activity.createMany`). */
+export interface NewActivityRow {
+  userId: string;
+  type: ActivityType;
+  entityId: string;
+  meta: { message: string };
+  createdAt: Date;
+}
+
+/** Độ dài tối đa (theo code point) của câu mô tả trả về client. */
+export const ACTIVITY_MESSAGE_MAX = 200;
+
+/** Cắt chuỗi còn tối đa `max` code point, không cắt đôi cặp surrogate (emoji). */
+function truncateCodePoints(text: string, max: number): string {
+  const codePoints = Array.from(text);
+  return codePoints.length > max ? codePoints.slice(0, max).join("") : text;
+}
+
+/**
+ * Lấy `meta.message` nếu meta là object (không phải mảng) và message là chuỗi có nội dung,
+ * cắt còn tối đa `ACTIVITY_MESSAGE_MAX` ký tự.
+ */
 function messageFromMeta(meta: unknown): string | null {
   if (typeof meta !== "object" || meta === null || Array.isArray(meta)) return null;
   const message: unknown = (meta as Record<string, unknown>).message;
   if (typeof message !== "string" || message.trim() === "") return null;
-  return message;
+  return truncateCodePoints(message, ACTIVITY_MESSAGE_MAX);
 }
 
 /**
@@ -45,4 +66,14 @@ export function taskActivityTypes(previous: TaskStatus | null, next: TaskStatus 
   const becomesDone = next === "DONE" && previous !== "DONE";
   if (previous === null) return becomesDone ? ["task_created", "task_done"] : ["task_created"];
   return becomesDone ? ["task_done"] : [];
+}
+
+/** Dựng các dòng activity (mỗi type một dòng, câu mô tả mặc định theo type) để ghi xuống DB. */
+export function activityRows(
+  userId: string,
+  entityId: string,
+  types: readonly ActivityType[],
+  now: Date,
+): NewActivityRow[] {
+  return types.map((type) => ({ userId, type, entityId, meta: { message: ACTIVITY_MESSAGE[type] }, createdAt: now }));
 }

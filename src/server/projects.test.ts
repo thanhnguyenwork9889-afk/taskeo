@@ -322,7 +322,7 @@ describe("createProject", () => {
     expect(db.$transaction).toHaveBeenCalledTimes(1);
   });
 
-  it("activity.createMany ném P2002 vẫn thành conflict (lỗi rollback cả transaction)", async () => {
+  it("mọi P2002 phát ra trong transaction (kể cả từ activity.createMany) đều thành conflict", async () => {
     arrangeCreate(1);
     tx.activity.createMany.mockRejectedValue(uniqueViolation());
 

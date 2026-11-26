@@ -1,13 +1,17 @@
 import { connection } from "next/server";
 import { LIST_ACTIVITIES_QUERY_KEYS, listActivitiesQuerySchema, queryToObject } from "@/domain/validation";
 import { getApiUserId } from "@/server/auth/session";
-import { fail, handleUnexpected, ok, unauthorized, unavailable, validationError } from "@/server/http";
+import {
+  duplicateQueryKeyMessage,
+  fail,
+  handleUnexpected,
+  ok,
+  unauthorized,
+  unavailable,
+  validationError,
+} from "@/server/http";
 
 // `@/server/activities` được import động: chế độ demo (503) không khởi tạo Prisma.
-
-function duplicateQueryKeyMessage(key: string): string {
-  return `Tham số "${key}" chỉ được gửi một lần`;
-}
 
 /**
  * GET /api/activities?limit=
