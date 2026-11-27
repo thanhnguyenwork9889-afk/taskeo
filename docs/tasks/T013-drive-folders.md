@@ -151,7 +151,18 @@ Kết quả 4 lệnh sau khi sửa (tự chạy): typecheck ✅ · lint ✅ · t
 
 ## 6. Review lại
 
-Vòng 1:
+Vòng 1 (`git diff 745f6fc..2c3ec8f`; `layer-reviewer` + `general-purpose` kiêm TypeScript / bảo mật): không có CRITICAL / HIGH. Xác nhận R1, R2, R3, R6, R8 đúng (đường đi `signal` tới gaxios 8.3.3 `AbortSignal.any` đã kiểm trong node_modules). Phát hiện mới:
+
+| # | Mức | Vấn đề | Xử lý |
+|---|---|---|---|
+| R11 | MEDIUM | Bản sửa R4 vẫn giả xanh: `vi.resetModules()` không chạy lại factory `vi.mock`, nên cờ "đã nạp" không bao giờ bật dù có import tĩnh `googleapis` (reviewer tái hiện trong scratch) | đã sửa ở `3c376a2`: `vi.doMock` factory mới sau `resetModules`; kiểm ngược: thêm tạm `import "googleapis"` / `import "./client"` tĩnh → test đỏ, rồi gỡ |
+| R12 | LOW | Comment + docs 02 hứa "không tạo thư mục nào sau khi huỷ"; request đang bay vẫn có thể hoàn tất phía Google | đã sửa ở `3c376a2`: "không bắt đầu lời gọi Drive mới; request đang bay có thể vẫn tạo thư mục mồ côi, không ghi DB" |
+| R13 | LOW | Tạo dự án trong không gian chưa có thư mục: hai hạn 10 s nối tiếp, hai lần lấy client / refresh → có thể ~20 s | để sau: đã ghi ở docs 02; gom một hạn + một client khi cần |
+| R14 | LOW | Listener `unhandledRejection` trong test chỉ gỡ trong `flush()`, rò rỉ nếu assert lỗi trước | đã sửa ở `3c376a2`: gỡ trong `afterEach` |
+
+Kết quả 4 lệnh sau vòng 2 (tự chạy): typecheck ✅ · lint ✅ · test ✅ 1063/1063 · build ✅.
+
+Vòng 2:
 
 ## 7. Final
 
