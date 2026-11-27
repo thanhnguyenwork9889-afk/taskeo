@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `fix/T011-block-second-google-account` |
 | Tạo từ | `develop` @ `fcde4cf` |
-| Trạng thái | 5-fix |
+| Trạng thái | 6-rereview |
 | Ngày tạo | 2026-11-26 |
 
 Nguồn: việc để sau của T010 (sheet **T30**), đề xuất bởi `security-reviewer` (MEDIUM) và kế hoạch T010. Làm trước sheet **T31** (tạo thư mục Drive): T31 dùng token Drive nên token phải thuộc đúng tài khoản Google người dùng đăng nhập.
@@ -119,11 +119,22 @@ Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewe
 
 ## 5. Fix bug
 
+Commit trước bước 5: `d924556`.
+
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
-| R1 | | |
+| R1 | đã sửa: `src/config/auth-cookies.ts` (`AUTH_SESSION_COOKIE_NAMES`, `__Secure-` trước) là nguồn duy nhất cho `proxy.ts` và `guardSignIn`; `auth-cookies.test.ts` khoá với `defaultCookies` của đúng bản `@auth/core` app đang dùng (resolve qua `next-auth`, vì exports map không mở đường dẫn nội bộ). Auth.js đổi tên mặc định → test đỏ. Nếu callback vẫn lọt, ràng buộc unique chặn ở DB | `25be628` |
+| R2 | đã sửa: `GOOGLE_PROVIDER` export từ `account-link.ts`, `account-link-data.ts` dùng lại | `25be628` |
+| R3 | để sau (LOW): cố ý không import chéo lớp; `account-link-data.test.ts` và `drive-notice.test.ts` cùng khoá giá trị | — |
+| R4 | chấp nhận: khớp Auth.js (`getSessionAndUser` không kiểm hạn), hướng sai là chặn thừa | — |
+| R5 | chấp nhận: file chỉ dùng phía server | — |
+| R6 | đã sửa: hàm thuần `cleanedLocation(pathname, params)` trả `pathname` + query đã bỏ `drive`, hoặc `"/"` + query khi pathname không bắt đầu bằng `/` hay bắt đầu bằng `//`, `/\`; 4 test | `25be628` |
+| R7 | chấp nhận: hậu quả chỉ là chặn thừa; kẻ tấn công phải có sẵn session token hợp lệ | — |
+| R8 | chấp nhận: SQL kiểm trùng đã ghi ở docs 03 và việc để sau | — |
+| R9 | chấp nhận: ràng buộc unique là chốt chặn cuối (docs 03) | — |
+| R10 | để sau (LOW): gom nhãn UI khi có file nhãn chung | — |
 
-Kết quả 4 lệnh sau khi sửa:
+Kết quả 4 lệnh sau khi sửa (tự chạy): typecheck ✅ · lint ✅ · test ✅ 842/842 · build ✅.
 
 ## 6. Review lại
 
