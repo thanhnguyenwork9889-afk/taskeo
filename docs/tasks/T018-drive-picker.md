@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T018-drive-picker` |
 | Tạo từ | `develop` @ `9a22909` |
-| Trạng thái | 4-review |
+| Trạng thái | 5-fix |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T34** "Google Picker: gắn file có sẵn trên Drive vào dự án" (giai đoạn 4 · Google Drive, phụ thuộc T30 = T010). Sheet đã ở `Đang làm` khi khởi tạo, giữ nguyên.
@@ -115,10 +115,25 @@ Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-27) 
 
 ## 4. Review code
 
-Reviewer đã chạy:
+Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewer` trên `git diff develop...HEAD` @ `6ecb3da` (trước P12). Không có CRITICAL / HIGH.
 
 | # | Mức | File:dòng | Vấn đề | Reviewer |
 |---|---|---|---|---|
+| R1 | MEDIUM | `components/layout/attach-doc-api.ts:45`, `use-attach-doc.ts:44,114`, `attach-doc-dialog.tsx:117` | `fetchPickerToken` không có hạn phía client; pha `opening` khoá Esc / bấm ngoài / Hủy → mạng treo hoặc Picker không gọi callback thì kẹt "Đang mở Google Drive…", phải tải lại trang | typescript |
+| R2 | MEDIUM | `server/google/drive-shortcuts.ts:73` | Mọi 403 từ `files.get` → `invalid_target`; 403 còn là `rateLimitExceeded` / `userRateLimitExceeded` → người dùng thấy "không mở được file / sai appId", log chẩn đoán sai | typescript |
+| R3 | MEDIUM | `server/google/drive-shortcuts.ts:66` | `files.get` có `supportsAllDrives: true`, khác mọi lời gọi Drive khác và trái quyết định "không bật Shared drives" | layer |
+| R4 | MEDIUM | `server/google/picker-token.ts:36`, `docs/02:133` | Token ra trình duyệt mang mọi scope đã cấp; docs 02 còn ghi "chỉ có scope `drive.file`" | security |
+| R5 | MEDIUM | `components/layout/google-picker.ts:104` | Script bên thứ ba `apis.google.com` chạy cùng origin, chưa có CSP (đã hoãn T73) | security |
+| R6 | LOW | `components/layout/use-attach-doc.ts:121` | Nhánh thành công không `session.end()`, chỉ dựa vào `onDone` unmount | typescript |
+| R7 | LOW | `components/layout/use-attach-doc.ts:44,114` | `end()` không abort fetch token đang bay (script lỗi trước → token vẫn chạy) | typescript |
+| R8 | LOW | `components/layout/google-picker.ts:217` | `entry[0] as DocKind` ép kiểu; domain đã có `docKindFromMime` | typescript |
+| R9 | LOW | `features/docs/file-row.tsx:26`, `components/layout/use-attach-doc.ts:128` | Chữ "Đã gắn" viết cứng hai nơi, không có trong `domain/labels.ts` | layer |
+| R10 | LOW | `domain/drive-files.ts` (`resolveTarget`), `server/drive-files.ts` | Lối tắt có file đích đã vào thùng rác / mất quyền vẫn được liệt kê (`trashed=false` áp lên lối tắt) | typescript |
+| R11 | LOW | `app/api/drive/picker-token/route.ts:63` | Không rate limit, mỗi lần gọi có thể refresh token | security |
+| R12 | LOW | `server/google/drive-shortcuts.ts:111` | Kiểm-rồi-tạo không nguyên tử, gắn đồng thời có thể trùng | security |
+| R13 | LOW | `app/api/files/attach/route.ts:61` | `not_found` chọn câu theo có `projectId` hay không | layer |
+| R14 | LOW | `features/projects/project-detail.tsx:147` | `features/projects` import `AttachDriveButton` từ `features/docs` (như `FileRow` đã làm) | layer |
+| R15 | LOW | `.env.*.example`, docs 02 | Hướng dẫn giới hạn API key chưa có trong docs 02 | security |
 
 ## 5. Fix bug
 
