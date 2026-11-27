@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T016-drive-storage-quota` |
 | Tạo từ | `develop` @ `447b100` |
-| Trạng thái | 6-rereview |
+| Trạng thái | 7-final |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T35** "Hiển thị dung lượng Drive (about.get) ở sidebar".
@@ -113,7 +113,17 @@ Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ (không cảnh bá
 
 ## 6. Review lại
 
-Vòng 1:
+Vòng 1 (`git diff 4bd299f..HEAD`, commit `a686072`): cùng ba reviewer như bước 4. **Không có CRITICAL / HIGH / MEDIUM.** R1, R2, R6, R9, R10 đã được xác nhận là sửa thật (tính lại chiều cao 50px nội dung cho cả bốn trạng thái, live region cố định, `aria-describedby` không trỏ id treo, test `enabled`). Bảo mật: không đổi server ngoài comment R6; lý do để sau của R3 / R4 / R5 được xác nhận (R5 chỉ an toàn khi QueryProvider chưa lên root layout, ghi cho T59).
+
+Phát hiện mới, đều LOW, ghi để sau:
+
+| # | Mức | File:dòng | Vấn đề | Reviewer |
+|---|---|---|---|---|
+| R14 | LOW | `src/components/layout/drive-storage-meter.tsx:16-17` | `h-[58px]` cố định, không `overflow-hidden`: khi người dùng phóng to cỡ chữ / giãn chữ (WCAG 1.4.4, 1.4.12) chữ tràn khung. Ở cỡ chữ mặc định đã tính lại: dòng lỗi xuống 2 dòng (~32px) vẫn lọt hàng 44px. Gợi ý `min-h-[58px]` | layer, TypeScript |
+| R15 | LOW | `drive-storage-meter.tsx:40-44` | Trạng thái lỗi không có tiêu đề → nút chỉ nghe "Thử lại", thiếu ngữ cảnh khi lướt danh sách nút. Gợi ý `aria-label="Thử lại tải dung lượng Google"` | TypeScript |
+| R16 | LOW | `drive-storage-meter.tsx:50-54` | Khi có thanh, "Trong Drive / Thùng rác" bị đọc hai lần (qua `aria-describedby` và khi đọc tuần tự) | TypeScript |
+
+Kết quả: sạch, sang bước 7.
 
 ## 7. Final
 
