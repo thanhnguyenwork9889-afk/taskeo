@@ -7,21 +7,21 @@ import { DRIVE_FOLDER_MIME, rootFolderQuery } from "./drive-query";
 import { GOOGLE_SCOPES } from "./scopes";
 
 const mocks = vi.hoisted(() => ({
-  loaded: { googleapis: false, client: false },
   hasGoogleScope: vi.fn(),
   getGoogleAuth: vi.fn(),
   googleDrive: vi.fn(),
 }));
 
 vi.mock("./granted-scopes", () => ({ hasGoogleScope: mocks.hasGoogleScope }));
-vi.mock("googleapis", () => {
-  mocks.loaded.googleapis = true;
-  return { google: { drive: mocks.googleDrive } };
-});
-vi.mock("./client", () => {
-  mocks.loaded.client = true;
-  return { getGoogleAuth: mocks.getGoogleAuth };
-});
+vi.mock("googleapis", () => ({ google: { drive: mocks.googleDrive } }));
+vi.mock("./client", () => ({ getGoogleAuth: mocks.getGoogleAuth }));
+
+/** Đăng ký lại các mock mặc định (sau khi một test tự `vi.doMock` bản riêng). */
+function restoreDefaultModuleMocks() {
+  vi.doMock("./granted-scopes", () => ({ hasGoogleScope: mocks.hasGoogleScope }));
+  vi.doMock("googleapis", () => ({ google: { drive: mocks.googleDrive } }));
+  vi.doMock("./client", () => ({ getGoogleAuth: mocks.getGoogleAuth }));
+}
 
 import {
   DRIVE_REQUEST_TIMEOUT_MS,
@@ -62,11 +62,15 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+/** Listener cần gỡ sau mỗi test, kể cả khi test fail trước `flush()`. */
+const pendingCleanups: (() => void)[] = [];
+
 /** Theo dõi unhandledRejection trong một test (vitest cũng báo lỗi, đây là kiểm tra tường minh). */
 function trackUnhandledRejections() {
   const seen: unknown[] = [];
   const onRejection = (reason: unknown) => seen.push(reason);
   process.on("unhandledRejection", onRejection);
+  pendingCleanups.push(() => process.off("unhandledRejection", onRejection));
   return {
     seen,
     async flush() {
@@ -103,6 +107,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  for (const cleanup of pendingCleanups.splice(0)) cleanup();
   vi.useRealTimers();
   vi.restoreAllMocks();
   mocks.hasGoogleScope.mockReset();
@@ -131,24 +136,43 @@ describe("hằng số", () => {
 
 describe("defaultDeps (không nạp googleapis khi thiếu scope)", () => {
   it("thiếu drive.file → không nạp ./client lẫn googleapis, trả null, không log", async () => {
-    // Nạp lại module từ đầu để không phụ thuộc thứ tự test: các factory vi.mock chạy lại khi
-    // (và chỉ khi) module tương ứng thực sự được import.
+    // `vi.resetModules()` không chạy lại factory của `vi.mock` (đã nạp một lần ở đầu file), nên
+    // đăng ký factory mới bằng `vi.doMock`: factory chỉ chạy khi module thực sự được import, kể cả
+    // import tĩnh trong drive-provision. Cờ `loaded` vì thế phản ánh đúng việc nạp module.
     vi.resetModules();
-    mocks.loaded.googleapis = false;
-    mocks.loaded.client = false;
-    mocks.hasGoogleScope.mockResolvedValue(false);
-    const fresh = await import("./drive-provision");
+    const loaded = { googleapis: false, client: false };
+    const hasGoogleScope = vi.fn().mockResolvedValue(false);
+    const getGoogleAuth = vi.fn();
+    const googleDrive = vi.fn();
+    vi.doMock("./granted-scopes", () => ({ hasGoogleScope }));
+    vi.doMock("googleapis", () => {
+      loaded.googleapis = true;
+      return { google: { drive: googleDrive } };
+    });
+    vi.doMock("./client", () => {
+      loaded.client = true;
+      return { getGoogleAuth };
+    });
 
-    await expect(fresh.provisionSpaceFolder(USER, SPACE)).resolves.toBeNull();
-    await expect(
-      fresh.provisionProjectFolder(USER, { spaceId: SPACE.id, parentFolderId: "sf", project: PROJECT }),
-    ).resolves.toBeNull();
+    try {
+      const fresh = await import("./drive-provision");
 
-    expect(mocks.hasGoogleScope).toHaveBeenCalledWith(USER, GOOGLE_SCOPES.drive);
-    expect(mocks.loaded).toEqual({ googleapis: false, client: false });
-    expect(mocks.getGoogleAuth).not.toHaveBeenCalled();
-    expect(mocks.googleDrive).not.toHaveBeenCalled();
-    expect(errorSpy).not.toHaveBeenCalled();
+      await expect(fresh.provisionSpaceFolder(USER, SPACE)).resolves.toBeNull();
+      await expect(
+        fresh.provisionProjectFolder(USER, { spaceId: SPACE.id, parentFolderId: "sf", project: PROJECT }),
+      ).resolves.toBeNull();
+
+      expect(hasGoogleScope).toHaveBeenCalledTimes(2);
+      expect(hasGoogleScope).toHaveBeenCalledWith(USER, GOOGLE_SCOPES.drive);
+      expect(loaded).toEqual({ googleapis: false, client: false });
+      expect(getGoogleAuth).not.toHaveBeenCalled();
+      expect(googleDrive).not.toHaveBeenCalled();
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      // Trả lại mock mặc định để `defaultDeps.getDrive` (import động) ở các test sau vẫn dùng `mocks`.
+      vi.resetModules();
+      restoreDefaultModuleMocks();
+    }
   });
 
   it("hasDriveScope gọi hasGoogleScope với scope drive.file", async () => {

@@ -61,7 +61,9 @@ function timeoutError(): Error {
  * không thành unhandled rejection (`Promise.race` đã gắn handler).
  *
  * Giới hạn: bước refresh token trong `getGoogleAuth` không nhận signal, nên có thể chạy tiếp ở
- * nền (bị chặn bởi timeout mỗi lần thử của OAuth2), nhưng sau khi huỷ sẽ không thư mục nào được tạo.
+ * nền (bị chặn bởi timeout mỗi lần thử của OAuth2). Sau khi huỷ, không lời gọi Drive mới nào được
+ * bắt đầu; nhưng request đang bay lúc huỷ vẫn có thể hoàn tất phía Google, để lại một thư mục mồ
+ * côi (id của nó không được trả về nên không được ghi vào DB).
  */
 async function runBestEffort(
   work: (signal: AbortSignal) => Promise<void>,
