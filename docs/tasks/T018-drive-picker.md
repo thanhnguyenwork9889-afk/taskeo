@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T018-drive-picker` |
 | Tạo từ | `develop` @ `9a22909` |
-| Trạng thái | 3-build |
+| Trạng thái | 4-review |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T34** "Google Picker: gắn file có sẵn trên Drive vào dự án" (giai đoạn 4 · Google Drive, phụ thuộc T30 = T010). Sheet đã ở `Đang làm` khi khởi tạo, giữ nguyên.
@@ -111,6 +111,7 @@ Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-27) 
 | P9 | `da1fa73` | google-picker.test (34), attach-doc-api.test (30), attach-doc-state.test (23) | ✅ | ✅ | ✅ 1829 | ✅ |
 | P7 | `e1f987b` | files/attach/route.test (25 test) | ✅ | ✅ | ✅ 1860 | ✅ |
 | P10 | `df593d1` | attach-doc-state.test (isAttachBusy, attachButtonLabel) | ✅ | ✅ | ✅ 1860 | ✅ |
+| P11 | `7c7c1c0` | attach-entry.test (3 nhánh), drive-files-api.test (shortcut, url lạ) | ✅ | ✅ | ✅ 1867 | ✅ |
 
 ## 4. Review code
 

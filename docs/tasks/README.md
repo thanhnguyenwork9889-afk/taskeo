@@ -22,7 +22,7 @@ Quy trình: [07-workflow.md](../07-workflow.md). Mẫu: [_template.md](_template
 | T015 | [Liệt kê file Drive theo không gian / dự án + Tài liệu gần đây](T015-drive-file-listing.md) | `feat/T015-drive-file-listing` | done | `f964164` |
 | T016 | [Hiển thị dung lượng Google Drive ở sidebar](T016-drive-storage-quota.md) | `feat/T016-drive-storage-quota` | done | `bd26a0f` |
 | T017 | [Tạo Doc / Sheet / Slide trong thư mục Drive, mở tab mới](T017-drive-create-file.md) | `feat/T017-drive-create-file` | done | `a4b9f71` |
-| T018 | [Google Picker: gắn file có sẵn trên Drive vào dự án](T018-drive-picker.md) | `feat/T018-drive-picker` | 3-build | |
+| T018 | [Google Picker: gắn file có sẵn trên Drive vào dự án](T018-drive-picker.md) | `feat/T018-drive-picker` | 4-review | |
 
 ## Việc chờ làm (backlog)
 
