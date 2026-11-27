@@ -15,7 +15,7 @@ Quy trình: [07-workflow.md](../07-workflow.md). Mẫu: [_template.md](_template
 | T008 | [Ghi Activity khi tạo / hoàn thành công việc, tạo dự án](T008-activity-log.md) | `feat/T008-activity-log` | done | `4c62d86` |
 | T009 | [Hoàn tất đăng nhập Google: test token + kiểm thử refresh thật](T009-google-auth-verify.md) | `chore/T009-google-auth-verify` | done | `1b9fea9` |
 | T010 | [Thêm scope `drive.file` (xin quyền theo từng bước)](T010-drive-scope.md) | `feat/T010-drive-scope` | done | `3234e6c` |
-| T011 | [Chặn gắn tài khoản Google thứ hai vào cùng một user](T011-block-second-google-account.md) | `fix/T011-block-second-google-account` | 3-build | |
+| T011 | [Chặn gắn tài khoản Google thứ hai vào cùng một user](T011-block-second-google-account.md) | `fix/T011-block-second-google-account` | 4-review | |
 
 ## Việc chờ làm (backlog)
 

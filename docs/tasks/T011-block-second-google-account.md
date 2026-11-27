@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `fix/T011-block-second-google-account` |
 | Tạo từ | `develop` @ `fcde4cf` |
-| Trạng thái | 3-build |
+| Trạng thái | 4-review |
 | Ngày tạo | 2026-11-26 |
 
 Nguồn: việc để sau của T010 (sheet **T30**), đề xuất bởi `security-reviewer` (MEDIUM) và kế hoạch T010. Làm trước sheet **T31** (tạo thư mục Drive): T31 dùng token Drive nên token phải thuộc đúng tài khoản Google người dùng đăng nhập.
@@ -84,9 +84,19 @@ Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-26) 
 | P3 | `e6602a3` | 17 test (`account-link-data.test.ts`) | ✅ | ✅ | ✅ 835/835 | ✅ |
 | P4 | `6344fe6` | — (logic phủ ở P3; `actions.test.ts` vẫn xanh) | ✅ | ✅ | ✅ 835/835 | ✅ |
 | P6 | (commit docs này) | — (docs 02: hành vi chọn nhầm tài khoản; 03: ràng buộc, SQL kiểm trùng, production để sau, cách tạo migration không tương tác; 04: `account-link*.ts`, `drive-notice.ts`) | — | — | — | — |
-| P7 | chờ người dùng | — | | | | |
+| P7 | không commit (kiểm thật) | — | ✅ | ✅ | ✅ 835/835 | ✅ |
 
 Ghi chú P3/P4: agent làm xong code + test nhưng phiên bị ngắt trước khi báo lại; Claude đọc lại diff, chạy đủ 4 lệnh (835/835) rồi mới commit.
+
+**Kiểm thật trên DB dev** (2026-11-27, người dùng thao tác ở `localhost:3000`; thêm tài khoản Google thứ ba vào Test users vì consent screen ở Testing — trước đó Google trả `403 access_denied` cho tài khoản chưa là test user):
+
+| Trường hợp | Kết quả trong DB |
+|---|---|
+| Đăng nhập `…iplrmt`, bấm Kết nối Google Drive, chọn tài khoản Google thứ ba (chưa từng đăng nhập Taskeo) | Không thêm `Account` / `User` nào (vẫn 2 / 2), không có dòng trùng `(userId, provider)` |
+| Bấm lại, chọn đúng tài khoản `…iplrmt` | `Account.scope` của `…iplrmt` có `drive.file`, token ghi lại lúc 00:43Z, vẫn `v1:` |
+| Ràng buộc | `pg_indexes`: `Account_pkey`, `Account_userId_provider_key` |
+
+- Người dùng báo sau khi bị chặn thì "bị đưa về login lại". Code Auth.js (callback trả URL → chỉ xoá cookie state/PKCE, không đụng cookie phiên) và DB (không có phiên mới sau lần chặn; phiên 00:37Z được dùng tiếp để kết nối lúc 00:43Z) không cho thấy phiên bị mất. Người dùng chấp nhận P7 đạt; nếu tái hiện được thì mở việc riêng.
 
 Ghi chú P1: `migrate dev` từ chối chạy không tương tác (cảnh báo unique), nên SQL được sinh bằng `prisma migrate diff --from-url $DIRECT_URL --to-schema-datamodel prisma/schema.prisma --script` rồi áp bằng `npm run db:migrate`. `prisma generate` không thay được DLL engine vì dev server đang giữ file (client TS/JS đã sinh lại, typecheck thấy `userId_provider`); khởi động lại dev server trước P7.
 
