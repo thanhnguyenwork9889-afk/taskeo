@@ -112,6 +112,13 @@ Taskeo/                      appProperties.taskeoRole = "root"
 - Chưa có `drive.file` / chưa kết nối → 403 `code: "drive_not_connected"`, không gọi Google, không nạp `googleapis`. Google lỗi / quá hạn (10 s tổng, `runWithDeadline` trong `deadline.ts`, dùng chung với tạo thư mục) → 502, log một dòng `userId` + tên lỗi đã phân loại + mã HTTP.
 - Giao diện: thẻ "Tài liệu gần đây" và trang `/docs` dùng dữ liệu thật ở chế độ `configured` (TanStack Query, `staleTime` 60 s). Tab Tài liệu ở trang không gian / dự án vẫn đọc store demo cho tới T59 (ID store khác ID DB).
 
+### Dung lượng Google ở sidebar (T016)
+
+- `GET /api/drive/storage` → `getDriveStorageQuota` (`src/server/google/drive-storage.ts`): `drive.about.get({ fields: "storageQuota" })`. **Dùng scope `drive.file` sẵn có, không thêm scope.** Đã kiểm thật trên tài khoản dev (chỉ có `drive.file`): trả `limit`, `usage`, `usageInDrive`, `usageInDriveTrash`.
+- `usage` là dung lượng Google của cả tài khoản (Drive + Gmail + Photos), nên giao diện ghi "Dung lượng Google". `limit` vắng (Workspace không giới hạn / pool tổ chức) → chỉ hiện "Đã dùng X", không có thanh.
+- Cùng khuôn với liệt kê file: kiểm scope trước (chưa có → 403 `drive_not_connected`, không nạp `googleapis`), hạn tổng 10 s, lỗi / quá hạn / `storageQuota` sai → 502, log một dòng an toàn.
+- Giao diện: khối dưới công tắc Google Drive (`src/components/layout/drive-storage-meter.tsx`), chỉ khi `configured` + đã kết nối; TanStack Query `staleTime` 5 phút. Mỗi lần tải lại trang (quá 5 phút hoặc QueryClient mới) là một lần `about.get`; rate limit / cache phía server để T73.
+
 ## Bảo mật token
 
 - Token Google được mã hoá AES-256-GCM (`src/server/crypto.ts`) trước khi ghi DB, bằng cách bọc `linkAccount` của Prisma adapter.
