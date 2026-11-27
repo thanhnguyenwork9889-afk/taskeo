@@ -1,9 +1,10 @@
 import "server-only";
 import { activityRows } from "@/domain/activity-record";
-import { dueDateToDb, projectFromRecord } from "@/domain/project-record";
+import { dueDateToDb, projectFromRecord, type ProjectRecord } from "@/domain/project-record";
 import type { Project, ProjectStatus } from "@/domain/types";
 import type { CreateProjectInput, UpdateProjectInput } from "@/domain/validation";
 import { prisma } from "@/server/db";
+import { provisionProjectFolder } from "@/server/google/drive-provision";
 
 // Chỉ đọc các cột `ProjectRecord` cần; không trả userId, order, driveFolderId, createdAt.
 const projectSelect = {
@@ -60,6 +61,68 @@ async function spaceBelongsToUser(userId: string, spaceId: string): Promise<bool
   return space !== null;
 }
 
+/** Không gian của người dùng kèm tên / thư mục Drive (cho `provisionProjectFolder`); `null` khi không có. */
+function findOwnedSpace(
+  userId: string,
+  spaceId: string,
+): Promise<{ id: string; name: string; driveFolderId: string | null } | null> {
+  return prisma.space.findFirst({
+    where: { id: spaceId, userId },
+    select: { id: true, name: true, driveFolderId: true },
+  });
+}
+
+/**
+ * Ghi một id thư mục Drive (best-effort): lỗi chỉ log tên lỗi, không log `message` (có thể chứa
+ * dữ liệu / chi tiết Prisma) và không ném — dự án đã tạo xong, Drive chỉ là phần phụ.
+ */
+async function saveDriveFolderId(
+  write: () => Promise<unknown>,
+  logContext: { userId: string; spaceId: string; projectId: string },
+): Promise<void> {
+  try {
+    await write();
+  } catch (error) {
+    console.error("[projects] Không lưu được driveFolderId", {
+      ...logContext,
+      error: error instanceof Error ? error.name : "unknown",
+    });
+  }
+}
+
+/**
+ * Tạo thư mục Drive cho dự án vừa tạo rồi lưu id. `provisionProjectFolder` không ném; không gian
+ * tạo bù thư mục thì chỉ ghi khi vẫn chưa có (`driveFolderId: null`), để không đè id ghi đồng thời.
+ */
+async function provisionAndSaveFolders(
+  userId: string,
+  space: { id: string; name: string; driveFolderId: string | null },
+  project: { id: string; name: string },
+): Promise<void> {
+  const { spaceFolderId, projectFolderId } = await provisionProjectFolder(userId, { space, project });
+  const logContext = { userId, spaceId: space.id, projectId: project.id };
+  if (spaceFolderId) {
+    await saveDriveFolderId(
+      () =>
+        prisma.space.updateMany({
+          where: { id: space.id, userId, driveFolderId: null },
+          data: { driveFolderId: spaceFolderId },
+        }),
+      logContext,
+    );
+  }
+  if (projectFolderId) {
+    await saveDriveFolderId(
+      () =>
+        prisma.project.updateMany({
+          where: { id: project.id, userId },
+          data: { driveFolderId: projectFolderId },
+        }),
+      logContext,
+    );
+  }
+}
+
 /**
  * Thoát ký tự đại diện của LIKE/ILIKE để so khớp nguyên văn. Thoát `\` trước, nếu không
  * `\` vừa thêm cho `%`/`_` sẽ bị nhân đôi. `\` là ký tự escape mặc định của ILIKE trên Postgres.
@@ -112,7 +175,8 @@ export async function createProject(
   input: CreateProjectInput,
   now: Date = new Date(),
 ): Promise<CreateProjectResult> {
-  if (!(await spaceBelongsToUser(userId, spaceId))) return { ok: false, reason: "not_found" };
+  const space = await findOwnedSpace(userId, spaceId);
+  if (!space) return { ok: false, reason: "not_found" };
   // count / aggregate rồi create không atomic: hai POST đồng thời có thể cùng `order` (max + 1)
   // hoặc vượt MAX_PROJECTS_PER_SPACE một chút. Chấp nhận vì `order` chỉ dùng để sắp xếp
   // (listProjects sắp tiếp theo createdAt). Dùng max + 1 thay cho count để không trùng sau khi xoá.
@@ -122,10 +186,11 @@ export async function createProject(
   const { _max } = await prisma.project.aggregate({ where: { userId, spaceId }, _max: { order: true } });
   const order = _max.order === null ? 0 : _max.order + 1;
 
+  let record: ProjectRecord;
   try {
     // Interactive transaction: activity cần id dự án vừa tạo làm `entityId`. Trong callback chỉ
     // gọi `tx.*`; lỗi ném ra khiến Prisma rollback rồi ném lại lỗi gốc (còn `code`) ra ngoài.
-    const record = await prisma.$transaction(async (tx) => {
+    record = await prisma.$transaction(async (tx) => {
       const created = await tx.project.create({
         data: {
           userId,
@@ -141,12 +206,15 @@ export async function createProject(
       await tx.activity.createMany({ data: activityRows(userId, created.id, ["project_created"], now) });
       return created;
     });
-    return { ok: true, project: projectFromRecord(record) };
   } catch (error) {
     // Hai request đồng thời cùng tên vượt qua bước kiểm trước → unique `[spaceId, name]` chặn.
     if (isUniqueViolation(error)) return { ok: false, reason: "conflict" };
     throw error;
   }
+
+  // Ngoài try/catch ở trên: lỗi khi ghi id thư mục không được hiểu nhầm thành P2002 → conflict.
+  await provisionAndSaveFolders(userId, space, { id: record.id, name: record.name });
+  return { ok: true, project: projectFromRecord(record) };
 }
 
 /** Sửa các trường gửi lên; dự án lạ → `not_found`, đổi tên trùng trong không gian → `conflict`. */
