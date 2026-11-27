@@ -148,7 +148,7 @@ Vòng 1 (`git diff d924556..25be628`, cùng ba reviewer): không có CRITICAL / 
 
 **Tài liệu đã cập nhật:** `docs/02-google-cloud.md` (hành vi chọn nhầm tài khoản, vì sao không dùng `auth()`, Google vẫn ghi nhận đồng ý của tài khoản bị từ chối), `docs/03-database.md` (ràng buộc, SQL kiểm trùng, production chưa áp, cách tạo migration khi `migrate dev` không chạy được không tương tác), `docs/04-architecture.md` (`account-link*.ts`, `drive-notice.ts`, `config/auth-cookies.ts`), `docs/tasks/README.md`.
 
-**Merge vào develop:** commit `<hash>`, 2026-11-27
+**Merge vào develop:** commit `aef0d7a`, 2026-11-27
 
 **Việc để sau:**
 - **Production:** khi release `develop` → `main`, chạy SQL kiểm trùng ở docs 03 trên Neon `main` rồi `npm run db:deploy`. Trước đó production vẫn được callback chặn.
