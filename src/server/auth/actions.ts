@@ -55,7 +55,22 @@ export async function connectGoogleDrive(formData: FormData) {
 // Mã `?drive=` báo kết quả ngắt kết nối; phải khớp DRIVE_NOTICES ở components/layout/drive-notice.ts
 // (không import chéo lớp, test khoá literal).
 const DRIVE_NOTICE_DISCONNECTED = "disconnected";
+const DRIVE_NOTICE_DISCONNECTED_LOCAL = "disconnected-local";
 const DRIVE_NOTICE_DISCONNECT_FAILED = "disconnect-failed";
+
+/**
+ * Kết quả ngắt kết nối:
+ * - "disconnected": đã thu hồi ở Google (hoặc token đã hết hiệu lực / không còn token) và đã xoá DB.
+ * - "disconnected-local": token không giải mã được nên chỉ xoá khỏi DB; quyền ở Google có thể còn.
+ * - "failed": không đổi được trạng thái (lỗi đọc / ghi DB, Google từ chối, không có Account google).
+ */
+type DisconnectOutcome = "disconnected" | "disconnected-local" | "failed";
+
+const DRIVE_NOTICE_BY_OUTCOME: Readonly<Record<DisconnectOutcome, string>> = {
+  disconnected: DRIVE_NOTICE_DISCONNECTED,
+  "disconnected-local": DRIVE_NOTICE_DISCONNECTED_LOCAL,
+  failed: DRIVE_NOTICE_DISCONNECT_FAILED,
+};
 
 /** Chỉ lấy tên lỗi; message có thể chứa token hoặc chi tiết nội bộ nên không bao giờ log. */
 function errorName(error: unknown): string {
@@ -99,16 +114,18 @@ async function loadGoogleAccount(userId: string) {
 }
 
 /**
- * Thu hồi quyền Google của user rồi xoá token trong Account google. Trả true nếu đã ngắt.
- * Không ném: mọi lỗi (nạp module, đọc / ghi DB) thành false và chỉ log `{ userId, error: error.name }`.
- * Lỗi ghi DB cũng thành false (không để lan ra) để người dùng thấy thông báo "thử lại" thay vì
+ * Thu hồi quyền Google của user rồi xoá token trong Account google; trả `DisconnectOutcome`.
+ * - Thu hồi thành công / token đã hết hiệu lực / Account không còn token → xoá DB, "disconnected".
+ * - Có token nhưng không giải mã được (đổi khoá, dữ liệu hỏng) → không thu hồi được ở Google, chỉ
+ *   xoá khỏi DB, "disconnected-local"; người dùng cần tự gỡ quyền của app ở trang tài khoản Google.
+ * - Còn lại → "failed", không đổi DB.
+ * Không ném: mọi lỗi (nạp module, đọc / ghi DB) thành "failed" và chỉ log `{ userId, error: error.name }`.
+ * Lỗi ghi DB cũng thành "failed" (không để lan ra) để người dùng thấy thông báo "thử lại" thay vì
  * trang lỗi; bấm lại thì Google trả invalid_token → already-invalid → ghi lại được.
- * Token không giải mã được (đổi khoá, dữ liệu hỏng) thì không thu hồi được ở Google, chỉ xoá khỏi
- * DB (vẫn trả true); người dùng có thể tự gỡ quyền của app ở trang tài khoản Google.
  */
-async function revokeAndClearGoogleTokens(userId: string): Promise<boolean> {
+async function revokeAndClearGoogleTokens(userId: string): Promise<DisconnectOutcome> {
   const loaded = await loadGoogleAccount(userId);
-  if (!loaded?.account) return false;
+  if (!loaded?.account) return "failed";
   const { account } = loaded;
   const [{ prisma }, { selectRevokeToken, revokeGoogleToken, buildDisconnectedAccountUpdate }, { decrypt }] =
     loaded.modules;
@@ -117,18 +134,19 @@ async function revokeAndClearGoogleTokens(userId: string): Promise<boolean> {
   const token = encrypted ? tryDecrypt(decrypt, encrypted, userId) : null;
   if (token) {
     const result = await revokeGoogleToken(token);
-    if (result === "failed") return false;
+    if (result === "failed") return "failed";
   }
+  const outcome: DisconnectOutcome = encrypted && !token ? "disconnected-local" : "disconnected";
 
   try {
     await prisma.account.update({
       where: { provider_providerAccountId: { provider: "google", providerAccountId: account.providerAccountId } },
       data: buildDisconnectedAccountUpdate(),
     });
-    return true;
+    return outcome;
   } catch (error: unknown) {
     console.error("[auth/disconnect] Không ghi được trạng thái đã ngắt kết nối", { userId, error: errorName(error) });
-    return false;
+    return "failed";
   }
 }
 
@@ -141,23 +159,19 @@ async function revokeAndClearGoogleTokens(userId: string): Promise<boolean> {
  * - Thu hồi thành công hoặc token đã hết hiệu lực → xoá token, `scope` còn scope đăng nhập.
  *   Account không còn token → coi như đã ngắt (không gọi Google). Token không giải mã được → không
  *   thu hồi được ở Google, chỉ xoá khỏi DB. Lỗi khác hoặc không có Account google → không đổi DB.
- * - Về trang cũ (`redirectTo`, chỉ đường dẫn nội bộ) kèm `?drive=disconnected` / `?drive=disconnect-failed`.
+ * - Về trang cũ (`redirectTo`, chỉ đường dẫn nội bộ) kèm `?drive=disconnected` (đã thu hồi),
+ *   `?drive=disconnected-local` (chỉ xoá DB, cần gỡ quyền ở trang tài khoản Google) hoặc
+ *   `?drive=disconnect-failed`.
  */
 export async function disconnectGoogleDrive(formData: FormData) {
   const user = await getApiUserId();
   if (!user.ok) redirect(user.status === 401 ? "/login" : "/");
 
-  const ok = await revokeAndClearGoogleTokens(user.userId);
+  const outcome = await revokeAndClearGoogleTokens(user.userId);
 
   refresh();
   // redirect ném NEXT_REDIRECT nên phải nằm ngoài mọi try/catch.
-  redirect(
-    withQueryParam(
-      formData.get("redirectTo"),
-      "drive",
-      ok ? DRIVE_NOTICE_DISCONNECTED : DRIVE_NOTICE_DISCONNECT_FAILED,
-    ),
-  );
+  redirect(withQueryParam(formData.get("redirectTo"), "drive", DRIVE_NOTICE_BY_OUTCOME[outcome]));
 }
 
 export async function signOutAction() {

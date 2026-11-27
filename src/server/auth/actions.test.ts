@@ -166,6 +166,7 @@ describe("signInWithGoogle", () => {
 
 // Chuỗi literal phải khớp DRIVE_NOTICES trong src/components/layout/drive-notice.ts.
 const DISCONNECTED = "disconnected";
+const DISCONNECTED_LOCAL = "disconnected-local";
 const DISCONNECT_FAILED = "disconnect-failed";
 
 const SIGN_IN_ONLY_SCOPE =
@@ -307,7 +308,7 @@ describe("disconnectGoogleDrive", () => {
     expect(target).toBe(`/docs?drive=${DISCONNECT_FAILED}`);
   });
 
-  it("clears tokens without calling Google when decrypt throws (nothing readable to revoke)", async () => {
+  it("clears tokens without calling Google and reports disconnected-local when decrypt throws", async () => {
     mocks.findFirst.mockResolvedValue(storedAccount({ refresh_token: "corrupted-SECRET-payload" }));
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
@@ -315,7 +316,9 @@ describe("disconnectGoogleDrive", () => {
 
     expect(mocks.revokeGoogleToken).not.toHaveBeenCalled();
     expectDisconnectedUpdate();
-    expect(target).toBe(`/docs?drive=${DISCONNECTED}`);
+    expect(mocks.refresh).toHaveBeenCalledTimes(1);
+    expect(target).toBe(`/docs?drive=${DISCONNECTED_LOCAL}`);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
     expect(errorSpy).toHaveBeenCalledWith(expect.any(String), { userId: "user-1", error: "Error" });
     errorSpy.mockRestore();
   });
