@@ -106,6 +106,9 @@ Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-27) 
 | P3 | `a7d3e35` | drive-shortcuts.test (26 test: scope, invalid_target, already_attached, log sạch, quá hạn) | ✅ | ✅ | ✅ 1714 | ✅ |
 | P4 | `2f20714` | env.test (readPickerConfig), picker-token.test (16 test) | ✅ | ✅ | ✅ 1714 | ✅ |
 | P8 | `0c905d3` | create-doc-api.test (fileFromBody shortcut, requestJson) | ✅ | ✅ | ✅ 1714 | ✅ |
+| P5 | `3fbaf2f` | drive-files.test (attachFile 14 test, listFiles lọc lại kind) | ✅ | ✅ | ✅ 1829 | ✅ |
+| P6 | `7f022ba` | picker-token/route.test (12 test, no-store mọi phản hồi) | ✅ | ✅ | ✅ 1829 | ✅ |
+| P9 | `da1fa73` | google-picker.test (34), attach-doc-api.test (30), attach-doc-state.test (23) | ✅ | ✅ | ✅ 1829 | ✅ |
 
 ## 4. Review code
 
