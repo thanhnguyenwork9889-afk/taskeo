@@ -59,7 +59,7 @@ Rủi ro / phụ thuộc:
 
 Lập kế hoạch: repo không có agent `planner` trong `.claude/agents/`, Claude tự lập theo khuôn T015.
 
-Duyệt kế hoạch: ☐ chờ · ☐ người dùng đã duyệt (ngày) · ☐ bỏ qua (`--yes`)
+Duyệt kế hoạch: ☑ người dùng đã duyệt (2026-11-27)
 
 ## 3. Thực hiện + kiểm thử
 
