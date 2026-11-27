@@ -3,6 +3,7 @@ import {
   buildDriveFilesQuery,
   DOC_KIND_MIME,
   DRIVE_PARENTS_PER_QUERY,
+  DRIVE_SHORTCUT_MIME,
   toDriveFileName,
   type RawDriveFile,
 } from "@/domain/drive-files";
@@ -23,7 +24,7 @@ vi.mock("@/server/google/drive-provision", () => ({
   provisionProjectFolder: vi.fn(),
 }));
 
-import { createFile, listFiles, type CreateFileDeps } from "./drive-files";
+import { attachFile, createFile, listFiles, type AttachFileDeps, type CreateFileDeps } from "./drive-files";
 
 const USER = "user-1";
 const { space, project } = db;
@@ -310,6 +311,48 @@ describe("listFiles — lọc projectId", () => {
   });
 });
 
+describe("listFiles — lọc lại kind sau ánh xạ", () => {
+  function shortcut(id: string, parent: string, targetMime: string): RawDriveFile {
+    return raw(id, parent, "2026-11-26T00:00:00.000Z", {
+      mimeType: DRIVE_SHORTCUT_MIME,
+      webViewLink: null,
+      shortcutDetails: { targetId: `target-${id}-0000`, targetMimeType: targetMime },
+    });
+  }
+
+  it("lối tắt có appProperties lệch với đích bị bỏ khi lọc kind", async () => {
+    listDriveFiles.mockResolvedValue({
+      status: "ok",
+      files: [
+        shortcut("sc-sheet", "f-s1", DOC_KIND_MIME.sheet),
+        shortcut("sc-doc", "f-s1", DOC_KIND_MIME.doc),
+        raw("plain-doc", "f-s1", "2026-11-20T00:00:00.000Z"),
+      ],
+    });
+
+    const result = await listFiles(USER, { spaceId: "s1", kind: "doc", limit: 20 });
+
+    expect(result).toMatchObject({ ok: true });
+    if (!result.ok) return;
+    expect(result.files.map((file) => [file.id, file.kind, file.shortcut])).toEqual([
+      ["sc-doc", "doc", true],
+      ["plain-doc", "doc", false],
+    ]);
+  });
+
+  it("không có kind → giữ mọi loại", async () => {
+    listDriveFiles.mockResolvedValue({
+      status: "ok",
+      files: [shortcut("sc-sheet", "f-s1", DOC_KIND_MIME.sheet), raw("plain-doc", "f-s1", "2026-11-20T00:00:00.000Z")],
+    });
+
+    const result = await listFiles(USER, { spaceId: "s1", limit: 20 });
+
+    expect(result).toMatchObject({ ok: true });
+    if (result.ok) expect(result.files.map((file) => file.id)).toEqual(["sc-sheet", "plain-doc"]);
+  });
+});
+
 describe("listFiles — kết quả Drive", () => {
   it("not_connected → drive_not_connected", async () => {
     listDriveFiles.mockResolvedValue({ status: "not_connected" });
@@ -579,6 +622,204 @@ describe("createFile", () => {
     try {
       await createFile(USER, { name: "A", kind: "doc", spaceId: "s1" }, deps);
       expect(log).not.toHaveBeenCalled();
+    } finally {
+      log.mockRestore();
+    }
+  });
+});
+
+describe("attachFile", () => {
+  const NOW = new Date("2026-11-27T09:00:00.000Z");
+  const SPACE_ROW = { id: "s1", name: "Công việc", driveFolderId: "f-s1" };
+  const PROJECT_ROW = { id: "p1", name: "Website", driveFolderId: "f-p1" };
+  const SELECT = { id: true, name: true, driveFolderId: true };
+  const LOG = { prefix: "[files]" };
+  const TARGET = "1AbCdEfGhIjKlMnOp";
+
+  function shortcutFile(overrides: Partial<RawDriveFile> = {}): RawDriveFile {
+    return {
+      id: "sc-1",
+      name: "Báo cáo quý",
+      mimeType: DRIVE_SHORTCUT_MIME,
+      modifiedTime: "2026-11-27T08:59:00.000Z",
+      webViewLink: "https://drive.google.com/file/d/sc-1/view",
+      parents: ["f-s1"],
+      shortcutDetails: { targetId: TARGET, targetMimeType: DOC_KIND_MIME.sheet },
+      ...overrides,
+    };
+  }
+
+  function attachOk(overrides: Partial<RawDriveFile> = {}) {
+    return vi.fn().mockResolvedValue({ status: "ok", file: shortcutFile(overrides) });
+  }
+
+  function makeDeps(overrides: Partial<AttachFileDeps> = {}) {
+    return {
+      attachShortcut: attachOk(),
+      hasDriveScope: vi.fn().mockResolvedValue(true),
+      ensureSpaceFolderId: vi.fn().mockResolvedValue("f-new-space"),
+      ensureProjectFolderId: vi.fn().mockResolvedValue("f-new-project"),
+      now: () => NOW,
+      ...overrides,
+    } satisfies AttachFileDeps;
+  }
+
+  beforeEach(() => {
+    space.findFirst.mockResolvedValue(SPACE_ROW);
+    project.findFirst.mockResolvedValue(PROJECT_ROW);
+  });
+
+  it("không gian của user khác → not_found, truy vấn lọc userId, không gọi Google", async () => {
+    space.findFirst.mockResolvedValue(null);
+    const deps = makeDeps();
+
+    const result = await attachFile(USER, { driveFileId: TARGET, spaceId: "s-other" }, deps);
+
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+    expect(space.findFirst).toHaveBeenCalledWith({ where: { id: "s-other", userId: USER }, select: SELECT });
+    expect(project.findFirst).not.toHaveBeenCalled();
+    expect(deps.hasDriveScope).not.toHaveBeenCalled();
+    expect(deps.attachShortcut).not.toHaveBeenCalled();
+  });
+
+  it("dự án không thuộc spaceId → not_found (where có userId + spaceId), không gọi Google", async () => {
+    project.findFirst.mockResolvedValue(null);
+    const deps = makeDeps();
+
+    const result = await attachFile(USER, { driveFileId: TARGET, spaceId: "s1", projectId: "p9" }, deps);
+
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+    expect(project.findFirst).toHaveBeenCalledWith({ where: { id: "p9", userId: USER, spaceId: "s1" }, select: SELECT });
+    expect(deps.hasDriveScope).not.toHaveBeenCalled();
+    expect(deps.attachShortcut).not.toHaveBeenCalled();
+  });
+
+  it("không có projectId → gắn vào thư mục không gian, item đúng tên + shortcut: true", async () => {
+    const deps = makeDeps();
+
+    const result = await attachFile(USER, { driveFileId: TARGET, spaceId: "s1" }, deps);
+
+    expect(project.findFirst).not.toHaveBeenCalled();
+    expect(deps.hasDriveScope).not.toHaveBeenCalled();
+    expect(deps.attachShortcut).toHaveBeenCalledWith(USER, { targetId: TARGET, parentId: "f-s1" });
+    expect(result).toEqual({
+      ok: true,
+      file: {
+        id: "sc-1",
+        name: "Báo cáo quý",
+        kind: "sheet",
+        url: `https://docs.google.com/spreadsheets/d/${TARGET}/edit`,
+        modifiedAt: "2026-11-27T08:59:00.000Z",
+        spaceId: "s1",
+        spaceName: "Công việc",
+        projectId: null,
+        projectName: null,
+        shortcut: true,
+      },
+    });
+  });
+
+  it("có projectId → parentId là thư mục dự án, item có projectName", async () => {
+    const deps = makeDeps({ attachShortcut: attachOk({ parents: ["f-p1"] }) });
+
+    const result = await attachFile(USER, { driveFileId: TARGET, spaceId: "s1", projectId: "p1" }, deps);
+
+    expect(deps.attachShortcut).toHaveBeenCalledWith(USER, { targetId: TARGET, parentId: "f-p1" });
+    expect(deps.ensureProjectFolderId).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      ok: true,
+      file: { spaceId: "s1", spaceName: "Công việc", projectId: "p1", projectName: "Website", shortcut: true },
+    });
+  });
+
+  it("thư mục không gian null → kiểm scope, tạo bù rồi gắn vào thư mục mới", async () => {
+    space.findFirst.mockResolvedValue({ ...SPACE_ROW, driveFolderId: null });
+    const deps = makeDeps({ attachShortcut: attachOk({ parents: ["f-new-space"] }) });
+
+    const result = await attachFile(USER, { driveFileId: TARGET, spaceId: "s1" }, deps);
+
+    expect(deps.hasDriveScope).toHaveBeenCalledWith(USER);
+    expect(deps.ensureSpaceFolderId).toHaveBeenCalledWith(USER, { ...SPACE_ROW, driveFolderId: null }, LOG);
+    expect(deps.attachShortcut).toHaveBeenCalledWith(USER, { targetId: TARGET, parentId: "f-new-space" });
+    expect(result).toMatchObject({ ok: true, file: { spaceId: "s1", projectId: null, shortcut: true } });
+  });
+
+  it("thư mục dự án null → ensureProjectFolderId (kèm không gian) rồi gắn", async () => {
+    project.findFirst.mockResolvedValue({ ...PROJECT_ROW, driveFolderId: null });
+    const deps = makeDeps({ attachShortcut: attachOk({ parents: ["f-new-project"] }) });
+
+    const result = await attachFile(USER, { driveFileId: TARGET, spaceId: "s1", projectId: "p1" }, deps);
+
+    expect(deps.ensureProjectFolderId).toHaveBeenCalledWith(
+      USER,
+      { space: SPACE_ROW, project: { ...PROJECT_ROW, driveFolderId: null } },
+      LOG,
+    );
+    expect(deps.attachShortcut).toHaveBeenCalledWith(USER, { targetId: TARGET, parentId: "f-new-project" });
+    expect(result).toMatchObject({ ok: true, file: { projectId: "p1", projectName: "Website" } });
+  });
+
+  it("tạo bù thư mục lỗi → drive_error, không gọi gắn", async () => {
+    project.findFirst.mockResolvedValue({ ...PROJECT_ROW, driveFolderId: null });
+    const deps = makeDeps({ ensureProjectFolderId: vi.fn().mockResolvedValue(null) });
+
+    const result = await attachFile(USER, { driveFileId: TARGET, spaceId: "s1", projectId: "p1" }, deps);
+
+    expect(result).toEqual({ ok: false, reason: "drive_error" });
+    expect(deps.attachShortcut).not.toHaveBeenCalled();
+  });
+
+  it("chưa có scope khi cần tạo bù → drive_not_connected, không tạo bù / gắn", async () => {
+    space.findFirst.mockResolvedValue({ ...SPACE_ROW, driveFolderId: null });
+    const deps = makeDeps({ hasDriveScope: vi.fn().mockResolvedValue(false) });
+
+    const result = await attachFile(USER, { driveFileId: TARGET, spaceId: "s1" }, deps);
+
+    expect(result).toEqual({ ok: false, reason: "drive_not_connected" });
+    expect(deps.ensureSpaceFolderId).not.toHaveBeenCalled();
+    expect(deps.attachShortcut).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["already_attached", "already_attached"],
+    ["invalid_target", "invalid_target"],
+    ["not_connected", "drive_not_connected"],
+    ["error", "drive_error"],
+  ] as const)("attachShortcut %s → %s", async (status, reason) => {
+    const deps = makeDeps({ attachShortcut: vi.fn().mockResolvedValue({ status }) });
+
+    await expect(attachFile(USER, { driveFileId: TARGET, spaceId: "s1" }, deps)).resolves.toEqual({
+      ok: false,
+      reason,
+    });
+  });
+
+  it("lối tắt thiếu modifiedTime / parents → dùng now() và thư mục đích", async () => {
+    const deps = makeDeps({ attachShortcut: attachOk({ modifiedTime: null, parents: undefined }) });
+
+    const result = await attachFile(USER, { driveFileId: TARGET, spaceId: "s1", projectId: "p1" }, deps);
+
+    expect(result).toMatchObject({
+      ok: true,
+      file: { modifiedAt: NOW.toISOString(), projectId: "p1", projectName: "Website", shortcut: true },
+    });
+  });
+
+  it("lối tắt không ánh xạ được → drive_error, log một dòng an toàn", async () => {
+    const deps = makeDeps({
+      attachShortcut: attachOk({ shortcutDetails: { targetId: TARGET, targetMimeType: "application/pdf" } }),
+    });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      await expect(attachFile(USER, { driveFileId: TARGET, spaceId: "s1" }, deps)).resolves.toEqual({
+        ok: false,
+        reason: "drive_error",
+      });
+      expect(log.mock.calls).toEqual([
+        ["[files] Lối tắt Drive vừa tạo không ánh xạ được", { userId: USER, spaceId: "s1", projectId: null }],
+      ]);
+      expect(JSON.stringify(log.mock.calls)).not.toContain("Báo cáo quý");
     } finally {
       log.mockRestore();
     }
