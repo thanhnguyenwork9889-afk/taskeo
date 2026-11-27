@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T015-drive-file-listing` |
 | Tạo từ | `develop` @ `6074fb4` |
-| Trạng thái | 3-build |
+| Trạng thái | 4-review |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T33** "Liệt kê file theo không gian/dự án + Tài liệu gần đây" (giai đoạn 4 · Google Drive). Phụ thuộc T31 (thư mục Drive cho không gian / dự án, xong ở T013). Trạng thái trên sheet đã là `Đang làm` từ trước, giữ nguyên.
@@ -91,7 +91,16 @@ Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-27) 
 
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
-| P1 | | | | | | |
+| P1 | `61c1536` | 63 (`drive-files.test.ts`) + `listFilesQuerySchema` (`validation.test.ts`) | ✅ | ✅ | ✅ 1149/1149 | ✅ |
+| P7 | `4c59a41` | — (script dev, `node --check`, lint; chưa chạy thật) | — | ✅ | — | — |
+| P5 | `bc3db00` | 35 (`drive-files-api.test.ts` 23, `drive-files-state.test.ts` 12) | ✅ | ✅ | ✅ | ✅ (đợt chung) |
+| P2 | `3c45ef6` | 19 (`google/drive-files.test.ts` 16, `deadline.test.ts` 3); 28 test `drive-provision` vẫn xanh | ✅ | ✅ | ✅ | ✅ (đợt chung) |
+| P6 | `b34626a` | 3 (`driveFileSubtitle`); không có jsdom → kiểm tay | ✅ | ✅ | ✅ | ✅ (đợt chung) |
+| P3 | `3bc0d89` | 18 (`server/drive-files.test.ts`) | ✅ | ✅ | ✅ | ✅ (đợt chung) |
+| P4 | `a882a86` | 29 (`api/files/route.test.ts` 27, `http.test.ts` +2) | ✅ | ✅ | ✅ 1253/1253 | ✅ `/api/files` ƒ |
+| P8 | `d7e4ccd` | — (docs 02, 04, 06 + sửa chú thích `drive-provision.ts`) | — | ✅ | — | — |
+
+Kiểm tay trên dev (`configured`, đã đăng nhập, **chưa** kết nối Drive): `/docs` và thẻ "Tài liệu gần đây" hiện lời mời kết nối Drive, không lỗi console; `GET /api/files` → 403 `drive_not_connected`, `spaceId`+`projectId` → 400, `limit=0` → 400, `spaceId=nope` → 404. Lần gọi đầu trả 500 do dev server đang chạy từ trước giữ bản biên dịch cũ của `validation.ts`; biên dịch lại (touch file) thì đúng. Còn thiếu: kiểm với Drive đã kết nối + file tạo bằng `scripts/dev-create-doc.mjs` (cần người dùng kết nối Drive).
 
 ## 4. Review code
 
