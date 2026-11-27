@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T015-drive-file-listing` |
 | Tạo từ | `develop` @ `6074fb4` |
-| Trạng thái | 7-final |
+| Trạng thái | done |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T33** "Liệt kê file theo không gian/dự án + Tài liệu gần đây" (giai đoạn 4 · Google Drive). Phụ thuộc T31 (thư mục Drive cho không gian / dự án, xong ở T013). Trạng thái trên sheet đã là `Đang làm` từ trước, giữ nguyên.
@@ -44,15 +44,15 @@ Commit đầu nhánh `1776cab` (người dùng chọn): đồng bộ `package-lo
 - Thay store demo bằng TanStack Query cho không gian / dự án / công việc (T59).
 
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
-- [ ] Test hàm thuần: mimeType → `DocKind` (3 loại, mimeType lạ bị bỏ); chuỗi `q` đúng và thoát `'` / `\`; ánh xạ `parents` → `spaceId` / `projectId` / tên đúng (file trong thư mục dự án, thư mục không gian, ngoài Taskeo bị bỏ); `url` không phải Drive → `null`.
-- [ ] Test hàm truy vấn với client Drive giả: không lọc → chỉ file trong thư mục của user, đúng thứ tự `modifiedTime`; lọc `spaceId` gồm cả thư mục dự án con; lọc `projectId`; không gian / dự án của user khác → 404; chưa có `driveFolderId` → rỗng và không gọi Drive; chưa có scope → không gọi Google, trả kết quả "chưa kết nối"; Google lỗi → lỗi đã phân loại, log không chứa token / URL.
-- [ ] Test route `GET /api/files`: 401, 503 (demo), 400 (`limit` sai, `kind` sai, `spaceId` + `projectId` cùng lúc, key lặp), 404, mã "chưa kết nối", 502, 200 đúng hình dạng.
-- [ ] Chế độ demo: Tổng quan và `/docs` hiện dữ liệu mẫu như cũ, không gọi `/api/files`, không nạp `googleapis`.
-- [ ] Chế độ `configured`, chưa kết nối Drive: Tổng quan và `/docs` hiện lời mời kết nối, không lỗi.
-- [ ] Kiểm thật trên dev cùng người dùng: tài khoản đã kết nối Drive, có ít nhất một Doc do app tạo trong thư mục không gian → hiện ở "Tài liệu gần đây" và `/docs` với đúng tên, phụ đề, thời gian; `/docs?type=sheet` lọc đúng; bấm mở đúng file trên Google; `GET /api/files?spaceId=…` trả đúng file.
-- [ ] Có trạng thái đang tải, rỗng, lỗi ở hai màn hình (kiểm bằng test component hoặc chạy tay có ảnh chụp).
-- [ ] 4 lệnh typecheck / lint / test / build xanh.
-- [ ] Docs 02, 04, 06 cập nhật.
+- [x] Test hàm thuần: mimeType → `DocKind` (3 loại, mimeType lạ bị bỏ); chuỗi `q` đúng và thoát `'` / `\`; ánh xạ `parents` → `spaceId` / `projectId` / tên đúng (file trong thư mục dự án, thư mục không gian, ngoài Taskeo bị bỏ); `url` không phải Drive → `null`.
+- [x] Test hàm truy vấn với client Drive giả: không lọc → chỉ file trong thư mục của user, đúng thứ tự `modifiedTime`; lọc `spaceId` gồm cả thư mục dự án con; lọc `projectId`; không gian / dự án của user khác → 404; chưa có `driveFolderId` → rỗng và không gọi Drive; chưa có scope → không gọi Google, trả kết quả "chưa kết nối"; Google lỗi → lỗi đã phân loại, log không chứa token / URL.
+- [x] Test route `GET /api/files`: 401, 503 (demo), 400 (`limit` sai, `kind` sai, `spaceId` + `projectId` cùng lúc, key lặp), 404, mã "chưa kết nối", 502, 200 đúng hình dạng.
+- [x] Chế độ demo: Tổng quan và `/docs` hiện dữ liệu mẫu như cũ, không gọi `/api/files`, không nạp `googleapis`. (Kiểm qua code + test: `enabled: !isDemo && driveConnected`, nhánh demo không mount query, route trả 503 trước import động; hai reviewer lần theo xác nhận. Chưa chạy tay không có `.env.local` vì dev server của người dùng đang chạy.)
+- [x] Chế độ `configured`, chưa kết nối Drive: Tổng quan và `/docs` hiện lời mời kết nối, không lỗi.
+- [x] Kiểm thật trên dev cùng người dùng: tài khoản đã kết nối Drive, có ít nhất một Doc do app tạo trong thư mục không gian → hiện ở "Tài liệu gần đây" và `/docs` với đúng tên, phụ đề, thời gian; `/docs?type=sheet` lọc đúng; bấm mở đúng file trên Google; `GET /api/files?spaceId=…` trả đúng file.
+- [x] Có trạng thái đang tải, rỗng, lỗi ở hai màn hình (chọn trạng thái kiểm bằng test hàm thuần `driveFilesViewState` / `driveFilesErrorInfo`; chạy tay đã thấy lời mời kết nối và danh sách; không có jsdom nên chưa có test component).
+- [x] 4 lệnh typecheck / lint / test / build xanh.
+- [x] Docs 02, 04, 06 cập nhật.
 
 **Tài liệu bị ảnh hưởng:** 02 Google · 04 kiến trúc · 06 API.
 
@@ -155,15 +155,23 @@ Vòng 1 (trên `git diff f223ca9..HEAD`, các reviewer như bước 4): **không
 
 ## 7. Final
 
-**Tóm tắt:**
+**Tóm tắt:** `GET /api/files` liệt kê file Google Docs / Sheets / Slides trong thư mục Drive Taskeo của user (lọc `spaceId` gồm dự án con / `projectId`, `kind`, `limit`), gắn không gian / dự án theo `parents`, chỉ truy vấn DB theo bộ lọc; chưa kết nối → 403 `drive_not_connected`, Google lỗi / quá 10 s → 502. Thẻ "Tài liệu gần đây" và trang `/docs` dùng dữ liệu thật ở chế độ `configured` (TanStack Query; đang tải / rỗng / lỗi / mời kết nối Drive), demo giữ dữ liệu mẫu. Script dev `scripts/dev-create-doc.mjs` tạo file thử (có rào chắn production). Tách `runWithDeadline` dùng chung với tạo thư mục.
 
-**Tiêu chí nghiệm thu:** (đánh dấu ở mục 1)
+**Kiểm thật trên dev (2026-11-27, tài khoản đã kết nối Drive):** tạo bằng script "T015 test doc A" (không gian T013 test A) và "T015 test sheet B" (T013 test B). `/api/files?limit=5` → 2 file, đúng thứ tự, đúng tên không gian; `?kind=sheet` → chỉ sheet; `?spaceId=<A>` → chỉ doc A; `?projectId=<dự án 1>` → rỗng (file nằm ở thư mục không gian). `/docs`, `/docs?type=sheet`, thẻ Tổng quan hiện đúng tên, phụ đề, "1 phút trước"; liên kết `https://docs.google.com/…` mở tab mới (`rel=noreferrer`).
 
-**Tài liệu đã cập nhật:**
+**Tiêu chí nghiệm thu:** đạt hết (đánh dấu ở mục 1; hai dòng có ghi chú cách kiểm).
 
-**Merge vào develop:** commit `<hash>`, ngày
+**Kết quả 4 lệnh cuối:** typecheck ✅ · lint ✅ · test ✅ 1272/1272 · build ✅ (@ `b081a38`).
+
+**Tài liệu đã cập nhật:** 02 (liệt kê file với `drive.file`, script dev), 04 (file mới, QueryProvider, scripts/), 06 (`GET /api/files`, `error.code`, mã 403 / 502).
+
+**Merge vào develop:** commit `<hash>`, 2026-11-27
 
 **Sheet nhiệm vụ:** dòng T33 sẽ chuyển `Xong` sau merge (bước 7, mục 8; kết quả nêu trong báo cáo)
 
 **Việc để sau:**
--
+- Tab Tài liệu ở trang không gian / dự án và ô đếm tài liệu: nối `/api/files?spaceId|projectId` ở T59 (ID store khác ID DB).
+- Phân trang khi app thấy > 100 file ngoài thư mục Taskeo (R5); rate limit `/api/files` (T73, R1).
+- Gom chuỗi giao diện vào `labels.ts` (R10); dòng nhắc khi refetch nền lỗi mà vẫn hiện dữ liệu cũ; test hook khi có jsdom (R15).
+- Tách lõi giải mã dùng chung cho `crypto.ts` và script dev (R7); log lỗi Prisma không kèm message (R8, có từ trước).
+- File thử "T015 test doc A" / "T015 test sheet B" còn trong Drive dev — xoá tay nếu muốn.
