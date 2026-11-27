@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T017-drive-create-file` |
 | Tạo từ | `develop` @ `2b64678` |
-| Trạng thái | 6-rereview |
+| Trạng thái | 7-final |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T32** "Tạo Doc/Sheet/Slide trong thư mục, mở tab mới tới file" (giai đoạn 4 · Google Drive, phụ thuộc T31 = T013). Sheet đã chuyển `Chưa làm` → `Đang làm` khi khởi tạo.
@@ -158,7 +158,10 @@ Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 1575/1
 
 ## 6. Review lại
 
-Vòng 1:
+Vòng 1 (2026-11-27, `git diff 6290094..HEAD -- src`): `layer-reviewer`, `typescript-reviewer`, `security-reviewer`.
+- Không có CRITICAL / HIGH / MEDIUM. R1–R4, R6, R7, R9, R10 xác nhận đã sửa đúng; `openPendingTab` vẫn đồng bộ trước `await`; timeout chỉ map khi `TimeoutError`; trạng thái chờ dự án luôn thoát được; log mới không chứa tên file / URL; `saveDriveFolderId` vẫn lọc `userId` ở mọi nơi gọi.
+- LOW còn lại (để sau): câu "Không tải được dự án đã chọn" khi ID store không có trong DB (tự hết ở T59); test hằng số 45 s chỉ lặp giá trị; `isTimeout` dựa vào tên `TimeoutError` (Safari < 16 rơi vào câu chung).
+- Sạch → sang bước 7.
 
 ## 7. Final
 
