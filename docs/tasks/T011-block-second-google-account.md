@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `fix/T011-block-second-google-account` |
 | Tạo từ | `develop` @ `fcde4cf` |
-| Trạng thái | 4-review |
+| Trạng thái | 5-fix |
 | Ngày tạo | 2026-11-26 |
 
 Nguồn: việc để sau của T010 (sheet **T30**), đề xuất bởi `security-reviewer` (MEDIUM) và kế hoạch T010. Làm trước sheet **T31** (tạo thư mục Drive): T31 dùng token Drive nên token phải thuộc đúng tài khoản Google người dùng đăng nhập.
@@ -102,11 +102,20 @@ Ghi chú P1: `migrate dev` từ chối chạy không tương tác (cảnh báo u
 
 ## 4. Review code
 
-Reviewer đã chạy:
+Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewer` trên `git diff develop...HEAD` @ `9bfd3e9`. Không có CRITICAL / HIGH. Đã xác nhận: fail-closed (lỗi DB lan ra → `AccessDenied`, không dùng `auth()`); callback chạy trước `handleLoginOrRegister`, trả chuỗi thì không `linkAccount` / `createSession` / `events.signIn`; không có đường vòng; không injection / XSS (thông báo tra từ bảng tĩnh bằng `Object.hasOwn`); migration chỉ `DROP INDEX` + `CREATE UNIQUE INDEX`; ranh giới lớp đúng.
 
 | # | Mức | File:dòng | Vấn đề | Reviewer |
 |---|---|---|---|---|
-| R1 | | | | |
+| R1 | MEDIUM | `src/server/auth/account-link-data.ts` `SESSION_COOKIE_NAMES` | Tên cookie phiên viết cứng theo mặc định Auth.js (và `proxy.ts` có bản sao riêng); nếu Auth.js chọn tên khác, guard thấy "không có phiên" → cho qua (chỉ còn ràng buộc DB chặn) | typescript |
+| R2 | LOW | `account-link.ts:3`, `account-link-data.ts:6` | Hằng `GOOGLE_PROVIDER` khai báo hai lần | layer, typescript |
+| R3 | LOW | `account-link-data.ts` `WRONG_ACCOUNT_REDIRECT` / `drive-notice.ts` | `"/?drive=wrong-account"` viết ở hai nơi, đồng bộ bằng comment (không import chéo lớp) | typescript, layer |
+| R4 | LOW | `account-link-data.ts` `readSessionUserId` | Không lọc `expires` (khớp Auth.js; hướng sai là chặn thừa) | typescript |
+| R5 | LOW | `account-link.ts:1` | `import "server-only"` cho hàm thuần | typescript |
+| R6 | LOW | `src/components/layout/app-shell.tsx` `DriveNotice` | `router.replace(pathname + rest)`: pathname dạng `//host` có thể bị hiểu là URL ngoài | security |
+| R7 | LOW | `account-link-data.ts` `readSessionUserId` | Khi https, guard còn lùi về cookie không tiền tố mà Auth.js không đọc (hậu quả: chặn thừa) | security |
+| R8 | INFO | `migration.sql` | Migration không tự kiểm trùng; production có trùng thì tạo index thất bại (an toàn); đã ghi SQL kiểm trùng ở docs 03 | security |
+| R9 | INFO | `guardSignIn` | TOCTOU khi hai callback song song; ràng buộc unique là chốt chặn cuối | security, layer |
+| R10 | LOW | `drive-notice.ts` | Câu thông báo viết cứng, không ở `domain/labels.ts` | layer |
 
 ## 5. Fix bug
 
