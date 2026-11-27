@@ -61,12 +61,14 @@ Luồng trong app:
 - Người dùng đã đăng nhập thấy nút **Kết nối Google Drive** ở đáy sidebar (`src/components/layout/sidebar.tsx`); đã cấp thì hiện "Đã kết nối Google Drive". Chế độ demo không hiện.
 - Nút gửi form tới server action `connectGoogleDrive` (`src/server/auth/actions.ts`): gọi `signIn("google", { redirectTo }, params)` với `params = buildIncrementalAuthorizationParams([drive])` (`src/server/auth/google-tokens.ts`).
   - Tham số thứ ba của `signIn` **thay hẳn** `scope` của provider, nên `scope` gửi đi là `openid email profile …/drive.file`; `access_type=offline`, `prompt=consent`, `include_granted_scopes=true` giữ như đăng nhập.
-  - `login_hint` = email trong phiên, để Google chọn sẵn đúng tài khoản.
+  - `login_hint` = email trong phiên, để Google chọn sẵn đúng tài khoản (chọn tài khoản khác sẽ bị chặn, xem dưới).
   - `redirectTo` lấy từ form, chỉ nhận đường dẫn nội bộ (`toSafeRedirectPath`, `src/server/auth/redirect-path.ts`), ngược lại về `/`.
 - Google quay lại → `events.signIn` (người dùng đã có account) ghi token mới đã mã hoá và `Account.scope` mới.
 - Server kiểm quyền bằng `hasGoogleScope` / `requireGoogleScope` (`src/server/google/granted-scopes.ts`, ném `GoogleScopeMissingError`); `getViewer()` trả `driveConnected` (chỉ boolean, chuỗi scope không ra client).
 - **Granular consent:** người dùng có thể bỏ tick ô Drive ở màn đồng ý → `Account.scope` không có `drive.file`, nút vẫn hiện, không lỗi.
-- **Chọn nhầm tài khoản:** nếu ở màn chọn tài khoản người dùng chọn một tài khoản Google khác chưa liên kết, Auth.js gắn thêm Account đó vào user hiện tại (một user, hai Account google). `login_hint` chỉ giảm khả năng này, chưa chặn hẳn.
+- **Chọn nhầm tài khoản (T011):** một user chỉ có một tài khoản Google. Nếu đang đăng nhập mà người dùng chọn một tài khoản Google khác chưa liên kết, callback `signIn` (`guardSignIn`, `src/server/auth/`) từ chối trước khi Auth.js gắn tài khoản: không ghi gì vào DB, chuyển về `/?drive=wrong-account`, app hiện thông báo "Bạn đã chọn tài khoản Google khác…" rồi bỏ tham số khỏi URL. DB có thêm ràng buộc `@@unique([userId, provider])` trên `Account` ([03-database.md](03-database.md)).
+  - Callback đọc phiên từ cookie (`__Secure-authjs.session-token` / `authjs.session-token`) và bảng `Session`, không dùng `auth()`: `auth()` trả "không có phiên" khi DB lỗi, sẽ thành "cho qua". Lỗi DB trong callback → trang lỗi mặc định của Auth.js (`AccessDenied`).
+  - Google vẫn ghi nhận người dùng đã đồng ý cho tài khoản bị từ chối; app không lưu token nào của tài khoản đó. Người dùng có thể gỡ quyền ở trang tài khoản Google nếu muốn.
 
 ## Bảo mật token
 

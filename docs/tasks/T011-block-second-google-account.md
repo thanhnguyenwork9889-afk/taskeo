@@ -78,7 +78,17 @@ Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-26) 
 
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
-| P1 | | | | | | |
+| P1 | `2173d52` | — (kiểm trùng trên DB dev: 0 dòng; migration `20261126162202_account_unique_user_provider` chỉ `DROP INDEX "Account_userId_idx"` + `CREATE UNIQUE INDEX "Account_userId_provider_key"`; `db:status` khớp) | ✅ | ✅ | ✅ 818/818 | ✅ |
+| P2 | `27787e4` | 8 test (`account-link.test.ts`) | ✅ | ✅ | ✅ 818/818 | ✅ |
+| P5 | `654ed0b` | 9 test (`drive-notice.test.ts`); trình duyệt: `/tasks?view=list&drive=wrong-account` → thông báo hiện, URL còn `/tasks?view=list`, console sạch | ✅ | ✅ | ✅ 818/818 | ✅ |
+| P3 | `e6602a3` | 17 test (`account-link-data.test.ts`) | ✅ | ✅ | ✅ 835/835 | ✅ |
+| P4 | `6344fe6` | — (logic phủ ở P3; `actions.test.ts` vẫn xanh) | ✅ | ✅ | ✅ 835/835 | ✅ |
+| P6 | (commit docs này) | — (docs 02: hành vi chọn nhầm tài khoản; 03: ràng buộc, SQL kiểm trùng, production để sau, cách tạo migration không tương tác; 04: `account-link*.ts`, `drive-notice.ts`) | — | — | — | — |
+| P7 | chờ người dùng | — | | | | |
+
+Ghi chú P3/P4: agent làm xong code + test nhưng phiên bị ngắt trước khi báo lại; Claude đọc lại diff, chạy đủ 4 lệnh (835/835) rồi mới commit.
+
+Ghi chú P1: `migrate dev` từ chối chạy không tương tác (cảnh báo unique), nên SQL được sinh bằng `prisma migrate diff --from-url $DIRECT_URL --to-schema-datamodel prisma/schema.prisma --script` rồi áp bằng `npm run db:migrate`. `prisma generate` không thay được DLL engine vì dev server đang giữ file (client TS/JS đã sinh lại, typecheck thấy `userId_provider`); khởi động lại dev server trước P7.
 
 ## 4. Review code
 

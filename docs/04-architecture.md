@@ -20,6 +20,8 @@ src/
 │   │   ├── google-tokens.ts  Tham số đăng nhập Google (offline, consent) + tham số xin thêm scope · mã hoá token trước linkAccount · dữ liệu cập nhật token khi đăng nhập lại (hàm thuần, có test)
 │   │   ├── session.ts    getViewer(): người dùng hiện tại + driveConnected (configured: chờ connection() trước auth(), không chạy lúc prerender) · getApiUserId(): userId cho API route
 │   │   ├── redirect-path.ts  toSafeRedirectPath: chỉ nhận đường dẫn nội bộ làm đích chuyển hướng
+│   │   ├── account-link.ts  shouldBlockAccountLink: hàm thuần, một user chỉ một tài khoản Google
+│   │   ├── account-link-data.ts  guardSignIn (callback signIn): đọc phiên từ cookie + bảng Session, một truy vấn Account, chặn → /?drive=wrong-account
 │   │   ├── session-callback.ts  Dựng phiên trả cho client (chỉ id, name, email, image)
 │   │   └── actions.ts    Server action đăng nhập / đăng xuất / connectGoogleDrive (xin thêm drive.file)
 │   └── google/
@@ -42,7 +44,7 @@ src/
 │   └── workspace-store.ts       Store chế độ demo (localStorage)
 ├── components/        5. UI dùng chung
 │   ├── ui/                      Badge, modal, checkbox, SpaceIcon, SpaceStylePicker... + styles.ts
-│   └── layout/                  App shell: sidebar (kèm nút Kết nối Google Drive), topbar, mobile nav, hộp thoại tạo mới, UI context, drive-status.ts
+│   └── layout/                  App shell: sidebar (kèm nút Kết nối Google Drive), topbar, mobile nav, hộp thoại tạo mới, UI context, drive-status.ts, drive-notice.ts (thông báo ?drive=wrong-account)
 ├── features/          6. Màn hình theo nghiệp vụ
 │   ├── dashboard/  tasks/  spaces/  projects/  docs/  calendar/
 ├── app/               7. Chỉ routing (Next.js App Router), mỏng nhất có thể
