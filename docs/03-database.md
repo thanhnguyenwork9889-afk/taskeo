@@ -54,3 +54,12 @@ Mô hình dữ liệu: **Không gian → Dự án → Công việc**. Enum trong
 - Thêm bảng `TaskFile` (gắn file Drive vào công việc) và `Activity.meta` (nhật ký từng thay đổi).
 - `Activity` (T008): server ghi `task_created`, `task_done`, `project_created` trong cùng transaction với thay đổi; `meta = { message }` (câu theo `ACTIVITY_MESSAGE` trong `domain/labels.ts`, đọc ra cắt tối đa 200 ký tự), `createdAt` = cùng mốc với `completedAt`. `entityId` không có khoá ngoại: xoá công việc / dự án không xoá activity (`completionsByDay` bỏ công việc không còn `DONE`); xoá user thì cascade.
 - `Task.space` dùng `onDelete: Cascade`; `Task.project` dùng `SetNull` (công việc rơi về không gian).
+- `Account` có `@@unique([userId, provider])` (T011, migration `20261126162202_account_unique_user_provider`): một user chỉ một tài khoản mỗi provider; thay cho `@@index([userId])` vì index mới có `userId` đứng đầu. Callback `signIn` chặn trước ở tầng app (xem [02-google-cloud.md](02-google-cloud.md)); ràng buộc là lớp chặn cuối ở DB.
+  - Trước khi áp lên một DB đã có dữ liệu, kiểm không có dòng trùng (phải trả 0 dòng; có dòng thì dừng, xử lý tay):
+
+    ```sql
+    SELECT "userId", provider, COUNT(*) FROM "Account" GROUP BY "userId", provider HAVING COUNT(*) > 1;
+    ```
+
+  - Production (Neon `main`) **chưa áp**: chạy câu trên trên `main` rồi `npm run db:deploy` khi release `develop` → `main`.
+  - `migrate dev` từ chối chạy trong shell không tương tác khi migration thêm ràng buộc unique (Prisma cảnh báo và đòi xác nhận). Khi đó sinh SQL bằng `prisma migrate diff --from-url <DIRECT_URL dev> --to-schema-datamodel prisma/schema.prisma --script`, ghi vào `prisma/migrations/<timestamp>_<tên>/migration.sql`, đọc lại rồi áp bằng `npm run db:migrate`.

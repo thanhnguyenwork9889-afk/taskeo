@@ -16,8 +16,9 @@ export async function signInWithGoogle() {
  * Xin thêm quyền Google Drive (drive.file) cho người dùng đang đăng nhập (incremental authorization).
  * Đi qua một lượt đăng nhập Google; events.signIn lưu scope mới vào Account.scope.
  * - Demo / cấu hình thiếu → về "/"; chưa đăng nhập → "/login"; không gọi Google.
- * - login_hint = email trong phiên để Google chọn sẵn đúng tài khoản (chọn tài khoản khác sẽ
- *   khiến Auth.js gắn thêm Account thứ hai vào user hiện tại).
+ * - login_hint = email trong phiên chỉ để Google chọn sẵn đúng tài khoản. Nếu người dùng vẫn
+ *   chọn tài khoản khác, callback signIn (guardSignIn) từ chối, không ghi DB, và chuyển về
+ *   "/?drive=wrong-account".
  * - redirectTo lấy từ form nên chỉ nhận đường dẫn nội bộ.
  */
 export async function connectGoogleDrive(formData: FormData) {

@@ -1,14 +1,15 @@
 "use client";
 
 import { Suspense, use, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toISODate } from "@/domain/dates";
 import { useSessionStart, useWorkspaceState } from "@/store/workspace-store";
 import { CreateDialog } from "./create-dialog";
+import { cleanedLocation, driveNoticeFromParams } from "./drive-notice";
 import { MobileNav } from "./mobile-nav";
 import { Sidebar } from "./sidebar";
 import { MobileHeader, Topbar } from "./topbar";
-import { UIContext, type CreateRequest, type UIContextValue, type ViewerInfo } from "./ui-context";
+import { UIContext, useUI, type CreateRequest, type UIContextValue, type ViewerInfo } from "./ui-context";
 
 const TOAST_MS = 3500;
 
@@ -27,6 +28,22 @@ function SessionGuard({ viewerPromise }: { viewerPromise: Promise<ViewerInfo | n
   useEffect(() => {
     if (!viewer) router.replace("/login");
   }, [viewer, router]);
+  return null;
+}
+
+/** `?drive=wrong-account` (callback signIn từ chối tài khoản Google) → hiện thông báo rồi bỏ tham số khỏi URL. */
+function DriveNotice() {
+  const params = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
+  const { notify } = useUI();
+  const notice = driveNoticeFromParams(params);
+  const target = cleanedLocation(pathname, params);
+  useEffect(() => {
+    if (!notice) return;
+    notify(notice);
+    router.replace(target, { scroll: false });
+  }, [notice, target, router, notify]);
   return null;
 }
 
@@ -76,6 +93,9 @@ export function AppShell({ viewerPromise, children }: AppShellProps) {
       <div className="min-h-screen overflow-x-hidden">
         <Suspense fallback={null}>
           <SessionGuard viewerPromise={viewerPromise} />
+        </Suspense>
+        <Suspense fallback={null}>
+          <DriveNotice />
         </Suspense>
         {menuOpen && (
           <button type="button" aria-label="Đóng điều hướng" onClick={() => setMenuOpen(false)} className="fixed inset-0 z-30 bg-slate-900/30 lg:hidden" />
