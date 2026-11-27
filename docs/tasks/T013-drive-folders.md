@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T013-drive-folders` |
 | Tạo từ | `develop` @ `0c0ce60` |
-| Trạng thái | 4-review |
+| Trạng thái | 5-fix |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T31** "tạo thư mục Drive khi tạo không gian / dự án" (giai đoạn 3 · Google Drive, backlog B5 phần sau). Phụ thuộc T30 (scope `drive.file`, xong ở T010), T011 (một tài khoản Google mỗi user), T012 (kết nối / ngắt kết nối). Mở đường cho sheet T33.
@@ -115,11 +115,20 @@ Ghi chú: refresh token có timeout 10 s mỗi lần thử nhưng google-auth-li
 
 ## 4. Review code
 
-Reviewer đã chạy:
+Reviewer đã chạy (trên `git diff develop...HEAD` @ `e8f9c19`): `layer-reviewer`; review TypeScript và review bảo mật giao cho agent `general-purpose` (repo chưa có agent `typescript-reviewer` / `security-reviewer`). Không có CRITICAL / HIGH.
 
 | # | Mức | File:dòng | Vấn đề | Reviewer |
 |---|---|---|---|---|
-| R1 | | | | |
+| R1 | MEDIUM | `src/server/projects.ts` `provisionAndSaveFolders`; `drive-provision.ts:140-151` | Hai dự án tạo đồng thời trong không gian chưa có thư mục: mỗi request tạo một thư mục không gian; ghi có điều kiện chỉ giữ một, nhưng `Project.driveFolderId` của request thua vẫn được lưu và trỏ vào thư mục dự án nằm trong thư mục không gian mồ côi. Trái với "DB vẫn nhất quán" | typescript, security (LOW) |
+| R2 | MEDIUM | `drive-provision.ts:56-74`, `drive-folders.ts` | Hết hạn tổng chỉ ngừng chờ, không huỷ request Drive: thư mục vẫn được tạo sau đó (mồ côi, không ghi DB); không gian mồ côi khiến lần tạo dự án sau tạo bù thêm một thư mục không gian | typescript, security (LOW) |
+| R3 | LOW | `drive-provision.test.ts:234-248, 413-437` | Test quá hạn chỉ dùng promise không bao giờ settle; chưa kiểm resolve / reject muộn không đổi kết quả, không log lần hai | typescript |
+| R4 | LOW | `drive-provision.test.ts:104-115` | Test "không nạp googleapis" dựa vào cờ `mocks.loaded` không reset → phụ thuộc thứ tự test | typescript |
+| R5 | LOW | `drive-provision.ts:140`, `drive-folders.ts` | Thư mục không gian đã vào thùng rác vẫn được dùng làm cha → thư mục dự án nằm trong thùng rác, không log | typescript |
+| R6 | LOW | `drive-query.ts` `rootFolderQuery` | Không lọc `'me' in owners`: khi có Picker (T33+), thư mục gốc người khác chia sẻ có thể được chọn làm gốc | security |
+| R7 | LOW | `spaces.ts:104`, `projects.ts:216` | Quota Drive API dùng chung cho mọi user, không có rate limit tạo không gian / dự án | security |
+| R8 | LOW | `drive-provision.ts:6-8`, `spaces.ts:7` | Comment nói "không kéo googleapis" nhưng chưa nói module chỉ được nạp ở chế độ configured (qua `server/spaces`, `server/projects`) | layer |
+| R9 | LOW | `client.ts:27-36` | Persist token trễ qua cả một lần ngắt + kết nối lại có thể ghi đè token mới (guard chỉ kiểm `refresh_token` khác null) — gần như không xảy ra | security (info) |
+| R10 | LOW | `drive-folder-name.ts` | Thay `\p{Cf}` gồm cả ZWJ (U+200D) → emoji ghép (gia đình…) bị tách | security (info) |
 
 ## 5. Fix bug
 
