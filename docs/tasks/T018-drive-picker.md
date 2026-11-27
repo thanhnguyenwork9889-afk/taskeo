@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T018-drive-picker` |
 | Tạo từ | `develop` @ `9a22909` |
-| Trạng thái | 6-rereview |
+| Trạng thái | 7-final |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T34** "Google Picker: gắn file có sẵn trên Drive vào dự án" (giai đoạn 4 · Google Drive, phụ thuộc T30 = T010). Sheet đã ở `Đang làm` khi khởi tạo, giữ nguyên.
@@ -159,7 +159,11 @@ Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 1914 �
 
 ## 6. Review lại
 
-Vòng 1:
+Vòng 1 (`git diff a16d0ba..HEAD`, sau `2787a46`): `layer-reviewer`, `typescript-reviewer`, `security-reviewer` đều **sạch** — R1–R3, R6–R9 sửa đúng, không có CRITICAL / HIGH / MEDIUM mới. Ghi nhận LOW (để sau, không sửa):
+- Pha `picking` vẫn khoá Esc / Hủy và không có hạn: nếu iframe Picker lỗi mà không gọi callback thì phải tải lại trang (chấp nhận vì Picker đè lên Modal).
+- `driveErrorReason`: reason lạ ở `response` thì không thử `errors[0]` (an toàn, chỉ mất trường chẩn đoán).
+- Referrer API key chưa gồm domain Vercel preview (preview hiện bị chặn truy cập nên không ảnh hưởng).
+- Trình bày: comment dài ở `use-attach-doc.ts:22`, ternary thừa ở `drive-shortcuts.ts` `logFields`.
 
 ## 7. Final
 
