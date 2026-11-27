@@ -4,6 +4,8 @@ import { spaceFromRecord } from "@/domain/space-record";
 import type { Space } from "@/domain/types";
 import type { CreateSpaceInput, UpdateSpaceInput } from "@/domain/validation";
 import { prisma } from "@/server/db";
+// Import tĩnh an toàn: drive-provision chỉ nạp `googleapis` (động) khi user đã có drive.file.
+import { provisionSpaceFolder } from "@/server/google/drive-provision";
 
 // Chỉ đọc các cột `SpaceRecord` cần; không trả userId, order, createdAt.
 const spaceSelect = {
@@ -56,7 +58,32 @@ export async function getSpace(userId: string, id: string): Promise<Space | null
   return record ? spaceFromRecord(record) : null;
 }
 
-/** Tạo không gian; đã đủ `MAX_SPACES` thì không tạo và trả `{ ok: false, reason: "limit" }`. */
+/**
+ * Ghi `driveFolderId` cho không gian vừa tạo (best-effort). Trả id đã lưu, hoặc `null` khi
+ * không ghi được (không gian vừa bị xoá, DB lỗi). Không log `message` của lỗi Prisma.
+ */
+async function saveSpaceDriveFolderId(userId: string, spaceId: string, folderId: string): Promise<string | null> {
+  try {
+    const { count } = await prisma.space.updateMany({
+      where: { id: spaceId, userId },
+      data: { driveFolderId: folderId },
+    });
+    return count > 0 ? folderId : null;
+  } catch (error) {
+    console.error("[spaces] Không lưu được driveFolderId", {
+      userId,
+      spaceId,
+      error: error instanceof Error ? error.name : "unknown",
+    });
+    return null;
+  }
+}
+
+/**
+ * Tạo không gian; đã đủ `MAX_SPACES` thì không tạo và trả `{ ok: false, reason: "limit" }`.
+ * Sau khi ghi DB, thử tạo thư mục Drive (chỉ khi user có `drive.file`) và lưu `driveFolderId`.
+ * Drive / ghi id lỗi không làm hỏng việc tạo: không gian vẫn trả về với `driveFolderId: null`.
+ */
 export async function createSpace(userId: string, input: CreateSpaceInput): Promise<CreateSpaceResult> {
   // count rồi create không atomic: hai POST đồng thời có thể trùng `order` / màu mặc định
   // hoặc vượt MAX_SPACES một chút. Chấp nhận vì `order` chỉ dùng để sắp xếp.
@@ -74,7 +101,9 @@ export async function createSpace(userId: string, input: CreateSpaceInput): Prom
     },
     select: spaceSelect,
   });
-  return { ok: true, space: spaceFromRecord(record) };
+  const folderId = await provisionSpaceFolder(userId, { id: record.id, name: record.name });
+  const driveFolderId = folderId ? await saveSpaceDriveFolderId(userId, record.id, folderId) : null;
+  return { ok: true, space: spaceFromRecord({ ...record, driveFolderId }) };
 }
 
 export async function updateSpace(userId: string, id: string, input: UpdateSpaceInput): Promise<Space | null> {
