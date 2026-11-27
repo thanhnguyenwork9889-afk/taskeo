@@ -21,8 +21,17 @@ export interface DriveRequestOptions {
   signal?: AbortSignal;
 }
 
-/** Phần nhỏ nhất của client Drive v3 mà module này dùng (dễ giả lập trong test). */
+/**
+ * Phần nhỏ nhất của client Drive v3 mà app dùng (dễ giả lập trong test). `about.get` chỉ dùng cho
+ * dung lượng (`drive-storage.ts`), chạy được với scope `drive.file`.
+ */
 export interface DriveFilesClient {
+  about: {
+    get(
+      params: drive_v3.Params$Resource$About$Get,
+      options?: DriveRequestOptions,
+    ): Promise<{ data: drive_v3.Schema$About }>;
+  };
   files: {
     list(
       params: drive_v3.Params$Resource$Files$List,
