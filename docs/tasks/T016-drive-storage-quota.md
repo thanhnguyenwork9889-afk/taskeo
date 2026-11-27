@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T016-drive-storage-quota` |
 | Tạo từ | `develop` @ `447b100` |
-| Trạng thái | 3-build |
+| Trạng thái | 4-review |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T35** "Hiển thị dung lượng Drive (about.get) ở sidebar".
@@ -66,6 +66,10 @@ Duyệt kế hoạch: ☑ người dùng đã duyệt (2026-11-27)
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
 | P1 | `4d29496` | `src/domain/drive-storage.test.ts` (87 test) | ✅ | ✅ | ✅ 1359 | ✅ |
+| P2 | `9723700` | `src/server/google/drive-storage.test.ts` (16 test) | ✅ | ✅ | ✅ 1434 | ✅ |
+| P3 | `606843a` | `src/app/api/drive/storage/route.test.ts` (9 test) | ✅ | ✅ | ✅ 1434 | ✅ |
+| P4 | `8fca844` | `src/components/layout/drive-storage-api.test.ts`, `drive-storage-state.test.ts` (74 test trong thư mục) | ✅ | ✅ | ✅ 1434 | ✅ build có `ƒ /api/drive/storage` |
+| P5 | — | tài liệu, làm ở bước 7 | | | | |
 
 ## 4. Review code
 
