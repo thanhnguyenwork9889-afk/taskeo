@@ -31,6 +31,7 @@ src/
 │       ├── granted-scopes.ts  Scope user đã cấp (Account.scope): hasGoogleScope, requireGoogleScope, GoogleScopeMissingError · GOOGLE_ACCOUNT_ORDER (thứ tự chọn Account google, dùng chung với client.ts)
 │       ├── drive-folders.ts  Drive cấp thấp: ensureRootFolder (thư mục gốc "Taskeo" tìm qua appProperties), createFolder, DriveFilesClient (chỉ import type googleapis)
 │       ├── drive-provision.ts  provisionSpaceFolder / provisionProjectFolder: best-effort, hạn tổng 10 s, không bao giờ ném, chỉ import động client + googleapis khi đã có drive.file
+│       ├── drive-storage.ts  getDriveStorageQuota: Drive `about.get` (`fields=storageQuota`), cùng khuôn kiểm scope / hạn 10 s / log an toàn như drive-files.ts
 │       ├── drive-files.ts  listDriveFiles: files.list song song theo từng q, kiểm scope trước, hạn tổng 10 s, log an toàn
 │       ├── deadline.ts   runWithDeadline: hạn tổng + AbortController, bỏ kết quả muộn (dùng chung cho drive-provision / drive-files)
 │       ├── drive-query.ts  Thoát chuỗi q của Drive, rootFolderQuery, DRIVE_FOLDER_MIME
@@ -44,6 +45,7 @@ src/
 │   ├── project-record.ts        Bản ghi DB → Project phía client, dueDate ↔ YYYY-MM-DD theo UTC
 │   ├── task-record.ts           Bản ghi DB → Task phía client
 │   ├── drive-folder-name.ts     toDriveFolderName: tên không gian / dự án → tên thư mục Drive
+│   ├── drive-storage.ts         parseStorageQuota (int64 dạng chuỗi → byte), storagePercent, storageLevel (75 % / 90 %), formatBytes / formatStorageUsage kiểu vi-VN
 │   ├── drive-files.ts           mimeType ↔ DocKind, chuỗi q liệt kê file, ánh xạ parents → không gian / dự án, gộp Tài liệu gần đây, escapeDriveQueryValue
 │   ├── task-completion.ts       completedAtFor: quy tắc completedAt dùng chung cho server và store demo
 │   ├── activity-record.ts       Bản ghi DB → Activity phía client; taskActivityTypes, activityRows (dòng activity cần ghi)
@@ -55,7 +57,7 @@ src/
 │   └── workspace-store.ts       Store chế độ demo (localStorage)
 ├── components/        5. UI dùng chung
 │   ├── ui/                      Badge, modal, checkbox, SpaceIcon, SpaceStylePicker... + styles.ts
-│   └── layout/                  App shell (bọc QueryProvider: query-provider.tsx): sidebar (kèm công tắc Google Drive: drive-switch.tsx), topbar, mobile nav, hộp thoại tạo mới, UI context, drive-status.ts, drive-notice.ts (thông báo ?drive=wrong-account | disconnected | disconnect-failed)
+│   └── layout/                  App shell (bọc QueryProvider: query-provider.tsx): sidebar (kèm công tắc Google Drive: drive-switch.tsx), topbar, mobile nav, hộp thoại tạo mới, UI context, drive-status.ts, drive-notice.ts (thông báo ?drive=wrong-account | disconnected | disconnect-failed), khối dung lượng Google dưới công tắc Drive (drive-storage-meter.tsx; drive-storage-api.ts gọi /api/drive/storage, drive-storage-query.ts tuỳ chọn TanStack Query, use-drive-storage.ts, drive-storage-state.ts chọn trạng thái hidden / loading / error / ready)
 ├── features/          6. Màn hình theo nghiệp vụ
 │   ├── dashboard/  tasks/  spaces/  projects/  docs/  calendar/
 │   │   (docs/: drive-files-api.ts gọi /api/files, use-drive-files.ts hook TanStack Query, drive-files-state.ts chọn trạng thái demo / connect / loading / error / empty / list, drive-files-states.tsx lời mời kết nối Drive / khung chờ / khối lỗi)
@@ -69,7 +71,8 @@ src/
 │   ├── api/tasks/               Danh sách (lọc qua query) + tạo công việc (gọi server/tasks)
 │   ├── api/tasks/[id]/          Xem / sửa / xoá một công việc
 │   ├── api/activities/          Nhật ký hoạt động (gọi server/activities)
-│   └── api/files/               Liệt kê file Drive (gọi server/drive-files)
+│   ├── api/files/               Liệt kê file Drive (gọi server/drive-files)
+│   └── api/drive/storage/       Dung lượng Google Drive (gọi server/google/drive-storage)
 └── proxy.ts           Chuyển về /login khi chưa có cookie phiên (chỉ khi bật auth)
 
 scripts/

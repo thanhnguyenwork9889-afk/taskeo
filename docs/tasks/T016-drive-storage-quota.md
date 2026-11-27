@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T016-drive-storage-quota` |
 | Tạo từ | `develop` @ `447b100` |
-| Trạng thái | 7-final |
+| Trạng thái | done |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T35** "Hiển thị dung lượng Drive (about.get) ở sidebar".
@@ -27,14 +27,14 @@ Nguồn: sheet nhiệm vụ, dòng **T35** "Hiển thị dung lượng Drive (ab
 - Tự làm mới khi file thay đổi (chỉ theo `staleTime` + khi tải lại trang).
 
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
-- [ ] `src/domain/drive-storage.ts` có unit test cho: chuỗi int64 hợp lệ, `limit` vắng (không giới hạn), giá trị sai / âm, phần trăm kẹp 0–100 (kể cả usage > limit), định dạng byte (0 B, KB, MB, GB, TB, dấu phẩy thập phân), ngưỡng 75 % / 90 %.
-- [ ] `getDriveStorageQuota` có test (deps giả): chưa có scope → `not_connected` không gọi `getDrive`; `GoogleNotConnectedError` → `not_connected` không log; lỗi Drive / quá hạn → `error`, log một dòng không có token / message; thành công → chỉ xin `fields: "storageQuota"`.
-- [ ] `GET /api/drive/storage` trả đúng 200 / 401 / 403 (`drive_not_connected`) / 502 / 503 như trên; có test cho hàm map kết quả → phản hồi, hoặc cho route với hàm server giả.
-- [ ] Sidebar ở chế độ configured + đã kết nối Drive hiện "Đã dùng X / Y" và thanh tiến độ với số khớp `about.get` thật trên tài khoản dev (kiểm tay, ghi kết quả ở mục 7).
-- [ ] Chế độ demo và chưa kết nối Drive: không hiện khối dung lượng và không có request tới `/api/drive/storage` (kiểm qua tab Network / test của hàm chọn trạng thái).
-- [ ] Đang tải → khung chờ; API lỗi → dòng lỗi + nút Thử lại gọi lại được.
-- [ ] Không thêm scope Google mới; `src/server/google/scopes.ts` không đổi.
-- [ ] typecheck, lint, test, build xanh.
+- [x] `src/domain/drive-storage.ts` có unit test cho: chuỗi int64 hợp lệ, `limit` vắng (không giới hạn), giá trị sai / âm, phần trăm kẹp 0–100 (kể cả usage > limit), định dạng byte (0 B, KB, MB, GB, TB, dấu phẩy thập phân), ngưỡng 75 % / 90 %.
+- [x] `getDriveStorageQuota` có test (deps giả): chưa có scope → `not_connected` không gọi `getDrive`; `GoogleNotConnectedError` → `not_connected` không log; lỗi Drive / quá hạn → `error`, log một dòng không có token / message; thành công → chỉ xin `fields: "storageQuota"`.
+- [x] `GET /api/drive/storage` trả đúng 200 / 401 / 403 (`drive_not_connected`) / 502 / 503 như trên; có test cho hàm map kết quả → phản hồi, hoặc cho route với hàm server giả.
+- [x] Sidebar ở chế độ configured + đã kết nối Drive hiện "Đã dùng X / Y" và thanh tiến độ với số khớp `about.get` thật trên tài khoản dev (kiểm tay, ghi kết quả ở mục 7).
+- [x] Chế độ demo và chưa kết nối Drive: không hiện khối dung lượng và không có request tới `/api/drive/storage` (kiểm qua tab Network / test của hàm chọn trạng thái).
+- [x] Đang tải → khung chờ; API lỗi → dòng lỗi + nút Thử lại gọi lại được.
+- [x] Không thêm scope Google mới; `src/server/google/scopes.ts` không đổi.
+- [x] typecheck, lint, test, build xanh.
 
 **Tài liệu bị ảnh hưởng:** 02 Google · 04 kiến trúc · 06 API
 
@@ -127,15 +127,22 @@ Kết quả: sạch, sang bước 7.
 
 ## 7. Final
 
-**Tóm tắt:**
+**Tóm tắt:** Sidebar hiện dung lượng Google của user đã kết nối Drive ("Dung lượng Google · Đã dùng 1,8 GB / 15 GB" + thanh tiến độ đổi màu ở 75 % / 90 %), lấy thật từ Drive `about.get` (`fields=storageQuota`) qua route mới `GET /api/drive/storage` (200 / 401 / 403 `drive_not_connected` / 502 / 503). Không thêm scope: `about.get` chạy với `drive.file`. Hàm thuần ở `src/domain/drive-storage.ts`; gọi Google ở `src/server/google/drive-storage.ts` (kiểm scope trước, hạn 10 s, log an toàn); giao diện ở `src/components/layout/drive-storage-*` (khung cố định 58px cho mọi trạng thái, live region, nút Thử lại giữ focus). Thêm 85 test (1359 → 1444).
 
-**Tiêu chí nghiệm thu:** (đánh dấu ở mục 1)
+**Tiêu chí nghiệm thu:** đạt cả 8 (đánh dấu ở mục 1).
+- Tiêu chí 4, kiểm tay 2026-11-27 trên dev (`next dev` ở localhost:3000, tài khoản dev đã kết nối Drive, chỉ scope `drive.file`): `GET /api/drive/storage` → 200 `usage = 1 888 578 480`, `limit = 16 106 127 360`, `usageInDrive = 1 857 149 541`, `usageInDriveTrash = 99 048`; sidebar hiện "Đã dùng 1,8 GB / 15 GB", `aria-valuenow = 12`, phần mô tả "Trong Drive: 1,7 GB · Thùng rác: 97 KB", khung cao đo được 58px; log server không có lỗi.
+- Tiêu chí 5, 6: kiểm qua test (`drive-storage-query.test.ts`: `enabled` false ở demo / chưa kết nối; `drive-storage-state.test.ts`: hidden / loading / error / ready và chữ trạng thái). Chưa xem trực quan trạng thái lỗi và chế độ demo trên trình duyệt (repo chưa có test component React).
 
-**Tài liệu đã cập nhật:**
+**Tài liệu đã cập nhật:** 02 (mục "Dung lượng Google ở sidebar (T016)": `about.get` dùng `drive.file`), 04 (file mới ở `domain/`, `server/google/`, `components/layout/`, route `api/drive/storage/`), 06 (dòng `GET /api/drive/storage`, mã lỗi `drive_not_connected` dùng chung). `docs/tasks/README.md`.
 
-**Merge vào develop:** commit `<hash>`, ngày
+**Merge vào develop:** commit `<hash>`, 2026-11-27
 
 **Sheet nhiệm vụ:** dòng T35 sẽ chuyển `Xong` sau merge (bước 7, mục 8; kết quả nêu trong báo cáo)
 
 **Việc để sau:**
--
+- Rate limit / cache phía server cho `/api/drive/storage` và header `Cache-Control: private, no-store` tường minh (R3, R4 → T73).
+- Thêm user vào `queryKey` (hoặc `queryClient.clear()` khi đăng xuất) khi đưa QueryProvider lên root layout (R5 → T59).
+- API trả 403 `drive_not_connected` khi phiên cũ → `router.refresh()` để công tắc cập nhật (R8).
+- Ẩn nút Thử lại với lỗi 401 / 503 (R11).
+- `min-h-[58px]` thay `h-[58px]` cho người phóng to chữ; `aria-label` ngữ cảnh cho nút Thử lại; bỏ đọc trùng "Trong Drive / Thùng rác" (R14–R16).
+- Gom client API dùng chung (lỗi, đọc body) giữa `features/docs/drive-files-api.ts` và `components/layout/drive-storage-api.ts` (T59).
