@@ -7,6 +7,8 @@
 | Trạng thái | 1-docs · 2-plan · 3-build · 4-review · 5-fix · 6-rereview · 7-final · done |
 | Ngày tạo | YYYY-MM-DD |
 
+Nguồn: sheet nhiệm vụ, dòng **T<xx>** "<tên dòng>" · hoặc: không có dòng trong sheet (<lý do / người dùng đề nghị>).
+
 ## 1. Docs – yêu cầu
 
 **Mục tiêu:**
@@ -68,6 +70,8 @@ Vòng 1:
 **Tài liệu đã cập nhật:**
 
 **Merge vào develop:** commit `<hash>`, ngày
+
+**Sheet nhiệm vụ:** dòng T<xx> → `Xong` (ngày) · hoặc: không có dòng
 
 **Việc để sau:**
 -

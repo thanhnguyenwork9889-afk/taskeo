@@ -28,7 +28,7 @@ develop         nhánh tích hợp. Nhiệm vụ xong thì merge vào đây.
 | 4 | **Review code** | `layer-reviewer` + `typescript-reviewer` (+ `security-reviewer` nếu đụng auth, token, API, DB) | Bảng phát hiện: mức, file:dòng, vấn đề | — |
 | 5 | **Fix bug** | agent viết code của phần đó, rồi `verifier` | Phát hiện nào đã sửa, commit nào, cái nào bỏ qua và lý do | Hết CRITICAL / HIGH, 4 lệnh xanh |
 | 6 | **Review lại** | các reviewer ở bước 4, chỉ trên diff sửa | Kết quả vòng review lại | Không còn CRITICAL / HIGH. Tối đa 2 vòng 5↔6, quá thì dừng hỏi người dùng |
-| 7 | **Final** | Claude | Tóm tắt, tiêu chí nghiệm thu đã đạt, tài liệu đã cập nhật, commit merge | Merge `--no-ff` vào `develop` |
+| 7 | **Final** | Claude | Tóm tắt, tiêu chí nghiệm thu đã đạt, tài liệu đã cập nhật, commit merge | Merge `--no-ff` vào `develop`, rồi cập nhật dòng của nhiệm vụ trong sheet nhiệm vụ (`Xong` + ghi chú) |
 
 Mỗi bước kết thúc bằng một commit trên nhánh nhiệm vụ, ví dụ `docs(T003): spec and plan`, `feat(T003): P1 task API route`, `fix(T003): address review findings`.
 
@@ -38,6 +38,14 @@ Mỗi bước kết thúc bằng một commit trên nhánh nhiệm vụ, ví d�
 - `docs/tasks/T001-<slug>.md`: một file cho mỗi nhiệm vụ, chép từ [`docs/tasks/_template.md`](tasks/_template.md), điền dần qua bảy bước.
 
 Khi nhiệm vụ đổi kiến trúc, API, biến môi trường hay scope Google, cập nhật luôn tài liệu đánh số tương ứng (04, 06, 01, 02) trong bước 7.
+
+## Sheet nhiệm vụ
+
+Danh sách nhiệm vụ gốc của dự án (mã `T01`…`T75`, khác mã `T001`… của file nhiệm vụ) nằm ở sheet **Danh sách nhiệm vụ – Workspace cá nhân**, một Sheets artifact trên claude.ai: https://claude.ai/artifact/CgmHoabvhVbWtY8JAQsjK1 (tab *Nhiệm vụ*; tab *Review code*, *Test case*, *Release* là hướng dẫn).
+
+- **Khởi tạo:** file nhiệm vụ ghi dòng *Nguồn* (`sheet nhiệm vụ, dòng T<xx>` hoặc `không có dòng trong sheet`); dòng đó chuyển sang `Đang làm`.
+- **Bước 7, sau merge (và push nếu có):** dòng đó chuyển sang `Xong`, cột *Ghi chú* tóm tắt: mã `T<số>`, commit merge, đã làm gì, đã kiểm gì, việc để sau.
+- Claude sửa sheet qua docs connector; chỉ sửa cột *Trạng thái* và *Ghi chú* của đúng dòng nhiệm vụ.
 
 ## Lệnh
 
