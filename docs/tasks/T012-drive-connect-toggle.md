@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T012-drive-connect-toggle` |
 | Tạo từ | `develop` @ `6291f11` |
-| Trạng thái | 6-rereview |
+| Trạng thái | 7-final |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: người dùng đề nghị sau T011 (2026-11-27): kết nối Drive ngay khi đăng nhập, và nút Kết nối Drive ở sidebar hoạt động như toggle, tắt được. Không có dòng riêng trong sheet (liên quan sheet T30, đã xong ở T010).
@@ -164,6 +164,8 @@ Vòng 1 (`git diff 349c6c2..HEAD`, cùng ba reviewer): không có CRITICAL / HIG
 | R17 | LOW | Đang gửi: nút Huỷ disabled → focus rơi về `body` (layer, security, typescript) | để sau: `trapTab` đã chặn Tab không thoát hộp |
 | R18 | LOW | `decrypt` trả chuỗi rỗng bị coi như không có token | chấp nhận: nhất quán với R4 |
 | R19 | LOW | `discardBody`, log của `auth.ts` chưa có test riêng; `toSafeRedirectPath` chuẩn hoá đổi `/a?` → `/a` | để sau / chấp nhận |
+
+Vòng 2 (`git diff e157096..c38ee21`, R15): sửa ở `c38ee21` — `revokeAndClearGoogleTokens` trả `disconnected` | `disconnected-local` | `failed`; token không giải mã được → xoá DB, `?drive=disconnected-local` với thông báo hướng dẫn gỡ quyền ở trang Tài khoản Google. Diff nhỏ nên chỉ chạy `security-reviewer` (được giao kiểm cả TypeScript và ranh giới lớp): không có CRITICAL / HIGH / MEDIUM; xác nhận nhánh giải mã lỗi + ghi DB lỗi → `failed`, chuỗi literal hai lớp khớp, `Record<DisconnectOutcome, string>` bắt đủ khoá. LOW: docs 02 thiếu `disconnected-local` ở một dòng (đã sửa trong commit final); `decrypt` trả `""` bị tính `disconnected-local` (chấp nhận). → `7-final`.
 
 ## 7. Final
 

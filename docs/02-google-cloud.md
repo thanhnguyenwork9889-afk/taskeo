@@ -78,7 +78,7 @@ Luồng trong app:
 - Thu hồi thành công, hoặc Google trả `invalid_token` (đã không còn hiệu lực), hoặc Account không còn token nào → ghi `access_token`, `refresh_token`, `expires_at` = `null`, `scope` = scope đăng nhập (`GOOGLE_SIGN_IN_GRANTED_SCOPE`, dạng Google lưu: `openid …/userinfo.email …/userinfo.profile`). Từ đó `driveConnected` = false và `getGoogleAuth` ném `GoogleNotConnectedError` cho tới khi kết nối lại.
 - Token không giải mã được (đổi `TOKEN_ENCRYPTION_KEY`, dữ liệu hỏng) → không gọi Google (không có token để gửi) nhưng vẫn xoá token khỏi DB và báo `disconnected-local` (thông báo: quyền ở Google vẫn còn, hướng dẫn gỡ ở trang Tài khoản Google → Bảo mật → Ứng dụng bên thứ ba).
 - Lỗi khác (mạng, 5xx, timeout, đọc / ghi DB lỗi) hoặc không có Account google → không đổi DB, báo `disconnect-failed` (riêng trường hợp Google đã thu hồi mà ghi DB lỗi: bấm lại sẽ nhận `invalid_token` và ghi được).
-- Xong thì quay về trang hiện tại kèm `?drive=disconnected` hoặc `?drive=disconnect-failed` (`withQueryParam`, chỉ đường dẫn nội bộ); `DriveNotice` hiện thông báo rồi bỏ tham số.
+- Xong thì quay về trang hiện tại kèm `?drive=disconnected`, `?drive=disconnected-local` hoặc `?drive=disconnect-failed` (`withQueryParam`, chỉ đường dẫn nội bộ); `DriveNotice` hiện thông báo rồi bỏ tham số.
 - Bật lại: `connectGoogleDrive` với `prompt=consent` → Google hỏi đồng ý lại, cấp refresh token mới.
 
 Mã `?drive=` mà `DriveNotice` (`src/components/layout/drive-notice.ts`) hiểu: `wrong-account` (T011), `disconnected`, `disconnected-local`, `disconnect-failed` (T012).
