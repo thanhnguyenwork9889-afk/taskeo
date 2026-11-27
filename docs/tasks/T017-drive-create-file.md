@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T017-drive-create-file` |
 | Tạo từ | `develop` @ `2b64678` |
-| Trạng thái | 4-review |
+| Trạng thái | 5-fix |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T32** "Tạo Doc/Sheet/Slide trong thư mục, mở tab mới tới file" (giai đoạn 4 · Google Drive, phụ thuộc T31 = T013). Sheet đã chuyển `Chưa làm` → `Đang làm` khi khởi tạo.
@@ -114,11 +114,25 @@ Kiểm thật trên dev (2026-11-27, khung Browser của app, tài khoản đã 
 
 ## 4. Review code
 
-Reviewer đã chạy:
+Reviewer đã chạy (2026-11-27, trên `git diff develop...HEAD` @ `eb2207c`): `layer-reviewer`, `typescript-reviewer`, `security-reviewer`. Không có CRITICAL / HIGH. R1–R4 đã đọc code xác nhận.
 
 | # | Mức | File:dòng | Vấn đề | Reviewer |
 |---|---|---|---|---|
-| R1 | | | | |
+| R1 | MEDIUM | `src/components/layout/create-doc-dialog.tsx` (`useDocForm`, `submit`) | Mở từ trang dự án: trong lúc danh sách dự án đang tải, ô dự án khoá nhưng vẫn gửi được với `projectId = ""` → file lặng lẽ vào thư mục không gian. Tải dự án lỗi cũng vẫn gửi | typescript |
+| R2 | MEDIUM | `src/components/layout/create-doc-api.ts` (`postDriveFile`) | Không có timeout / AbortSignal ở client; server có thể chạy > 30 s (tạo bù không gian + dự án + tạo file). Mạng treo → `busy` mãi, hộp thoại không đóng được, tab trống không đóng | typescript |
+| R3 | MEDIUM | `src/components/layout/pending-tab.ts` (`finishPendingTab`) | `tab.location.href = url` không bọc try/catch; ném lỗi → `submit` reject sau khi file đã tạo, hộp thoại kẹt, dễ gửi lại tạo trùng | typescript |
+| R4 | MEDIUM | `src/server/drive-files.ts` (`resolveTargetFolder`, `createFile`) | Hạn 10 s riêng từng bước, không có hạn tổng; quá hạn sau khi Google đã tạo file → 502, thử lại tạo bản trùng (cả nhánh `toDriveFileItem` → null) | typescript |
+| R5 | MEDIUM | `src/server/http.ts` (`readJson`), mọi route POST | CSRF: không kiểm `Content-Type` / `Sec-Fetch-Site` / Origin. Vấn đề chung của repo (spaces, tasks, projects cùng khuôn), không riêng T017 | security |
+| R6 | LOW | `create-doc-dialog.tsx` (`close`, nhánh thành công) | `onClose` truyền xuống là `close` có kiểm `busy`; chỉ đúng nhờ closure chụp lúc `busy = false` — mong manh khi refactor | typescript |
+| R7 | LOW | `src/components/ui/modal.tsx` + hộp thoại | Focus đầu chỉ đặt lúc mở (trạng thái loading); khi form hiện, focus không vào ô Tên | typescript |
+| R8 | LOW | `create-dialog.tsx` (`CreateDialog`) | `Suspense fallback={null}` → bấm Tạo có thể không thấy gì trong tích tắc | typescript |
+| R9 | LOW | `create-doc-dialog.tsx` (`CreateDocForm`) | Hàm ~58 dòng, vượt ngưỡng 50 | layer |
+| R10 | LOW | `src/server/projects.ts` ↔ `src/server/drive-folder-sync.ts` | `logDriveDbError` / `saveDriveFolderId` còn bản sao ở `projects.ts` | layer |
+| R11 | LOW | `src/server/http.ts` (`handleUnexpected`) | Nhánh lỗi bất ngờ log `message` + `stack` (Prisma có thể chứa tham số); helper sẵn có | security |
+| R12 | LOW | `POST /api/files` | Chưa giới hạn tần suất tạo file | security |
+| R13 | LOW | `pending-tab.ts` | Tab `about:blank` có `opener` trong tích tắc trước khi gán `null` — đánh đổi có chủ đích | security |
+| R14 | LOW | `create-doc-dialog.tsx` | Thứ tự mở tab / chặn đóng / nhánh bị chặn chỉ kiểm tay (không jsdom) | typescript |
+| R15 | LOW | `docs/02`, `04`, `06` | Chưa cập nhật (thuộc P9 ở bước 7) | layer |
 
 ## 5. Fix bug
 
