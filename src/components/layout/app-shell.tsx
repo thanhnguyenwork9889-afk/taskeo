@@ -31,7 +31,7 @@ function SessionGuard({ viewerPromise }: { viewerPromise: Promise<ViewerInfo | n
   return null;
 }
 
-/** `?drive=wrong-account` (callback signIn từ chối tài khoản Google) → hiện thông báo rồi bỏ tham số khỏi URL. */
+/** `?drive=<mã>` (wrong-account từ callback signIn, disconnected / disconnect-failed từ ngắt kết nối Drive…) → hiện thông báo rồi bỏ tham số khỏi URL. */
 function DriveNotice() {
   const params = useSearchParams();
   const pathname = usePathname();
