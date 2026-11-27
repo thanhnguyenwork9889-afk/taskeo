@@ -95,7 +95,7 @@ Rủi ro / phụ thuộc:
 - Picker là iframe đè lên `Modal`: khoá đóng hộp thoại lúc đang chọn; chỉ kiểm tay.
 - P1 sửa fixture ở vùng agent khác (chỉ thêm `shortcut: false`, chạy trước mọi phần). P8 refactor `create-doc-dialog.tsx`: chạy lại test `create-doc-*` và kiểm tay hộp thoại tạo tài liệu.
 
-Duyệt kế hoạch: ☑ chờ · ☐ người dùng đã duyệt (ngày) · ☐ bỏ qua (`--yes`)
+Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-27) · ☐ bỏ qua (`--yes`)
 
 ## 3. Thực hiện + kiểm thử
 
