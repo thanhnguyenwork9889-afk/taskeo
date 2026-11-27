@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import type { Adapter, AdapterAccount } from "next-auth/adapters";
 import { prisma } from "@/server/db";
 import { sessionWithUserId } from "@/server/auth/session-callback";
+import { guardSignIn } from "@/server/auth/account-link-data";
 import {
   GOOGLE_AUTHORIZATION_PARAMS,
   buildReSignInTokenUpdate,
@@ -43,6 +44,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   session: { strategy: "database" },
   callbacks: {
+    // Chạy trước khi ghi DB: chặn gắn tài khoản Google thứ hai vào user đang đăng nhập (account-link-data.ts).
+    signIn: guardSignIn,
     // Chỉ name/email/image/expires + id; không đưa token, sessionToken hay dữ liệu Account vào phiên (phiên có thể tới client).
     session: sessionWithUserId,
   },
