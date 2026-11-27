@@ -61,3 +61,22 @@ export function attachErrorMessage(error: unknown, fileName?: string): string {
   if (error instanceof CreateDocRequestError) return requestErrorMessage(error, fileName);
   return MESSAGES.generic;
 }
+
+/** Pha của luồng chọn + gắn: `opening` = đang nạp script / lấy token / Picker đang mở; `attaching` = đang gửi. */
+export type AttachPhase = "idle" | "opening" | "attaching";
+
+/** Đang chọn / gửi: khoá ô, không cho đóng hộp thoại (Picker là iframe đè lên Modal). */
+export function isAttachBusy(phase: AttachPhase): boolean {
+  return phase !== "idle";
+}
+
+const BUTTON_LABELS: Record<AttachPhase, string> = {
+  idle: "Chọn từ Google Drive",
+  opening: "Đang mở Google Drive…",
+  attaching: "Đang gắn…",
+};
+
+/** Nhãn nút chính theo pha. */
+export function attachButtonLabel(phase: AttachPhase): string {
+  return BUTTON_LABELS[phase];
+}

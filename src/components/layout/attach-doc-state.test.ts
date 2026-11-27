@@ -5,7 +5,13 @@ import {
   INVALID_TARGET_CODE,
   PICKER_NOT_CONFIGURED_CODE,
 } from "@/domain/drive-files";
-import { attachDialogState, attachErrorMessage, PICKER_INVALID_MESSAGE } from "./attach-doc-state";
+import {
+  attachButtonLabel,
+  attachDialogState,
+  attachErrorMessage,
+  isAttachBusy,
+  PICKER_INVALID_MESSAGE,
+} from "./attach-doc-state";
 import { CREATE_DOC_TIMEOUT_CODE, CreateDocRequestError } from "./create-doc-api";
 import { PickerLoadError } from "./google-picker";
 
@@ -90,5 +96,25 @@ describe("attachErrorMessage", () => {
 
   it("có câu cho file chọn sai loại", () => {
     expect(PICKER_INVALID_MESSAGE).toContain("Docs, Sheets hoặc Slides");
+  });
+});
+
+describe("isAttachBusy", () => {
+  it.each([
+    ["idle", false],
+    ["opening", true],
+    ["attaching", true],
+  ] as const)("%s → %s", (phase, expected) => {
+    expect(isAttachBusy(phase)).toBe(expected);
+  });
+});
+
+describe("attachButtonLabel", () => {
+  it.each([
+    ["idle", "Chọn từ Google Drive"],
+    ["opening", "Đang mở Google Drive…"],
+    ["attaching", "Đang gắn…"],
+  ] as const)("%s → %s", (phase, expected) => {
+    expect(attachButtonLabel(phase)).toBe(expected);
   });
 });

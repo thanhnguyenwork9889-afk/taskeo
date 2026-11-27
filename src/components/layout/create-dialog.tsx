@@ -10,18 +10,23 @@ import { SPACE_DESCRIPTION_MAX, SPACE_NAME_MAX } from "@/domain/validation";
 import { createFile, createProject, createSpace, createTask, projectNameExists } from "@/domain/workspace-actions";
 import { updateWorkspace, useWorkspace } from "@/store/workspace-store";
 import { control, cx, field, primaryButton } from "@/components/ui/styles";
+import { DriveAttachDocDialog } from "./attach-doc-dialog";
 import { DriveCreateDocDialog } from "./create-doc-dialog";
 import { DocKindField } from "./doc-kind-field";
 import { useUI, useViewer, type CreateRequest } from "./ui-context";
 
-const TITLES: Record<CreateRequest["kind"], string> = {
+/** Các loại tạo qua form store; "attach" có hộp thoại riêng, không qua form này. */
+type StoreRequest = Exclude<CreateRequest, { kind: "attach" }>;
+type StoreKind = StoreRequest["kind"];
+
+const TITLES: Record<StoreKind, string> = {
   task: "Tạo công việc mới",
   space: "Tạo không gian mới",
   project: "Tạo dự án mới",
   doc: "Tạo tài liệu mới",
 };
 
-const NOTES: Record<CreateRequest["kind"], string> = {
+const NOTES: Record<StoreKind, string> = {
   task: "Chế độ demo: công việc được lưu trên trình duyệt này.",
   space: "Chế độ demo: không tạo thư mục Google Drive. Khi đã kết nối Drive, thư mục được tạo cùng không gian.",
   project: "Chế độ demo: không tạo thư mục Google Drive. Khi đã kết nối Drive, dự án có thư mục con trong thư mục không gian.",
@@ -45,7 +50,7 @@ function defaultSpaceStyle(spaceCount: number): SpaceStyle {
   return { color: SPACE_PALETTE[spaceCount % SPACE_PALETTE.length].color, icon: DEFAULT_SPACE_ICON };
 }
 
-function recipeFor(kind: CreateRequest["kind"], values: FormValues, workspace: WorkspaceState, stamp: Date): Outcome {
+function recipeFor(kind: StoreKind, values: FormValues, workspace: WorkspaceState, stamp: Date): Outcome {
   const { title, spaceId, docKind, description, style } = values;
   const projectId = values.projectId || null;
   if (kind === "space") {
@@ -63,7 +68,7 @@ function recipeFor(kind: CreateRequest["kind"], values: FormValues, workspace: W
 }
 
 /** State của form; dự án được yêu cầu quyết định luôn không gian, để form hiện đúng nơi sẽ lưu. */
-function useCreateForm(request: CreateRequest, spaces: Space[], projects: Project[]) {
+function useCreateForm(request: StoreRequest, spaces: Space[], projects: Project[]) {
   const requestedProject = "projectId" in request ? projects.find((p) => p.id === request.projectId) : undefined;
   const [title, setTitle] = useState("");
   const [spaceId, setSpaceId] = useState(requestedProject?.spaceId || ("spaceId" in request && request.spaceId) || spaces[0]?.id || "");
@@ -84,17 +89,32 @@ interface CreateDialogProps {
   onClose: () => void;
 }
 
+interface StoreCreateDialogProps {
+  request: StoreRequest;
+  onClose: () => void;
+}
+
 /**
  * Tài liệu: demo → form store; configured → `DriveCreateDocDialog` (tạo file Drive thật, T017).
- * `useViewer()` có thể suspend mà `AppShell` render hộp thoại ngoài <Suspense>, nên nhánh tài liệu tự bọc.
+ * Gắn file: demo → không hiện gì (demo dùng `AttachDriveDialog` trong features); configured → `DriveAttachDocDialog` (T018).
+ * `useViewer()` có thể suspend mà `AppShell` render hộp thoại ngoài <Suspense>, nên hai nhánh này tự bọc.
  */
 export function CreateDialog({ request, onClose }: CreateDialogProps) {
-  if (request.kind !== "doc") return <StoreCreateDialog request={request} onClose={onClose} />;
-  return (
-    <Suspense fallback={null}>
-      <DocCreateBranch request={request} onClose={onClose} />
-    </Suspense>
-  );
+  if (request.kind === "doc") {
+    return (
+      <Suspense fallback={null}>
+        <DocCreateBranch request={request} onClose={onClose} />
+      </Suspense>
+    );
+  }
+  if (request.kind === "attach") {
+    return (
+      <Suspense fallback={null}>
+        <AttachBranch request={request} onClose={onClose} />
+      </Suspense>
+    );
+  }
+  return <StoreCreateDialog request={request} onClose={onClose} />;
 }
 
 function DocCreateBranch({ request, onClose }: { request: Extract<CreateRequest, { kind: "doc" }>; onClose: () => void }) {
@@ -103,8 +123,14 @@ function DocCreateBranch({ request, onClose }: { request: Extract<CreateRequest,
   return <DriveCreateDocDialog request={request} onClose={onClose} />;
 }
 
+function AttachBranch({ request, onClose }: { request: Extract<CreateRequest, { kind: "attach" }>; onClose: () => void }) {
+  const { isDemo } = useViewer();
+  if (isDemo) return null;
+  return <DriveAttachDocDialog request={request} onClose={onClose} />;
+}
+
 /** Form ghi vào store (mọi loại; tài liệu chỉ ở chế độ demo). */
-function StoreCreateDialog({ request, onClose }: CreateDialogProps) {
+function StoreCreateDialog({ request, onClose }: StoreCreateDialogProps) {
   const workspace = useWorkspace();
   const { spaces, projects } = workspace;
   const { notify } = useUI();
@@ -153,7 +179,7 @@ function StoreCreateDialog({ request, onClose }: CreateDialogProps) {
 }
 
 interface TitleFieldProps {
-  kind: CreateRequest["kind"];
+  kind: StoreKind;
   value: string;
   onChange: (value: string) => void;
 }
