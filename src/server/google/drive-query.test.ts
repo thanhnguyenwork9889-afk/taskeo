@@ -49,9 +49,9 @@ describe("appPropertyQuery", () => {
 });
 
 describe("rootFolderQuery", () => {
-  it("đúng chuỗi trong spec", () => {
+  it("đúng chuỗi trong spec (chỉ thư mục do chính user sở hữu)", () => {
     expect(rootFolderQuery()).toBe(
-      "mimeType='application/vnd.google-apps.folder' and appProperties has { key='taskeoRole' and value='root' } and trashed=false",
+      "mimeType='application/vnd.google-apps.folder' and appProperties has { key='taskeoRole' and value='root' } and trashed=false and 'me' in owners",
     );
   });
 

@@ -52,6 +52,32 @@ function fakeDeps(drive: DriveFilesClient, overrides: Partial<DriveProvisionDeps
   return { deps, hasDriveScope, getDrive };
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+/** Theo dõi unhandledRejection trong một test (vitest cũng báo lỗi, đây là kiểm tra tường minh). */
+function trackUnhandledRejections() {
+  const seen: unknown[] = [];
+  const onRejection = (reason: unknown) => seen.push(reason);
+  process.on("unhandledRejection", onRejection);
+  return {
+    seen,
+    async flush() {
+      vi.useRealTimers();
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+      process.off("unhandledRejection", onRejection);
+    },
+  };
+}
+
 function namedError(name: string): Error {
   const error = new Error("chi tiết nội bộ");
   error.name = name;
@@ -70,6 +96,9 @@ function fakeGaxiosError(status: number) {
 let errorSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
+  mocks.hasGoogleScope.mockReset();
+  mocks.getGoogleAuth.mockReset();
+  mocks.googleDrive.mockReset();
   errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -102,15 +131,23 @@ describe("hằng số", () => {
 
 describe("defaultDeps (không nạp googleapis khi thiếu scope)", () => {
   it("thiếu drive.file → không nạp ./client lẫn googleapis, trả null, không log", async () => {
+    // Nạp lại module từ đầu để không phụ thuộc thứ tự test: các factory vi.mock chạy lại khi
+    // (và chỉ khi) module tương ứng thực sự được import.
+    vi.resetModules();
+    mocks.loaded.googleapis = false;
+    mocks.loaded.client = false;
     mocks.hasGoogleScope.mockResolvedValue(false);
+    const fresh = await import("./drive-provision");
 
-    await expect(provisionSpaceFolder(USER, SPACE)).resolves.toBeNull();
+    await expect(fresh.provisionSpaceFolder(USER, SPACE)).resolves.toBeNull();
     await expect(
-      provisionProjectFolder(USER, { space: { ...SPACE, driveFolderId: null }, project: PROJECT }),
-    ).resolves.toEqual({ spaceFolderId: null, projectFolderId: null });
+      fresh.provisionProjectFolder(USER, { spaceId: SPACE.id, parentFolderId: "sf", project: PROJECT }),
+    ).resolves.toBeNull();
 
     expect(mocks.hasGoogleScope).toHaveBeenCalledWith(USER, GOOGLE_SCOPES.drive);
     expect(mocks.loaded).toEqual({ googleapis: false, client: false });
+    expect(mocks.getGoogleAuth).not.toHaveBeenCalled();
+    expect(mocks.googleDrive).not.toHaveBeenCalled();
     expect(errorSpy).not.toHaveBeenCalled();
   });
 
@@ -154,17 +191,24 @@ describe("provisionSpaceFolder", () => {
     await expect(provisionSpaceFolder(USER, SPACE, deps)).resolves.toBe("space-folder-1");
 
     expect(getDrive).toHaveBeenCalledWith(USER);
-    expect(list).toHaveBeenCalledWith(expect.objectContaining({ q: rootFolderQuery() }));
-    expect(create).toHaveBeenCalledTimes(1);
-    expect(create).toHaveBeenCalledWith({
-      requestBody: {
-        name: "Marketing",
-        mimeType: DRIVE_FOLDER_MIME,
-        parents: ["root-1"],
-        appProperties: { taskeoRole: "space", taskeoSpaceId: "space-1" },
-      },
-      fields: "id",
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ q: rootFolderQuery() }), {
+      signal: expect.any(AbortSignal),
     });
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledWith(
+      {
+        requestBody: {
+          name: "Marketing",
+          mimeType: DRIVE_FOLDER_MIME,
+          parents: ["root-1"],
+          appProperties: { taskeoRole: "space", taskeoSpaceId: "space-1" },
+        },
+        fields: "id",
+      },
+      { signal: expect.any(AbortSignal) },
+    );
+    expect(list.mock.calls[0]?.[1].signal).toBe(create.mock.calls[0]?.[1].signal);
+    expect(create.mock.calls[0]?.[1].signal.aborted).toBe(false);
     expect(errorSpy).not.toHaveBeenCalled();
   });
 
@@ -245,6 +289,106 @@ describe("provisionSpaceFolder", () => {
     await expect(pending).resolves.toBeNull();
     expectSafeSingleLog({ userId: USER, spaceId: "space-1", error: "TimeoutError" });
     expect(vi.getTimerCount()).toBe(0);
+    const signal: AbortSignal = list.mock.calls[0]?.[1].signal;
+    expect(signal.aborted).toBe(true);
+    expect(signal.reason).toMatchObject({ name: "TimeoutError" });
+  });
+
+  it("list resolve muộn (sau hạn) → vẫn null, signal đã huỷ, không gọi create", async () => {
+    vi.useFakeTimers();
+    const tracker = trackUnhandledRejections();
+    const { drive, list, create } = fakeDrive();
+    const late = deferred<{ data: { files: { id: string }[] } }>();
+    list.mockReturnValue(late.promise);
+    create.mockResolvedValue({ data: { id: "space-folder-late" } });
+    const { deps } = fakeDeps(drive);
+
+    const pending = provisionSpaceFolder(USER, SPACE, deps);
+    await vi.advanceTimersByTimeAsync(DRIVE_TOTAL_TIMEOUT_MS);
+    await expect(pending).resolves.toBeNull();
+    expect(list.mock.calls[0]?.[1].signal.aborted).toBe(true);
+
+    late.resolve({ data: { files: [{ id: "root-1" }] } });
+    await tracker.flush();
+
+    expect(create).not.toHaveBeenCalled();
+    expectSafeSingleLog({ userId: USER, spaceId: "space-1", error: "TimeoutError" });
+    expect(tracker.seen).toEqual([]);
+  });
+
+  it("list reject muộn (sau hạn) → đúng một dòng log (TimeoutError), không unhandled rejection", async () => {
+    vi.useFakeTimers();
+    const tracker = trackUnhandledRejections();
+    const { drive, list, create } = fakeDrive();
+    const late = deferred<never>();
+    list.mockReturnValue(late.promise);
+    const { deps } = fakeDeps(drive);
+
+    const pending = provisionSpaceFolder(USER, SPACE, deps);
+    await vi.advanceTimersByTimeAsync(DRIVE_TOTAL_TIMEOUT_MS);
+    await expect(pending).resolves.toBeNull();
+
+    late.reject(fakeGaxiosError(500));
+    await tracker.flush();
+
+    expect(create).not.toHaveBeenCalled();
+    expectSafeSingleLog({ userId: USER, spaceId: "space-1", error: "TimeoutError" });
+    expect(tracker.seen).toEqual([]);
+  });
+
+  it("getDrive resolve muộn (refresh token chậm) → không gọi list / create", async () => {
+    vi.useFakeTimers();
+    const { drive, list, create } = fakeDrive();
+    const late = deferred<DriveFilesClient>();
+    const { deps } = fakeDeps(drive);
+    vi.mocked(deps.getDrive).mockReturnValue(late.promise);
+
+    const pending = provisionSpaceFolder(USER, SPACE, deps);
+    await vi.advanceTimersByTimeAsync(DRIVE_TOTAL_TIMEOUT_MS);
+    await expect(pending).resolves.toBeNull();
+
+    late.resolve(drive);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(list).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+    expectSafeSingleLog({ userId: USER, spaceId: "space-1", error: "TimeoutError" });
+  });
+
+  it("hasDriveScope resolve muộn → không gọi getDrive", async () => {
+    vi.useFakeTimers();
+    const { drive } = fakeDrive();
+    const late = deferred<boolean>();
+    const { deps, getDrive } = fakeDeps(drive);
+    vi.mocked(deps.hasDriveScope).mockReturnValue(late.promise);
+
+    const pending = provisionSpaceFolder(USER, SPACE, deps);
+    await vi.advanceTimersByTimeAsync(DRIVE_TOTAL_TIMEOUT_MS);
+    await expect(pending).resolves.toBeNull();
+
+    late.resolve(true);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(getDrive).not.toHaveBeenCalled();
+    expectSafeSingleLog({ userId: USER, spaceId: "space-1", error: "TimeoutError" });
+  });
+
+  it("Drive reject bằng AbortError khi bị huỷ → vẫn log TimeoutError (không lộ lỗi huỷ)", async () => {
+    vi.useFakeTimers();
+    const { drive, list } = fakeDrive();
+    list.mockImplementation(
+      (_params: unknown, options?: { signal?: AbortSignal }) =>
+        new Promise((_, reject) => {
+          options?.signal?.addEventListener("abort", () => reject(namedError("AbortError")));
+        }),
+    );
+    const { deps } = fakeDeps(drive);
+
+    const pending = provisionSpaceFolder(USER, SPACE, deps);
+    await vi.advanceTimersByTimeAsync(DRIVE_TOTAL_TIMEOUT_MS);
+
+    await expect(pending).resolves.toBeNull();
+    expectSafeSingleLog({ userId: USER, spaceId: "space-1", error: "TimeoutError" });
   });
 
   it("totalTimeoutMs tuỳ chỉnh được; thành công thì timer được dọn", async () => {
@@ -266,89 +410,51 @@ describe("provisionSpaceFolder", () => {
 });
 
 describe("provisionProjectFolder", () => {
-  it("không gian đã có thư mục → không gọi list, tạo dự án dưới thư mục đó, spaceFolderId null", async () => {
+  const INPUT = { spaceId: "space-1", parentFolderId: "space-folder-0", project: PROJECT };
+
+  it("tạo thư mục dự án dưới parentFolderId; không tìm thư mục gốc, không tạo thư mục không gian", async () => {
     const { drive, list, create } = fakeDrive();
     create.mockResolvedValue({ data: { id: "project-folder-1" } });
-    const { deps } = fakeDeps(drive);
+    const { deps, getDrive } = fakeDeps(drive);
 
-    await expect(
-      provisionProjectFolder(
-        USER,
-        { space: { ...SPACE, driveFolderId: "space-folder-0" }, project: PROJECT },
-        deps,
-      ),
-    ).resolves.toEqual({ spaceFolderId: null, projectFolderId: "project-folder-1" });
+    await expect(provisionProjectFolder(USER, INPUT, deps)).resolves.toBe("project-folder-1");
 
+    expect(getDrive).toHaveBeenCalledWith(USER);
     expect(list).not.toHaveBeenCalled();
     expect(create).toHaveBeenCalledTimes(1);
-    expect(create).toHaveBeenCalledWith({
-      requestBody: {
-        name: "Ra mắt",
-        mimeType: DRIVE_FOLDER_MIME,
-        parents: ["space-folder-0"],
-        appProperties: { taskeoRole: "project", taskeoProjectId: "project-1" },
+    expect(create).toHaveBeenCalledWith(
+      {
+        requestBody: {
+          name: "Ra mắt",
+          mimeType: DRIVE_FOLDER_MIME,
+          parents: ["space-folder-0"],
+          appProperties: { taskeoRole: "project", taskeoProjectId: "project-1" },
+        },
+        fields: "id",
       },
-      fields: "id",
-    });
+      { signal: expect.any(AbortSignal) },
+    );
     expect(errorSpy).not.toHaveBeenCalled();
   });
 
-  it("không gian chưa có thư mục → tạo gốc, không gian, rồi dự án; trả cả hai id", async () => {
-    const { drive, list, create } = fakeDrive();
-    list.mockResolvedValue({ data: { files: [] } });
-    create
-      .mockResolvedValueOnce({ data: { id: "root-new" } })
-      .mockResolvedValueOnce({ data: { id: "space-new" } })
-      .mockResolvedValueOnce({ data: { id: "project-new" } });
+  it("tên dự án được chuẩn hoá; rỗng → tên mặc định", async () => {
+    const { drive, create } = fakeDrive();
+    create.mockResolvedValue({ data: { id: "f" } });
     const { deps } = fakeDeps(drive);
 
-    await expect(
-      provisionProjectFolder(USER, { space: { ...SPACE, driveFolderId: null }, project: PROJECT }, deps),
-    ).resolves.toEqual({ spaceFolderId: "space-new", projectFolderId: "project-new" });
+    await provisionProjectFolder(USER, { ...INPUT, project: { id: "p", name: "  Q4\n\tplan " } }, deps);
+    await provisionProjectFolder(USER, { ...INPUT, project: { id: "p2", name: "\u0007\n" } }, deps);
 
-    expect(create).toHaveBeenCalledTimes(3);
-    expect(create.mock.calls[1]?.[0].requestBody).toMatchObject({
-      name: "Marketing",
-      parents: ["root-new"],
-      appProperties: { taskeoRole: "space", taskeoSpaceId: "space-1" },
-    });
-    expect(create.mock.calls[2]?.[0].requestBody).toMatchObject({
-      name: "Ra mắt",
-      parents: ["space-new"],
-      appProperties: { taskeoRole: "project", taskeoProjectId: "project-1" },
-    });
+    expect(create.mock.calls[0]?.[0].requestBody.name).toBe("Q4 plan");
+    expect(create.mock.calls[1]?.[0].requestBody.name).toBe(DEFAULT_PROJECT_FOLDER_NAME);
   });
 
-  it("tạo thư mục không gian lỗi → cả hai null, log có projectId", async () => {
-    const { drive, list, create } = fakeDrive();
-    list.mockResolvedValue({ data: { files: [{ id: "root-1" }] } });
-    create.mockRejectedValue(fakeGaxiosError(500));
+  it("Drive lỗi → null, một dòng log an toàn có spaceId + projectId", async () => {
+    const { drive, create } = fakeDrive();
+    create.mockRejectedValue(fakeGaxiosError(404));
     const { deps } = fakeDeps(drive);
 
-    await expect(
-      provisionProjectFolder(USER, { space: { ...SPACE, driveFolderId: null }, project: PROJECT }, deps),
-    ).resolves.toEqual({ spaceFolderId: null, projectFolderId: null });
-    expect(create).toHaveBeenCalledTimes(1);
-    expectSafeSingleLog({
-      userId: USER,
-      spaceId: "space-1",
-      projectId: "project-1",
-      error: "GaxiosError",
-      status: 500,
-    });
-  });
-
-  it("thư mục không gian tạo được nhưng thư mục dự án lỗi → vẫn trả spaceFolderId", async () => {
-    const { drive, list, create } = fakeDrive();
-    list.mockResolvedValue({ data: { files: [{ id: "root-1" }] } });
-    create
-      .mockResolvedValueOnce({ data: { id: "space-new" } })
-      .mockRejectedValueOnce(fakeGaxiosError(404));
-    const { deps } = fakeDeps(drive);
-
-    await expect(
-      provisionProjectFolder(USER, { space: { ...SPACE, driveFolderId: null }, project: PROJECT }, deps),
-    ).resolves.toEqual({ spaceFolderId: "space-new", projectFolderId: null });
+    await expect(provisionProjectFolder(USER, INPUT, deps)).resolves.toBeNull();
     expectSafeSingleLog({
       userId: USER,
       spaceId: "space-1",
@@ -358,81 +464,101 @@ describe("provisionProjectFolder", () => {
     });
   });
 
-  it("không có scope → không gọi getDrive, cả hai null, không log", async () => {
+  it("không có scope → không gọi getDrive, null, không log", async () => {
     const { drive } = fakeDrive();
     const { deps, getDrive } = fakeDeps(drive);
     vi.mocked(deps.hasDriveScope).mockResolvedValue(false);
 
-    await expect(
-      provisionProjectFolder(USER, { space: { ...SPACE, driveFolderId: "sf" }, project: PROJECT }, deps),
-    ).resolves.toEqual({ spaceFolderId: null, projectFolderId: null });
+    await expect(provisionProjectFolder(USER, INPUT, deps)).resolves.toBeNull();
     expect(getDrive).not.toHaveBeenCalled();
     expect(errorSpy).not.toHaveBeenCalled();
   });
 
-  it("getDrive ném GoogleNotConnectedError → cả hai null, không log", async () => {
-    const { drive } = fakeDrive();
+  it("getDrive ném GoogleNotConnectedError → null, không log", async () => {
+    const { drive, create } = fakeDrive();
     const { deps } = fakeDeps(drive);
     vi.mocked(deps.getDrive).mockRejectedValue(namedError("GoogleNotConnectedError"));
 
-    await expect(
-      provisionProjectFolder(USER, { space: { ...SPACE, driveFolderId: null }, project: PROJECT }, deps),
-    ).resolves.toEqual({ spaceFolderId: null, projectFolderId: null });
+    await expect(provisionProjectFolder(USER, INPUT, deps)).resolves.toBeNull();
+    expect(create).not.toHaveBeenCalled();
     expect(errorSpy).not.toHaveBeenCalled();
   });
 
-  it("hasDriveScope ném → cả hai null, log an toàn", async () => {
+  it("hasDriveScope ném → null, log an toàn", async () => {
     const { drive } = fakeDrive();
     const { deps } = fakeDeps(drive);
     vi.mocked(deps.hasDriveScope).mockRejectedValue(new TypeError(`bad ${SECRET_TOKEN}`));
 
-    await expect(
-      provisionProjectFolder(USER, { space: { ...SPACE, driveFolderId: null }, project: PROJECT }, deps),
-    ).resolves.toEqual({ spaceFolderId: null, projectFolderId: null });
+    await expect(provisionProjectFolder(USER, INPUT, deps)).resolves.toBeNull();
     expectSafeSingleLog({ userId: USER, spaceId: "space-1", projectId: "project-1", error: "TypeError" });
   });
 
-  it("tên được chuẩn hoá; tên dự án rỗng → tên mặc định", async () => {
-    const { drive, list, create } = fakeDrive();
-    list.mockResolvedValue({ data: { files: [{ id: "root-1" }] } });
-    create
-      .mockResolvedValueOnce({ data: { id: "space-new" } })
-      .mockResolvedValueOnce({ data: { id: "project-new" } });
-    const { deps } = fakeDeps(drive);
-
-    await provisionProjectFolder(
-      USER,
-      { space: { id: "s", name: "  ", driveFolderId: null }, project: { id: "p", name: "\u0007\n" } },
-      deps,
-    );
-
-    expect(create.mock.calls[0]?.[0].requestBody.name).toBe(DEFAULT_SPACE_FOLDER_NAME);
-    expect(create.mock.calls[1]?.[0].requestBody.name).toBe(DEFAULT_PROJECT_FOLDER_NAME);
-  });
-
-  it("quá hạn tổng sau khi đã tạo thư mục không gian → trả spaceFolderId, log TimeoutError", async () => {
+  it("create resolve muộn (sau hạn) → vẫn null, signal đã huỷ, log TimeoutError một lần", async () => {
     vi.useFakeTimers();
-    const { drive, list, create } = fakeDrive();
-    list.mockResolvedValue({ data: { files: [{ id: "root-1" }] } });
-    create
-      .mockResolvedValueOnce({ data: { id: "space-new" } })
-      .mockReturnValueOnce(new Promise(() => {}));
+    const tracker = trackUnhandledRejections();
+    const { drive, create } = fakeDrive();
+    const late = deferred<{ data: { id: string } }>();
+    create.mockReturnValue(late.promise);
     const { deps } = fakeDeps(drive);
 
-    const pending = provisionProjectFolder(
-      USER,
-      { space: { ...SPACE, driveFolderId: null }, project: PROJECT },
-      deps,
-    );
+    const pending = provisionProjectFolder(USER, INPUT, deps);
     await vi.advanceTimersByTimeAsync(DRIVE_TOTAL_TIMEOUT_MS);
+    await expect(pending).resolves.toBeNull();
+    const signal: AbortSignal = create.mock.calls[0]?.[1].signal;
+    expect(signal.aborted).toBe(true);
+    expect(signal.reason).toMatchObject({ name: "TimeoutError" });
+    expect(vi.getTimerCount()).toBe(0);
 
-    await expect(pending).resolves.toEqual({ spaceFolderId: "space-new", projectFolderId: null });
+    late.resolve({ data: { id: "project-folder-late" } });
+    await tracker.flush();
+
     expectSafeSingleLog({
       userId: USER,
       spaceId: "space-1",
       projectId: "project-1",
       error: "TimeoutError",
     });
-    expect(vi.getTimerCount()).toBe(0);
+    expect(tracker.seen).toEqual([]);
+  });
+
+  it("create reject muộn (sau hạn) → đúng một dòng log, không unhandled rejection", async () => {
+    vi.useFakeTimers();
+    const tracker = trackUnhandledRejections();
+    const { drive, create } = fakeDrive();
+    const late = deferred<never>();
+    create.mockReturnValue(late.promise);
+    const { deps } = fakeDeps(drive);
+
+    const pending = provisionProjectFolder(USER, INPUT, deps);
+    await vi.advanceTimersByTimeAsync(DRIVE_TOTAL_TIMEOUT_MS);
+    await expect(pending).resolves.toBeNull();
+
+    late.reject(fakeGaxiosError(503));
+    await tracker.flush();
+
+    expectSafeSingleLog({
+      userId: USER,
+      spaceId: "space-1",
+      projectId: "project-1",
+      error: "TimeoutError",
+    });
+    expect(tracker.seen).toEqual([]);
+  });
+
+  it("getDrive resolve muộn → không gọi create", async () => {
+    vi.useFakeTimers();
+    const { drive, create } = fakeDrive();
+    const late = deferred<DriveFilesClient>();
+    const { deps } = fakeDeps(drive);
+    vi.mocked(deps.getDrive).mockReturnValue(late.promise);
+
+    const pending = provisionProjectFolder(USER, INPUT, deps);
+    await vi.advanceTimersByTimeAsync(DRIVE_TOTAL_TIMEOUT_MS);
+    await expect(pending).resolves.toBeNull();
+
+    late.resolve(drive);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(create).not.toHaveBeenCalled();
   });
 });

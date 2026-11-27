@@ -32,13 +32,16 @@ describe("ensureRootFolder", () => {
     await expect(ensureRootFolder(drive)).resolves.toBe("root-1");
 
     expect(list).toHaveBeenCalledTimes(1);
-    expect(list).toHaveBeenCalledWith({
-      q: rootFolderQuery(),
-      spaces: "drive",
-      fields: "files(id)",
-      pageSize: 1,
-      orderBy: "createdTime",
-    });
+    expect(list).toHaveBeenCalledWith(
+      {
+        q: rootFolderQuery(),
+        spaces: "drive",
+        fields: "files(id)",
+        pageSize: 1,
+        orderBy: "createdTime",
+      },
+      { signal: undefined },
+    );
     expect(create).not.toHaveBeenCalled();
   });
 
@@ -54,14 +57,17 @@ describe("ensureRootFolder", () => {
     await expect(ensureRootFolder(drive)).resolves.toBe("new-root");
 
     expect(create).toHaveBeenCalledTimes(1);
-    expect(create).toHaveBeenCalledWith({
-      requestBody: {
-        name: APP_NAME,
-        mimeType: DRIVE_FOLDER_MIME,
-        appProperties: { taskeoRole: "root" },
+    expect(create).toHaveBeenCalledWith(
+      {
+        requestBody: {
+          name: APP_NAME,
+          mimeType: DRIVE_FOLDER_MIME,
+          appProperties: { taskeoRole: "root" },
+        },
+        fields: "id",
       },
-      fields: "id",
-    });
+      { signal: undefined },
+    );
     expect(create.mock.calls[0][0].requestBody).not.toHaveProperty("parents");
   });
 
@@ -83,7 +89,71 @@ describe("ensureRootFolder", () => {
   });
 });
 
+describe("ensureRootFolder với AbortSignal", () => {
+  it("chuyển { signal } làm tham số thứ hai cho list và create", async () => {
+    const { drive, list, create } = fakeDrive();
+    list.mockResolvedValue({ data: { files: [] } });
+    create.mockResolvedValue({ data: { id: "new-root" } });
+    const { signal } = new AbortController();
+
+    await expect(ensureRootFolder(drive, { signal })).resolves.toBe("new-root");
+
+    expect(list.mock.calls[0]?.[1]).toEqual({ signal });
+    expect(list.mock.calls[0]?.[1].signal).toBe(signal);
+    expect(create.mock.calls[0]?.[1].signal).toBe(signal);
+  });
+
+  it("signal đã huỷ trước khi bắt đầu → ném reason, không gọi list", async () => {
+    const { drive, list, create } = fakeDrive();
+    const controller = new AbortController();
+    const reason = new Error("hết hạn");
+    controller.abort(reason);
+
+    await expect(ensureRootFolder(drive, { signal: controller.signal })).rejects.toBe(reason);
+    expect(list).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("signal bị huỷ trong lúc list → không gọi create", async () => {
+    const { drive, list, create } = fakeDrive();
+    const controller = new AbortController();
+    const reason = new Error("hết hạn");
+    list.mockImplementation(async () => {
+      controller.abort(reason);
+      return { data: { files: [] } };
+    });
+
+    await expect(ensureRootFolder(drive, { signal: controller.signal })).rejects.toBe(reason);
+    expect(create).not.toHaveBeenCalled();
+  });
+});
+
 describe("createFolder", () => {
+  it("chuyển { signal } làm tham số thứ hai cho create", async () => {
+    const { drive, create } = fakeDrive();
+    create.mockResolvedValue({ data: { id: "x" } });
+    const { signal } = new AbortController();
+
+    await createFolder(drive, { name: "X", appProperties: { taskeoRole: "root" } }, { signal });
+    expect(create.mock.calls[0]?.[1].signal).toBe(signal);
+  });
+
+  it("signal đã huỷ → ném reason, không gọi create", async () => {
+    const { drive, create } = fakeDrive();
+    const controller = new AbortController();
+    const reason = new Error("hết hạn");
+    controller.abort(reason);
+
+    await expect(
+      createFolder(
+        drive,
+        { name: "X", parentId: "p", appProperties: { taskeoRole: "root" } },
+        { signal: controller.signal },
+      ),
+    ).rejects.toBe(reason);
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it("thư mục không gian: gửi parents, appProperties, mimeType, fields id", async () => {
     const { drive, create } = fakeDrive();
     create.mockResolvedValue({ data: { id: "space-folder" } });
@@ -96,15 +166,18 @@ describe("createFolder", () => {
       }),
     ).resolves.toBe("space-folder");
 
-    expect(create).toHaveBeenCalledWith({
-      requestBody: {
-        name: "Không gian A",
-        mimeType: DRIVE_FOLDER_MIME,
-        appProperties: { taskeoRole: "space", taskeoSpaceId: "sp_1" },
-        parents: ["root-1"],
+    expect(create).toHaveBeenCalledWith(
+      {
+        requestBody: {
+          name: "Không gian A",
+          mimeType: DRIVE_FOLDER_MIME,
+          appProperties: { taskeoRole: "space", taskeoSpaceId: "sp_1" },
+          parents: ["root-1"],
+        },
+        fields: "id",
       },
-      fields: "id",
-    });
+      { signal: undefined },
+    );
   });
 
   it("thư mục dự án: parents là thư mục không gian", async () => {

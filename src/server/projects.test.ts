@@ -3,7 +3,7 @@ import type { ProjectRecord } from "@/domain/project-record";
 
 // Lệnh ghi của createProject chỉ được gọi qua `tx` trong `$transaction`; `db.project` không có
 // `create`, nên gọi nhầm `prisma.project.create` (ngoài transaction) thì test hỏng.
-const { db, tx, provisionProjectFolder } = vi.hoisted(() => ({
+const { db, tx, provisionSpaceFolder, provisionProjectFolder } = vi.hoisted(() => ({
   db: {
     space: { findFirst: vi.fn(), updateMany: vi.fn() },
     project: {
@@ -20,11 +20,12 @@ const { db, tx, provisionProjectFolder } = vi.hoisted(() => ({
     project: { create: vi.fn() },
     activity: { createMany: vi.fn() },
   },
+  provisionSpaceFolder: vi.fn(),
   provisionProjectFolder: vi.fn(),
 }));
 
 vi.mock("@/server/db", () => ({ prisma: db }));
-vi.mock("@/server/google/drive-provision", () => ({ provisionProjectFolder }));
+vi.mock("@/server/google/drive-provision", () => ({ provisionSpaceFolder, provisionProjectFolder }));
 
 import {
   createProject,
@@ -79,7 +80,8 @@ beforeEach(() => {
   vi.resetAllMocks();
   db.$transaction.mockImplementation(async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx));
   tx.activity.createMany.mockImplementation(async ({ data }: { data: unknown[] }) => ({ count: data.length }));
-  provisionProjectFolder.mockResolvedValue({ spaceFolderId: null, projectFolderId: null });
+  provisionSpaceFolder.mockResolvedValue(null);
+  provisionProjectFolder.mockResolvedValue(null);
 });
 
 describe("escapeLikePattern", () => {
@@ -253,6 +255,7 @@ describe("createProject", () => {
     expect(space.findFirst.mock.calls[0][0].where).toEqual({ id: "s-other", userId: USER });
     expect(project.count).not.toHaveBeenCalled();
     expect(db.$transaction).not.toHaveBeenCalled();
+    expect(provisionSpaceFolder).not.toHaveBeenCalled();
     expect(provisionProjectFolder).not.toHaveBeenCalled();
   });
 
@@ -261,6 +264,7 @@ describe("createProject", () => {
 
     expect(await createProject(USER, SPACE, { name: "A" })).toEqual({ ok: false, reason: "limit" });
     expect(db.$transaction).not.toHaveBeenCalled();
+    expect(provisionSpaceFolder).not.toHaveBeenCalled();
     expect(provisionProjectFolder).not.toHaveBeenCalled();
   });
 
@@ -276,6 +280,7 @@ describe("createProject", () => {
 
     expect(await createProject(USER, SPACE, { name: "dự ÁN" })).toEqual({ ok: false, reason: "conflict" });
     expect(db.$transaction).not.toHaveBeenCalled();
+    expect(provisionSpaceFolder).not.toHaveBeenCalled();
     expect(provisionProjectFolder).not.toHaveBeenCalled();
   });
 
@@ -285,6 +290,7 @@ describe("createProject", () => {
 
     expect(await createProject(USER, SPACE, { name: "A" })).toEqual({ ok: false, reason: "conflict" });
     expect(tx.activity.createMany).not.toHaveBeenCalled();
+    expect(provisionSpaceFolder).not.toHaveBeenCalled();
     expect(provisionProjectFolder).not.toHaveBeenCalled();
   });
 
@@ -329,6 +335,7 @@ describe("createProject", () => {
 
     await expect(createProject(USER, SPACE, { name: "A" })).rejects.toBe(error);
     expect(db.$transaction).toHaveBeenCalledTimes(1);
+    expect(provisionSpaceFolder).not.toHaveBeenCalled();
     expect(provisionProjectFolder).not.toHaveBeenCalled();
   });
 
@@ -337,6 +344,7 @@ describe("createProject", () => {
     tx.activity.createMany.mockRejectedValue(uniqueViolation());
 
     expect(await createProject(USER, SPACE, { name: "A" })).toEqual({ ok: false, reason: "conflict" });
+    expect(provisionSpaceFolder).not.toHaveBeenCalled();
     expect(provisionProjectFolder).not.toHaveBeenCalled();
   });
 
@@ -346,11 +354,22 @@ describe("createProject", () => {
     tx.project.create.mockRejectedValue(error);
 
     await expect(createProject(USER, SPACE, { name: "A" })).rejects.toBe(error);
+    expect(provisionSpaceFolder).not.toHaveBeenCalled();
     expect(provisionProjectFolder).not.toHaveBeenCalled();
   });
 
   describe("thư mục Drive (best-effort)", () => {
     const CREATED = { id: "new", spaceId: SPACE, name: "Mới", description: "", status: "ACTIVE", dueDate: null };
+    const SPACE_WITH_FOLDER = { id: SPACE, name: "Không gian", driveFolderId: "f-space" };
+
+    /** Không gian chưa có thư mục: lần đọc đầu (findOwnedSpace) trả SPACE_ROW, lần đọc lại trả `reread`. */
+    function arrangeFolderless(reread: unknown): void {
+      arrangeCreate(0);
+      space.findFirst.mockReset();
+      space.findFirst.mockResolvedValueOnce(SPACE_ROW);
+      if (reread instanceof Error) space.findFirst.mockRejectedValueOnce(reread);
+      else space.findFirst.mockResolvedValueOnce(reread);
+    }
 
     it("đọc không gian kèm id, name, driveFolderId theo id + userId", async () => {
       arrangeCreate(0);
@@ -363,15 +382,19 @@ describe("createProject", () => {
       });
     });
 
-    it("sau transaction gọi provisionProjectFolder với space { id, name, driveFolderId } và project { id, name }", async () => {
+    it("không gian đã có thư mục → không tạo thư mục không gian, thư mục dự án nằm trong space.driveFolderId", async () => {
       arrangeCreate(0);
-      space.findFirst.mockResolvedValue({ id: SPACE, name: "Không gian", driveFolderId: "f-space" });
+      space.findFirst.mockResolvedValue(SPACE_WITH_FOLDER);
 
-      await createProject(USER, SPACE, { name: "Mới" });
+      expect(await createProject(USER, SPACE, { name: "Mới" })).toEqual({ ok: true, project: CREATED });
 
+      expect(provisionSpaceFolder).not.toHaveBeenCalled();
+      expect(space.updateMany).not.toHaveBeenCalled();
+      expect(space.findFirst).toHaveBeenCalledTimes(1);
       expect(provisionProjectFolder).toHaveBeenCalledTimes(1);
       expect(provisionProjectFolder).toHaveBeenCalledWith(USER, {
-        space: { id: SPACE, name: "Không gian", driveFolderId: "f-space" },
+        spaceId: SPACE,
+        parentFolderId: "f-space",
         project: { id: "new", name: "Mới" },
       });
       expect(db.$transaction.mock.invocationCallOrder[0]).toBeLessThan(
@@ -380,20 +403,14 @@ describe("createProject", () => {
       expect(tx.activity.createMany.mock.invocationCallOrder[0]).toBeLessThan(
         provisionProjectFolder.mock.invocationCallOrder[0],
       );
-    });
-
-    it("không có id nào → không ghi gì thêm", async () => {
-      arrangeCreate(0);
-
-      expect(await createProject(USER, SPACE, { name: "Mới" })).toEqual({ ok: true, project: CREATED });
-      expect(space.updateMany).not.toHaveBeenCalled();
+      // provisionProjectFolder trả null (mặc định) → không ghi project.
       expect(project.updateMany).not.toHaveBeenCalled();
     });
 
     it("projectFolderId → project.updateMany theo id + userId; client Project không có driveFolderId", async () => {
       arrangeCreate(0);
-      space.findFirst.mockResolvedValue({ id: SPACE, name: "Không gian", driveFolderId: "f-space" });
-      provisionProjectFolder.mockResolvedValue({ spaceFolderId: null, projectFolderId: "f-project" });
+      space.findFirst.mockResolvedValue(SPACE_WITH_FOLDER);
+      provisionProjectFolder.mockResolvedValue("f-project");
       project.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await createProject(USER, SPACE, { name: "Mới" });
@@ -403,59 +420,107 @@ describe("createProject", () => {
         where: { id: "new", userId: USER },
         data: { driveFolderId: "f-project" },
       });
-      expect(space.updateMany).not.toHaveBeenCalled();
       expect(result).toEqual({ ok: true, project: CREATED });
       expectAllWhereHaveUserId();
     });
 
-    it("spaceFolderId (tạo bù) → space.updateMany có điều kiện driveFolderId: null", async () => {
-      arrangeCreate(0);
-      provisionProjectFolder.mockResolvedValue({ spaceFolderId: "f-space", projectFolderId: "f-project" });
+    it("không gian chưa có thư mục → tạo, ghi có điều kiện, đọc lại, thư mục dự án nằm trong id đọc lại", async () => {
+      arrangeFolderless({ driveFolderId: "f-space" });
+      provisionSpaceFolder.mockResolvedValue("f-space");
+      provisionProjectFolder.mockResolvedValue("f-project");
       space.updateMany.mockResolvedValue({ count: 1 });
       project.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await createProject(USER, SPACE, { name: "Mới" });
 
+      expect(result).toEqual({ ok: true, project: CREATED });
+      expect(provisionSpaceFolder).toHaveBeenCalledTimes(1);
+      expect(provisionSpaceFolder).toHaveBeenCalledWith(USER, { id: SPACE, name: "Không gian" });
       expect(space.updateMany).toHaveBeenCalledTimes(1);
       expect(space.updateMany.mock.calls[0][0]).toEqual({
         where: { id: SPACE, userId: USER, driveFolderId: null },
         data: { driveFolderId: "f-space" },
       });
-      expect(project.updateMany.mock.calls[0][0].data).toEqual({ driveFolderId: "f-project" });
-      expect(result).toEqual({ ok: true, project: CREATED });
+      expect(space.findFirst).toHaveBeenCalledTimes(2);
+      expect(space.findFirst.mock.calls[1][0]).toEqual({
+        where: { id: SPACE, userId: USER },
+        select: { driveFolderId: true },
+      });
+      expect(space.updateMany.mock.invocationCallOrder[0]).toBeLessThan(space.findFirst.mock.invocationCallOrder[1]);
+      expect(space.findFirst.mock.invocationCallOrder[1]).toBeLessThan(
+        provisionProjectFolder.mock.invocationCallOrder[0],
+      );
+      expect(provisionProjectFolder).toHaveBeenCalledWith(USER, {
+        spaceId: SPACE,
+        parentFolderId: "f-space",
+        project: { id: "new", name: "Mới" },
+      });
+      expect(project.updateMany.mock.calls[0][0]).toEqual({
+        where: { id: "new", userId: USER },
+        data: { driveFolderId: "f-project" },
+      });
       expectAllWhereHaveUserId();
     });
 
-    it("chỉ spaceFolderId (thư mục dự án lỗi) → vẫn lưu thư mục không gian", async () => {
-      arrangeCreate(0);
-      provisionProjectFolder.mockResolvedValue({ spaceFolderId: "f-space", projectFolderId: null });
-      space.updateMany.mockResolvedValue({ count: 1 });
+    it("đồng thời: ghi có điều kiện count 0, đọc lại ra id của request thắng → thư mục dự án nằm trong 'winner'", async () => {
+      arrangeFolderless({ driveFolderId: "winner" });
+      provisionSpaceFolder.mockResolvedValue("f-mine");
+      provisionProjectFolder.mockResolvedValue("f-project");
+      space.updateMany.mockResolvedValue({ count: 0 });
+      project.updateMany.mockResolvedValue({ count: 1 });
 
       expect((await createProject(USER, SPACE, { name: "Mới" })).ok).toBe(true);
-      expect(space.updateMany).toHaveBeenCalledTimes(1);
-      expect(project.updateMany).not.toHaveBeenCalled();
+
+      expect(provisionProjectFolder).toHaveBeenCalledTimes(1);
+      expect(provisionProjectFolder.mock.calls[0][1].parentFolderId).toBe("winner");
+      expect(provisionProjectFolder.mock.calls[0][1].parentFolderId).not.toBe("f-mine");
+      expect(project.updateMany.mock.calls[0][0].data).toEqual({ driveFolderId: "f-project" });
+      expectAllWhereHaveUserId();
     });
 
-    it("ghi id lỗi → vẫn ok, activity vẫn ghi, log không lộ message, lỗi này không chặn lệnh ghi kia", async () => {
-      arrangeCreate(0);
-      provisionProjectFolder.mockResolvedValue({ spaceFolderId: "f-space", projectFolderId: "f-project" });
+    it("ghi id không gian lỗi → vẫn đọc lại và dùng id đã lưu (nếu có)", async () => {
+      arrangeFolderless({ driveFolderId: "winner" });
+      provisionSpaceFolder.mockResolvedValue("f-mine");
       space.updateMany.mockRejectedValue(new Error("SECRET"));
-      project.updateMany.mockRejectedValue(Object.assign(new Error("SECRET"), { name: "PrismaClientKnownRequestError" }));
       const log = vi.spyOn(console, "error").mockImplementation(() => {});
 
       try {
-        const result = await createProject(USER, SPACE, { name: "Mới" }, NOW);
-
-        expect(result).toEqual({ ok: true, project: CREATED });
-        expect(tx.activity.createMany).toHaveBeenCalledTimes(1);
-        expect(space.updateMany).toHaveBeenCalledTimes(1);
-        expect(project.updateMany).toHaveBeenCalledTimes(1);
-        expect(log).toHaveBeenCalledTimes(2);
+        expect((await createProject(USER, SPACE, { name: "Mới" })).ok).toBe(true);
+        expect(provisionProjectFolder.mock.calls[0][1].parentFolderId).toBe("winner");
+        expect(log).toHaveBeenCalledTimes(1);
         expect(log.mock.calls[0]).toEqual([
           "[projects] Không lưu được driveFolderId",
           { userId: USER, spaceId: SPACE, projectId: "new", error: "Error" },
         ]);
-        expect(log.mock.calls[1][1]).toEqual({
+        expect(JSON.stringify(log.mock.calls)).not.toContain("SECRET");
+      } finally {
+        log.mockRestore();
+      }
+    });
+
+    it("provisionSpaceFolder trả null → không ghi, không đọc lại, không tạo thư mục dự án", async () => {
+      arrangeFolderless({ driveFolderId: "f-space" });
+
+      expect(await createProject(USER, SPACE, { name: "Mới" })).toEqual({ ok: true, project: CREATED });
+      expect(provisionSpaceFolder).toHaveBeenCalledTimes(1);
+      expect(space.updateMany).not.toHaveBeenCalled();
+      expect(space.findFirst).toHaveBeenCalledTimes(1);
+      expect(provisionProjectFolder).not.toHaveBeenCalled();
+      expect(project.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("đọc lại ném lỗi → không tạo thư mục dự án, log không lộ message", async () => {
+      arrangeFolderless(Object.assign(new Error("SECRET"), { name: "PrismaClientKnownRequestError" }));
+      provisionSpaceFolder.mockResolvedValue("f-space");
+      space.updateMany.mockResolvedValue({ count: 1 });
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      try {
+        expect(await createProject(USER, SPACE, { name: "Mới" })).toEqual({ ok: true, project: CREATED });
+        expect(provisionProjectFolder).not.toHaveBeenCalled();
+        expect(project.updateMany).not.toHaveBeenCalled();
+        expect(log).toHaveBeenCalledTimes(1);
+        expect(log.mock.calls[0][1]).toEqual({
           userId: USER,
           spaceId: SPACE,
           projectId: "new",
@@ -467,9 +532,53 @@ describe("createProject", () => {
       }
     });
 
+    it("đọc lại trả null (không gian bị xoá) → không tạo thư mục dự án", async () => {
+      arrangeFolderless(null);
+      provisionSpaceFolder.mockResolvedValue("f-space");
+      space.updateMany.mockResolvedValue({ count: 0 });
+
+      expect((await createProject(USER, SPACE, { name: "Mới" })).ok).toBe(true);
+      expect(provisionProjectFolder).not.toHaveBeenCalled();
+      expect(project.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("đọc lại vẫn driveFolderId null → không tạo thư mục dự án", async () => {
+      arrangeFolderless({ driveFolderId: null });
+      provisionSpaceFolder.mockResolvedValue("f-space");
+      space.updateMany.mockResolvedValue({ count: 0 });
+
+      expect((await createProject(USER, SPACE, { name: "Mới" })).ok).toBe(true);
+      expect(provisionProjectFolder).not.toHaveBeenCalled();
+    });
+
+    it("ghi id dự án lỗi → vẫn ok, activity vẫn ghi, log không lộ message", async () => {
+      arrangeCreate(0);
+      space.findFirst.mockResolvedValue(SPACE_WITH_FOLDER);
+      provisionProjectFolder.mockResolvedValue("f-project");
+      project.updateMany.mockRejectedValue(Object.assign(new Error("SECRET"), { name: "PrismaClientKnownRequestError" }));
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      try {
+        const result = await createProject(USER, SPACE, { name: "Mới" }, NOW);
+
+        expect(result).toEqual({ ok: true, project: CREATED });
+        expect(tx.activity.createMany).toHaveBeenCalledTimes(1);
+        expect(project.updateMany).toHaveBeenCalledTimes(1);
+        expect(log).toHaveBeenCalledTimes(1);
+        expect(log.mock.calls[0]).toEqual([
+          "[projects] Không lưu được driveFolderId",
+          { userId: USER, spaceId: SPACE, projectId: "new", error: "PrismaClientKnownRequestError" },
+        ]);
+        expect(JSON.stringify(log.mock.calls)).not.toContain("SECRET");
+      } finally {
+        log.mockRestore();
+      }
+    });
+
     it("lỗi ném ra không phải Error → log error: unknown", async () => {
       arrangeCreate(0);
-      provisionProjectFolder.mockResolvedValue({ spaceFolderId: null, projectFolderId: "f-project" });
+      space.findFirst.mockResolvedValue(SPACE_WITH_FOLDER);
+      provisionProjectFolder.mockResolvedValue("f-project");
       project.updateMany.mockRejectedValue("SECRET");
       const log = vi.spyOn(console, "error").mockImplementation(() => {});
 

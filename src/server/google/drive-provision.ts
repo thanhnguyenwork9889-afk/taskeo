@@ -1,8 +1,10 @@
 import "server-only";
 
-// Không import tĩnh `./client` hay `googleapis`: nạp module này (và gọi nó cho user chưa có
-// drive.file, hoặc ở chế độ demo) không bao giờ kéo theo `googleapis`. Hai module đó chỉ được
-// import động trong `defaultDeps.getDrive`, sau khi đã thấy scope.
+// Phạm vi nạp: module này chỉ được import từ `@/server/spaces` và `@/server/projects`, mà hai
+// module đó chỉ được route import động ở chế độ `configured` — chế độ demo không bao giờ nạp nó.
+// Import tĩnh duy nhất có I/O là `./granted-scopes` (Prisma). `./client` và `googleapis` KHÔNG
+// được import tĩnh: chúng chỉ được import động trong `defaultDeps.getDrive`, sau khi đã thấy
+// scope `drive.file`, nên user chưa kết nối Drive không bao giờ kéo theo `googleapis`.
 import {
   DEFAULT_PROJECT_FOLDER_NAME,
   DEFAULT_SPACE_FOLDER_NAME,
@@ -52,43 +54,48 @@ function timeoutError(): Error {
  * Chạy `work` trong hạn tổng; không bao giờ ném. Lỗi được phân loại: chưa kết nối / thiếu scope
  * thì im lặng, còn lại log đúng một dòng chỉ gồm `logContext`, tên lỗi đã phân loại và mã HTTP.
  * Không log `message` / `config` / `url` của lỗi (gaxios mang header Authorization trong đó).
+ *
+ * Hết hạn: `controller.abort(TimeoutError)` huỷ request Drive đang chạy (signal được chuyển tới
+ * gaxios) và chặn mọi lời gọi Drive tiếp theo (`throwIfAborted` trước mỗi bước), rồi trả về ngay.
+ * Kết quả muộn của `work` (resolve hay reject) bị bỏ qua: không đổi giá trị trả về, không log thêm,
+ * không thành unhandled rejection (`Promise.race` đã gắn handler).
+ *
+ * Giới hạn: bước refresh token trong `getGoogleAuth` không nhận signal, nên có thể chạy tiếp ở
+ * nền (bị chặn bởi timeout mỗi lần thử của OAuth2), nhưng sau khi huỷ sẽ không thư mục nào được tạo.
  */
 async function runBestEffort(
-  work: () => Promise<void>,
+  work: (signal: AbortSignal) => Promise<void>,
   deps: DriveProvisionDeps,
   logContext: { userId: string; spaceId: string; projectId?: string },
 ): Promise<void> {
+  const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(timeoutError()), deps.totalTimeoutMs ?? DRIVE_TOTAL_TIMEOUT_MS);
+    timer = setTimeout(() => {
+      const error = timeoutError();
+      controller.abort(error);
+      reject(error);
+    }, deps.totalTimeoutMs ?? DRIVE_TOTAL_TIMEOUT_MS);
   });
   try {
     // `work()` trong async wrapper: lỗi ném đồng bộ cũng thành promise bị từ chối.
-    await Promise.race([(async () => work())(), deadline]);
+    await Promise.race([(async () => work(controller.signal))(), deadline]);
   } catch (error) {
-    if (isSilentDriveError(classifyDriveError(error).kind)) return;
-    console.error(LOG_MESSAGE, { ...logContext, ...driveErrorLogFields(error) });
+    // Đã huỷ vì hết hạn thì luôn báo TimeoutError, kể cả khi lỗi về trước là AbortError của gaxios.
+    const reported: unknown = controller.signal.aborted ? controller.signal.reason : error;
+    if (isSilentDriveError(classifyDriveError(reported).kind)) return;
+    console.error(LOG_MESSAGE, { ...logContext, ...driveErrorLogFields(reported) });
   } finally {
     clearTimeout(timer);
   }
-}
-
-function createSpaceFolder(
-  drive: DriveFilesClient,
-  rootId: string,
-  space: { id: string; name: string },
-): Promise<string> {
-  return createFolder(drive, {
-    name: toDriveFolderName(space.name, DEFAULT_SPACE_FOLDER_NAME),
-    parentId: rootId,
-    appProperties: { taskeoRole: "space", taskeoSpaceId: space.id },
-  });
 }
 
 /**
  * Tạo thư mục Drive cho không gian (trong thư mục gốc "Taskeo" của app), best-effort.
  * Trả id thư mục, hoặc `null` khi user chưa có `drive.file`, chưa kết nối, Google lỗi hay quá hạn.
  * Không bao giờ ném. Nơi gọi tự ghi `Space.driveFolderId`.
+ *
+ * Cũng dùng để tạo bù thư mục cho không gian cũ khi tạo dự án — xem `provisionProjectFolder`.
  */
 export async function provisionSpaceFolder(
   userId: string,
@@ -97,11 +104,21 @@ export async function provisionSpaceFolder(
 ): Promise<string | null> {
   let folderId: string | null = null;
   await runBestEffort(
-    async () => {
+    async (signal) => {
       if (!(await deps.hasDriveScope(userId))) return;
+      signal.throwIfAborted();
       const drive = await deps.getDrive(userId);
-      const rootId = await ensureRootFolder(drive);
-      folderId = await createSpaceFolder(drive, rootId, space);
+      const rootId = await ensureRootFolder(drive, { signal });
+      const id = await createFolder(
+        drive,
+        {
+          name: toDriveFolderName(space.name, DEFAULT_SPACE_FOLDER_NAME),
+          parentId: rootId,
+          appProperties: { taskeoRole: "space", taskeoSpaceId: space.id },
+        },
+        { signal },
+      );
+      if (!signal.aborted) folderId = id;
     },
     deps,
     { userId, spaceId: space.id },
@@ -110,49 +127,44 @@ export async function provisionSpaceFolder(
 }
 
 /**
- * Tạo thư mục Drive cho dự án bên trong thư mục không gian, best-effort. Không bao giờ ném.
+ * Tạo thư mục Drive cho dự án bên trong `parentFolderId` (thư mục của không gian), best-effort.
+ * Chỉ tạo đúng một thư mục: không tìm thư mục gốc, không tạo bù thư mục không gian.
+ * Trả id thư mục dự án, hoặc `null` khi chưa có `drive.file`, chưa kết nối, Google lỗi hay quá hạn.
+ * Không bao giờ ném; log (nếu có) gồm `spaceId` và `projectId`.
  *
- * - `space.driveFolderId` có giá trị → dùng làm thư mục cha (không gọi tới thư mục gốc).
- * - Chưa có → bảo đảm thư mục gốc, tạo bù thư mục không gian, rồi tạo thư mục dự án trong đó.
- *
- * Kết quả:
- * - `spaceFolderId`: id thư mục không gian **vừa được tạo bù trong lần gọi này** — nơi gọi phải
- *   lưu vào `Space.driveFolderId` (ghi có điều kiện `driveFolderId: null`). `null` khi không gian
- *   đã có thư mục từ trước, hoặc tạo bù không thành công. Vẫn trả id này nếu thư mục không gian
- *   đã tạo được nhưng bước tạo thư mục dự án lỗi / quá hạn, để không mất liên kết.
- * - `projectFolderId`: id thư mục dự án, `null` khi không tạo được.
+ * Luồng ở nơi gọi (`createProject`), khi không gian chưa có `driveFolderId`:
+ * 1. `provisionSpaceFolder` tạo thư mục không gian;
+ * 2. ghi có điều kiện `Space.driveFolderId` (chỉ khi vẫn `null`);
+ * 3. đọc lại `Space.driveFolderId` đã lưu và dùng giá trị đó làm `parentFolderId`.
+ * Nhờ bước 3, khi hai request tạo dự án chạy đồng thời, request thua vẫn đặt thư mục dự án dưới
+ * thư mục không gian của request thắng (thư mục không gian của request thua thành mồ côi, rỗng),
+ * nên `Project.driveFolderId` luôn nằm trong thư mục không gian được lưu.
  */
 export async function provisionProjectFolder(
   userId: string,
-  input: {
-    space: { id: string; name: string; driveFolderId: string | null };
-    project: { id: string; name: string };
-  },
+  input: { spaceId: string; parentFolderId: string; project: { id: string; name: string } },
   deps: DriveProvisionDeps = defaultDeps,
-): Promise<{ spaceFolderId: string | null; projectFolderId: string | null }> {
-  const { space, project } = input;
-  let spaceFolderId: string | null = null;
-  let projectFolderId: string | null = null;
+): Promise<string | null> {
+  const { spaceId, parentFolderId, project } = input;
+  let folderId: string | null = null;
   await runBestEffort(
-    async () => {
+    async (signal) => {
       if (!(await deps.hasDriveScope(userId))) return;
+      signal.throwIfAborted();
       const drive = await deps.getDrive(userId);
-      let parentId = space.driveFolderId;
-      if (!parentId) {
-        const rootId = await ensureRootFolder(drive);
-        parentId = await createSpaceFolder(drive, rootId, space);
-        spaceFolderId = parentId;
-      }
-      const id = await createFolder(drive, {
-        name: toDriveFolderName(project.name, DEFAULT_PROJECT_FOLDER_NAME),
-        parentId,
-        appProperties: { taskeoRole: "project", taskeoProjectId: project.id },
-      });
-      projectFolderId = id;
+      const id = await createFolder(
+        drive,
+        {
+          name: toDriveFolderName(project.name, DEFAULT_PROJECT_FOLDER_NAME),
+          parentId: parentFolderId,
+          appProperties: { taskeoRole: "project", taskeoProjectId: project.id },
+        },
+        { signal },
+      );
+      if (!signal.aborted) folderId = id;
     },
     deps,
-    { userId, spaceId: space.id, projectId: project.id },
+    { userId, spaceId, projectId: project.id },
   );
-  // Chuỗi bị bỏ sau hạn tổng có thể chạy tiếp, nhưng giá trị trả về đã chốt tại đây.
-  return { spaceFolderId, projectFolderId };
+  return folderId;
 }
