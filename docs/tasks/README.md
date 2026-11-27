@@ -20,6 +20,7 @@ Quy trình: [07-workflow.md](../07-workflow.md). Mẫu: [_template.md](_template
 | T013 | [Tạo thư mục Google Drive khi tạo không gian / dự án](T013-drive-folders.md) | `feat/T013-drive-folders` | done | `6f3752b` |
 | T014 | [Thêm bước cập nhật sheet nhiệm vụ vào quy trình /task](T014-task-sheet-step.md) | `docs/T014-task-sheet-step` | done | `b31023c` |
 | T015 | [Liệt kê file Drive theo không gian / dự án + Tài liệu gần đây](T015-drive-file-listing.md) | `feat/T015-drive-file-listing` | done | `f964164` |
+| T016 | [Hiển thị dung lượng Google Drive ở sidebar](T016-drive-storage-quota.md) | `feat/T016-drive-storage-quota` | 2-plan | |
 
 ## Việc chờ làm (backlog)
 
