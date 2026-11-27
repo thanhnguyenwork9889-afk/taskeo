@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T017-drive-create-file` |
 | Tạo từ | `develop` @ `2b64678` |
-| Trạng thái | 3-build |
+| Trạng thái | 4-review |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T32** "Tạo Doc/Sheet/Slide trong thư mục, mở tab mới tới file" (giai đoạn 4 · Google Drive, phụ thuộc T31 = T013). Sheet đã chuyển `Chưa làm` → `Đang làm` khi khởi tạo.
@@ -103,6 +103,14 @@ Duyệt kế hoạch: ☑ người dùng đã duyệt (2026-11-27), giữ phươ
 | P5 | `4f9402b` | 19 (api/files POST) | ✅ | ✅ | ✅ 1558 | ✅ |
 | P7 | `9836445` | — (không jsdom; logic test ở P6) | ✅ | ✅ | ✅ 1558 | ✅ |
 | P8 | `a7b4e6a` | — (kiểm tay) | ✅ | ✅ | ✅ 1558 | ✅ |
+
+Kiểm thật trên dev (2026-11-27, khung Browser của app, tài khoản đã kết nối Drive):
+- Chưa có không gian trong DB → hộp thoại hiện trạng thái `no_spaces`. Tạo không gian "T017 thử" + "Dự án T017" qua API (thư mục Drive không gian được tạo).
+- Tạo Doc "T017 Doc không gian" (chỉ không gian) và Sheet "T017 Sheet dự án" (có dự án): 201, liên kết Google đúng, hiện ngay ở `/docs` không tải lại; phụ đề Sheet "Dự án T017 · T017 thử". `GET /api/files?projectId=` chỉ trả Sheet, `?spaceId=` trả cả hai, `?kind=sheet` lọc đúng → file nằm đúng thư mục.
+- Cú bấm tự động bị khung Browser chặn popup → nhánh `blocked`: hộp thoại hiện "Đã tạo …" + liên kết "Mở tài liệu" (`target=_blank`, `rel="noopener noreferrer"`).
+- Người dùng tự bấm tạo một Slide → tab mới mở đúng file, hộp thoại đóng.
+- `/docs` rỗng hiện nút "Tạo tài liệu" (P8). Console không lỗi.
+- Chưa kiểm tay: nhánh tạo bù thư mục khi `driveFolderId = null` (chỉ có unit test).
 
 ## 4. Review code
 
