@@ -21,8 +21,8 @@ const TITLES: Record<CreateRequest["kind"], string> = {
 
 const NOTES: Record<CreateRequest["kind"], string> = {
   task: "Chế độ demo: công việc được lưu trên trình duyệt này.",
-  space: "Giai đoạn 3 sẽ tự tạo thư mục Google Drive cho không gian.",
-  project: "Giai đoạn 3 sẽ tạo thư mục con trên Drive cho dự án.",
+  space: "Chế độ demo: không tạo thư mục Google Drive. Khi đã kết nối Drive, thư mục được tạo cùng không gian.",
+  project: "Chế độ demo: không tạo thư mục Google Drive. Khi đã kết nối Drive, dự án có thư mục con trong thư mục không gian.",
   doc: "Chế độ demo: chưa tạo tệp trên Google Drive.",
 };
 
