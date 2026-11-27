@@ -18,7 +18,7 @@ Quy trình: [07-workflow.md](../07-workflow.md). Mẫu: [_template.md](_template
 | T011 | [Chặn gắn tài khoản Google thứ hai vào cùng một user](T011-block-second-google-account.md) | `fix/T011-block-second-google-account` | done | `aef0d7a` |
 | T012 | [Kết nối Drive lúc đăng nhập + toggle Kết nối / Ngắt kết nối Drive](T012-drive-connect-toggle.md) | `feat/T012-drive-connect-toggle` | done | `ce37dea` |
 | T013 | [Tạo thư mục Google Drive khi tạo không gian / dự án](T013-drive-folders.md) | `feat/T013-drive-folders` | done | `6f3752b` |
-| T014 | [Thêm bước cập nhật sheet nhiệm vụ vào quy trình /task](T014-task-sheet-step.md) | `docs/T014-task-sheet-step` | 4-review | — |
+| T014 | [Thêm bước cập nhật sheet nhiệm vụ vào quy trình /task](T014-task-sheet-step.md) | `docs/T014-task-sheet-step` | done | — |
 
 ## Việc chờ làm (backlog)
 

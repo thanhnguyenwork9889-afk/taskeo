@@ -108,8 +108,8 @@ Chạy lại đúng các reviewer ở bước 4 trên diff của bước 5 (`git
 7. Xoá nhánh nhiệm vụ ở máy: `git branch -d <nhánh>` (dùng `-d`, không dùng `-D`: git từ chối xoá nếu nhánh chưa merge). Commit vẫn còn trong `develop` qua commit merge; file `docs/tasks/T<số>-*.md` thì giữ lại. Hỏi người dùng có muốn push `develop` lên GitHub không; nếu nhánh nhiệm vụ đã có trên `origin`, sau khi `develop` đã push thì hỏi luôn việc xoá nhánh trên GitHub (`git push origin --delete <nhánh>`).
 8. **Cập nhật sheet nhiệm vụ** (khi dòng *Nguồn* của file nhiệm vụ trỏ tới sheet), sau khi người dùng đã trả lời câu hỏi push:
    - *Trạng thái* = `Xong`; *Ghi chú* viết lại theo mẫu `Task T<số> trong code, đã merge vào develop (<hash merge>)[ và push]. <đã làm gì>. <đã kiểm gì>. Để sau: …`. Chỉ ghi "và push" khi đã push thật; người dùng không cho push → bỏ cụm đó. Người dùng chưa trả lời → chưa làm bước này, báo "sheet chưa cập nhật".
-   - Không ghi thêm vào file nhiệm vụ ở bước này (file đã đóng ở bước 4–6); kết quả nêu trong báo cáo cuối lượt.
-   - Sửa không được (không có docs connector, `update` bị từ chối, không tìm thấy dòng) → đưa người dùng nội dung ô D và I để tự dán; chưa báo thì chưa coi nhiệm vụ là xong.
+   - Không ghi thêm vào file nhiệm vụ ở bước này (file đã đóng ở mục 4–6 của bước 7); kết quả nêu trong báo cáo cuối lượt.
+   - Sửa không được (không có docs connector, `update` bị từ chối, không tìm thấy dòng) → đưa người dùng nội dung ô D và I để tự dán; chưa đưa nội dung đó thì chưa coi nhiệm vụ là xong.
    - Không có dòng trong sheet → bỏ qua, nói rõ trong báo cáo. Dòng khác chỉ sửa khi người dùng yêu cầu (nêu ra nếu thấy ghi chú đã cũ).
 
 ## Sheet nhiệm vụ
