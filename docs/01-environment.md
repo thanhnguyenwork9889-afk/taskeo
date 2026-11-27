@@ -60,6 +60,9 @@ Sao chép `.env.example` thành `.env.local` rồi điền giá trị. **Không 
 | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | OAuth Google | [02-google-cloud.md](02-google-cloud.md) |
 | `TOKEN_ENCRYPTION_KEY` | Mã hoá token Google trong DB (32 byte, base64) | `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` |
 
+| `GOOGLE_PICKER_API_KEY` | **Tuỳ chọn.** API key cho Google Picker (gắn file Drive có sẵn, T018). Gửi ra trình duyệt nên phải giới hạn API + referrer. Không tính vào 5 biến auth: thiếu thì chỉ nút Picker báo chưa cấu hình (503 `picker_not_configured`) | [02-google-cloud.md](02-google-cloud.md#gắn-file-có-sẵn-bằng-google-picker-t018) |
+| `GOOGLE_CLOUD_PROJECT_NUMBER` | **Tuỳ chọn.** Project number (chỉ chữ số) của project chứa OAuth client: app ID của Picker, để quyền `drive.file` trên file được chọn gắn đúng app | [02-google-cloud.md](02-google-cloud.md#gắn-file-có-sẵn-bằng-google-picker-t018) |
+
 Danh sách biến và cách đọc chúng nằm ở `src/config/env.ts`.
 
 ## Ba chế độ chạy
