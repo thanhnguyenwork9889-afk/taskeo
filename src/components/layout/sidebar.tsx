@@ -9,6 +9,7 @@ import { useWorkspace } from "@/store/workspace-store";
 import { SpaceIcon } from "@/components/ui/space-icon";
 import { control, cx } from "@/components/ui/styles";
 import { driveStatus } from "./drive-status";
+import { DriveStorageMeter } from "./drive-storage-meter";
 import { DriveSwitch } from "./drive-switch";
 import { isNavActive, NAV_ITEMS } from "./navigation";
 import { useUI, useViewer } from "./ui-context";
@@ -141,6 +142,7 @@ function SessionStatus() {
       </div>
       {/* key: đổi trạng thái thì dựng lại để hộp xác nhận cũ không còn mở. */}
       {drive !== "hidden" && <DriveSwitch key={drive} connected={drive === "connected"} />}
+      {drive === "connected" && <DriveStorageMeter />}
     </div>
   );
 }
