@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T016-drive-storage-quota` |
 | Tạo từ | `develop` @ `447b100` |
-| Trạng thái | 4-review |
+| Trạng thái | 5-fix |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T35** "Hiển thị dung lượng Drive (about.get) ở sidebar".
@@ -73,11 +73,23 @@ Duyệt kế hoạch: ☑ người dùng đã duyệt (2026-11-27)
 
 ## 4. Review code
 
-Reviewer đã chạy:
+Reviewer đã chạy: `layer-reviewer`; review TypeScript và review bảo mật do agent `general-purpose` đóng vai (repo chưa có agent `typescript-reviewer` / `security-reviewer`). Phạm vi `git diff develop...HEAD` @ `bc8185e`. Không có CRITICAL / HIGH. R1 (`control` có `min-h-11`) và R5 (QueryProvider nằm trong `AppShell` của nhóm `(app)`, huỷ khi sang `/login`) đã kiểm lại bằng cách đọc code.
 
 | # | Mức | File:dòng | Vấn đề | Reviewer |
 |---|---|---|---|---|
-| R1 | | | | |
+| R1 | MEDIUM | `src/components/layout/drive-storage-meter.tsx:23-49` | Layout vẫn nhảy dù comment nói khung chờ "cao bằng ready": khung chờ ~58px, lỗi 44px (nút `min-h-11`, không `py-1`), ready khi `limit = null` ~46px (không có thanh) | TypeScript |
+| R2 | MEDIUM | `src/components/layout/use-drive-storage.ts:16-22` | "Demo / chưa kết nối thì không gọi API" chỉ nằm ở `enabled`, không có test bảo vệ (tiêu chí 5) | TypeScript |
+| R3 | LOW | `src/app/api/drive/storage/route.ts:19-40` | Không rate limit / cache phía server: mỗi lần tải lại trang là một lần gọi Google + một truy vấn DB; script lặp có thể tiêu quota Drive của project | bảo mật |
+| R4 | LOW | `src/app/api/drive/storage/route.ts:31` | Không đặt `Cache-Control: private, no-store` tường minh, dựa vào Next tự đặt cho route động (giống các route khác) | bảo mật |
+| R5 | LOW | `src/components/layout/use-drive-storage.ts:17` | `queryKey: ["drive-storage"]` không gắn user; đổi tài khoản mà QueryClient còn sống có thể thấy số cũ (hiện không xảy ra vì provider huỷ khi đăng xuất) | bảo mật, TypeScript |
+| R6 | LOW | `src/server/google/drive-provision.ts:3-4` | Comment phạm vi nạp chưa liệt kê `./drive-storage` | bảo mật |
+| R7 | LOW | `docs/04-architecture.md`, `docs/06-api.md` | Chưa ghi file mới / route mới (P5, bước 7) | layer, bảo mật |
+| R8 | LOW | `src/components/layout/drive-storage-state.ts:29` | API trả 403 `drive_not_connected` thì khối ẩn nhưng công tắc vẫn "Đã kết nối" (phiên cũ); mỗi lần mount lại gọi lại API | TypeScript |
+| R9 | LOW | `src/components/layout/drive-storage-meter.tsx:39-45` | Nút Thử lại `disabled` khi đang có focus → focus rơi về body; kết quả thử lại không được thông báo (`aria-live`) | TypeScript |
+| R10 | LOW | `src/components/layout/drive-storage-meter.tsx:55` | "Trong Drive / Thùng rác" chỉ ở `title`, người dùng bàn phím / cảm ứng / trình đọc màn hình không xem được | TypeScript |
+| R11 | LOW | `src/components/layout/drive-storage-meter.tsx:19` | Lỗi 401 / 503 vẫn hiện nút Thử lại dù thử lại không giúp | TypeScript |
+| R12 | LOW | `src/domain/drive-storage.ts:45` | `limit = "0"` coi là không giới hạn (có chủ ý, đã ghi JSDoc) | TypeScript |
+| R13 | LOW | `src/domain/drive-storage.ts:18`, `drive-storage-meter.tsx` | Chữ hiển thị viết cứng, không qua `domain/labels.ts` (chuỗi không theo enum, theo quy ước module như `DRIVE_FILE_UNNAMED`) | layer |
 
 ## 5. Fix bug
 
