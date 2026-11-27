@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T016-drive-storage-quota` |
 | Tạo từ | `develop` @ `447b100` |
-| Trạng thái | 5-fix |
+| Trạng thái | 6-rereview |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T35** "Hiển thị dung lượng Drive (about.get) ở sidebar".
@@ -95,9 +95,21 @@ Reviewer đã chạy: `layer-reviewer`; review TypeScript và review bảo mật
 
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
-| R1 | đã sửa / bỏ qua: lý do | |
+| R1 | đã sửa: khung chung cao cố định 58px (`py-1` + 50px nội dung) cho loading / error / ready; không giới hạn → giữ chỗ trống `h-1.5` thay thanh; sửa comment | `a686072` |
+| R2 | đã sửa: tách `driveStorageQueryOptions` (`src/components/layout/drive-storage-query.ts`), hook dùng nó; 5 test cho `enabled` (demo / chưa kết nối → false), `queryKey`, `staleTime`, `retry`, `queryFn` | `a686072` |
+| R3 | để sau: rate limit / cache phía server chung cho mọi route (T73) | |
+| R4 | để sau: các route khác cũng dựa vào Next đặt `private, no-store` cho route động; làm chung trong `server/http.ts` ở T73 | |
+| R5 | để sau: hiện không xảy ra (QueryProvider huỷ khi sang `/login`); thêm user vào key khi đưa provider lên root layout (T59) | |
+| R6 | đã sửa: comment phạm vi nạp của `drive-provision.ts` liệt kê `./drive-storage` | `a686072` |
+| R7 | làm ở bước 7 (P5): docs 02 / 04 / 06 | |
+| R8 | để sau: 403 khi phiên cũ → `router.refresh()` cập nhật viewer | |
+| R9 | đã sửa: nút Thử lại dùng `aria-disabled` + bỏ `onClick` khi đang thử (focus giữ nguyên); dòng chữ là `role="status"` `aria-live="polite"` luôn cùng chỗ, đổi "Đang thử lại…" để lần lỗi sau vẫn được đọc; thanh nằm ngoài live region. Hàm `storageStatusText` có test | `a686072` |
+| R10 | đã sửa: bản `sr-only` "Trong Drive / Thùng rác" (có cả khi không giới hạn), progressbar trỏ tới qua `aria-describedby`; giữ `title` cho chuột | `a686072` |
+| R11 | để sau: ẩn Thử lại với 401 / 503 (SessionGuard đã xử lý 401) | |
+| R12 | bỏ qua: quyết định có chủ ý, đã ghi JSDoc | |
+| R13 | bỏ qua: chuỗi không theo enum, theo quy ước đặt nhãn trong module (như `DRIVE_FILE_UNNAMED`) | |
 
-Kết quả 4 lệnh sau khi sửa:
+Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ (không cảnh báo) · test ✅ 57 file, 1444 test · build ✅
 
 ## 6. Review lại
 
