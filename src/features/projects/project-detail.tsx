@@ -135,7 +135,7 @@ export function ProjectDetail() {
             {projectFiles
               .filter((f) => matchesQuery(query, f.name))
               .map((file) => (
-                <FileRow key={file.id} file={file} subtitle={file.url ? "Liên kết Drive" : "Tài liệu mẫu"} />
+                <FileRow key={file.id} file={file} subtitle={file.url ? "Liên kết Drive" : "Tài liệu mẫu"} demo />
               ))}
             {!projectFiles.length && <p className="py-5 text-sm text-muted">Chưa có tài liệu trong dự án.</p>}
             <div className="mt-5 grid gap-3">

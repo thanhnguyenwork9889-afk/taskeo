@@ -1,4 +1,5 @@
 import { DRIVE_NOT_CONNECTED_CODE } from "@/domain/drive-files";
+import type { DriveFileItem } from "@/domain/types";
 import { ApiRequestError } from "./drive-files-api";
 
 /** Màn hình danh sách file Drive đang ở trạng thái nào. */
@@ -26,4 +27,9 @@ export function driveFilesViewState({ isDemo, driveConnected, status, error, cou
   if (status === "error") return isNotConnectedError(error) ? "connect" : "error";
   if (status === "pending") return "loading";
   return count > 0 ? "list" : "empty";
+}
+
+/** Phụ đề một file Drive: "dự án · không gian", bỏ phần trống. */
+export function driveFileSubtitle({ projectName, spaceName }: Pick<DriveFileItem, "projectName" | "spaceName">): string {
+  return [projectName, spaceName].filter(Boolean).join(" · ");
 }

@@ -9,16 +9,24 @@ import { isDriveUrl } from "@/domain/validation";
 import { control, cx } from "@/components/ui/styles";
 
 interface FileRowProps {
-  file: WorkspaceFile;
+  /** `WorkspaceFile` (store demo) hoặc `DriveFileItem` (API) đều vừa. */
+  file: Pick<WorkspaceFile, "name" | "kind" | "modifiedAt" | "url">;
   subtitle: string;
+  /** Dữ liệu mẫu: bấm file chưa có url thì báo đây là tài liệu mẫu. */
+  demo?: boolean;
 }
 
-/** Một dòng tài liệu. File có url thì mở Google trong tab mới; chưa có thì báo chưa kết nối. */
-export function FileRow({ file, subtitle }: FileRowProps) {
+const rowLayout = "flex w-full items-center gap-3 border-t border-line-soft py-3 text-left";
+
+/**
+ * Một dòng tài liệu. File có url Drive hợp lệ thì mở Google trong tab mới.
+ * Không có url: demo → nút báo tài liệu mẫu; dữ liệu thật → dòng không bấm được.
+ */
+export function FileRow({ file, subtitle, demo = false }: FileRowProps) {
   const { notify, now } = useUI();
   // Kiểm tra lại ngay trước khi render href, phòng dữ liệu không đi qua schema.
   const safeUrl = file.url && isDriveUrl(file.url) ? file.url : null;
-  const className = cx(control, "flex w-full items-center gap-3 border-t border-line-soft py-3 text-left hover:bg-brand-faint");
+  const className = cx(control, rowLayout, "hover:bg-brand-faint");
   const content = (
     <>
       <DocIcon kind={file.kind} />
@@ -30,7 +38,6 @@ export function FileRow({ file, subtitle }: FileRowProps) {
       {safeUrl && <ArrowUpRight className="h-4 w-4 shrink-0 text-muted" aria-hidden />}
     </>
   );
-
   if (safeUrl) {
     return (
       <a href={safeUrl} target="_blank" rel="noreferrer" className={className}>
@@ -38,9 +45,16 @@ export function FileRow({ file, subtitle }: FileRowProps) {
       </a>
     );
   }
+  if (demo) {
+    return (
+      <button type="button" onClick={() => notify("Tài liệu mẫu — giai đoạn 3 sẽ mở file thật trên Google Drive.")} className={className}>
+        {content}
+      </button>
+    );
+  }
   return (
-    <button type="button" onClick={() => notify("Tài liệu mẫu — giai đoạn 3 sẽ mở file thật trên Google Drive.")} className={className}>
+    <div title="Không mở được tài liệu này" className={cx(rowLayout, "min-h-11")}>
       {content}
-    </button>
+    </div>
   );
 }

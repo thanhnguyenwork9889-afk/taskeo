@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DRIVE_NOT_CONNECTED_CODE } from "@/domain/drive-files";
 import { ApiRequestError } from "./drive-files-api";
-import { driveFilesViewState, type DriveFilesStateInput } from "./drive-files-state";
+import { driveFilesViewState, driveFileSubtitle, type DriveFilesStateInput } from "./drive-files-state";
 
 const BASE: DriveFilesStateInput = { isDemo: false, driveConnected: true, status: "success", error: null, count: 3 };
 
@@ -21,5 +21,17 @@ describe("driveFilesViewState", () => {
     ["xong, có file", { count: 3 }, "list"],
   ])("%s", (_label, override, expected) => {
     expect(driveFilesViewState({ ...BASE, ...override })).toBe(expected);
+  });
+});
+
+describe("driveFileSubtitle", () => {
+  it("dự án · không gian", () => {
+    expect(driveFileSubtitle({ projectName: "Ra mắt", spaceName: "Công việc" })).toBe("Ra mắt · Công việc");
+  });
+  it("không có dự án → chỉ tên không gian", () => {
+    expect(driveFileSubtitle({ projectName: null, spaceName: "Cá nhân" })).toBe("Cá nhân");
+  });
+  it("bỏ tên rỗng", () => {
+    expect(driveFileSubtitle({ projectName: "", spaceName: "" })).toBe("");
   });
 });
