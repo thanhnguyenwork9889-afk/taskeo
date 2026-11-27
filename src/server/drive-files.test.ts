@@ -173,6 +173,7 @@ describe("listFiles — không lọc (gần đây)", () => {
       spaceName: "Công việc",
       projectId: "p1",
       projectName: "Website",
+      shortcut: false,
     });
   });
 
@@ -425,6 +426,7 @@ describe("createFile", () => {
         spaceName: "Công việc",
         projectId: null,
         projectName: null,
+        shortcut: false,
       },
     });
   });

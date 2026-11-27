@@ -90,7 +90,7 @@ export interface DriveFileItem {
   id: string;
   name: string;
   kind: DocKind;
-  /** `webViewLink` của Drive; `null` nếu không phải liên kết Drive HTTPS. */
+  /** Liên kết mở file (lối tắt: mở file đích); `null` nếu không phải liên kết Drive HTTPS. */
   url: string | null;
   modifiedAt: string;
   spaceId: string;
@@ -98,6 +98,8 @@ export interface DriveFileItem {
   projectId: string | null;
   spaceName: string;
   projectName: string | null;
+  /** `true` khi là lối tắt Drive do Taskeo tạo (file gắn qua Picker); `id` là id lối tắt, `url` mở file đích. */
+  shortcut: boolean;
 }
 
 /** Phần `data` của `GET /api/files`. */
@@ -108,6 +110,22 @@ export interface ListFilesResponse {
 /** Phần `data` của `POST /api/files`. */
 export interface CreateFileResponse {
   file: DriveFileItem;
+}
+
+/** Phần `data` của `POST /api/files/attach`. */
+export interface AttachFileResponse {
+  file: DriveFileItem;
+}
+
+/** Phần `data` của `GET /api/drive/picker-token`: access token ngắn hạn + cấu hình Google Picker. */
+export interface PickerTokenResponse {
+  accessToken: string;
+  /** ISO 8601; `null` khi Google không báo hạn. */
+  expiresAt: string | null;
+  /** API key của Picker (`setDeveloperKey`). */
+  developerKey: string;
+  /** Project number Google Cloud (`setAppId`). */
+  appId: string;
 }
 
 /** Dung lượng Google (byte) từ Drive `about.get` → `storageQuota`. `limit` null = không giới hạn. */

@@ -21,7 +21,10 @@ import {
   SPACE_NAME_MAX,
   TASK_DESCRIPTION_MAX,
   TASK_TITLE_MAX,
+  DRIVE_FILE_ID_PATTERN,
+  attachFileInputSchema,
   createFileInputSchema,
+  driveFileIdSchema,
   createProjectInputSchema,
   createSpaceInputSchema,
   createTaskInputSchema,
@@ -760,5 +763,69 @@ describe("createFileInputSchema", () => {
   it("rejects unknown keys", () => {
     expect(createFileInputSchema.safeParse({ ...valid, driveFolderId: "f-1" }).success).toBe(false);
     expect(createFileInputSchema.safeParse({ ...valid, userId: "u-1" }).success).toBe(false);
+  });
+});
+
+describe("driveFileIdSchema", () => {
+  it("exposes the agreed pattern", () => {
+    expect(DRIVE_FILE_ID_PATTERN.source).toBe("^[A-Za-z0-9_-]{10,128}$");
+  });
+
+  it("accepts Drive ids of 10 to 128 characters", () => {
+    for (const id of ["1AbC_def-G", "x".repeat(128), "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"]) {
+      expect(driveFileIdSchema.safeParse(id).success).toBe(true);
+    }
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["empty", ""],
+    ["whitespace", "          "],
+    ["too short", "abcdefghi"],
+    ["too long", "x".repeat(129)],
+    ["slash", "abcde/fghij"],
+    ["NUL", "abcdefghij\u0000"],
+    ["quote", "abcdefghij'"],
+    ["space inside", "abcde fghij"],
+    ["number", 1234567890],
+  ])("rejects %s", (_label, value) => {
+    expect(driveFileIdSchema.safeParse(value).success).toBe(false);
+  });
+});
+
+describe("attachFileInputSchema", () => {
+  const valid = { driveFileId: "1AbC_def-GHIjkl", spaceId: "sp-1", projectId: "p-1" };
+
+  it("accepts valid input", () => {
+    expect(attachFileInputSchema.parse(valid)).toEqual(valid);
+  });
+
+  it("accepts input without projectId", () => {
+    expect(attachFileInputSchema.parse({ driveFileId: valid.driveFileId, spaceId: "sp-1" })).toEqual({
+      driveFileId: valid.driveFileId,
+      spaceId: "sp-1",
+    });
+  });
+
+  it("treats an empty projectId as not given", () => {
+    expect(attachFileInputSchema.parse({ ...valid, projectId: "" })).toEqual({ driveFileId: valid.driveFileId, spaceId: "sp-1" });
+  });
+
+  it("rejects unknown keys", () => {
+    expect(attachFileInputSchema.safeParse({ ...valid, driveFolderId: "f" }).success).toBe(false);
+    expect(attachFileInputSchema.safeParse({ ...valid, userId: "u" }).success).toBe(false);
+  });
+
+  it("rejects missing or invalid driveFileId and spaceId", () => {
+    expect(attachFileInputSchema.safeParse({ spaceId: "sp-1" }).success).toBe(false);
+    expect(attachFileInputSchema.safeParse({ ...valid, driveFileId: "a/b" }).success).toBe(false);
+    expect(attachFileInputSchema.safeParse({ driveFileId: valid.driveFileId }).success).toBe(false);
+    expect(attachFileInputSchema.safeParse({ ...valid, spaceId: "" }).success).toBe(false);
+  });
+
+  it("does not mutate the input object", () => {
+    const input = { ...valid, projectId: "" };
+    attachFileInputSchema.parse(input);
+    expect(input).toEqual({ ...valid, projectId: "" });
   });
 });

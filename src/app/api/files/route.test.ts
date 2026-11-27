@@ -32,6 +32,7 @@ const FILE: DriveFileItem = {
   projectId: "pj_1",
   spaceName: "Công việc",
   projectName: "Website",
+  shortcut: false,
 };
 
 const URL_BASE = "http://localhost/api/files";
@@ -148,7 +149,7 @@ describe("GET /api/files — query", () => {
 });
 
 describe("GET /api/files — kết quả", () => {
-  it("trả 200 { data: { files }, error: null } đủ 9 trường", async () => {
+  it("trả 200 { data: { files }, error: null } đủ 10 trường", async () => {
     mocks.listFiles.mockResolvedValue({ ok: true, files: [FILE] });
     const response = await GET(getRequest());
     expect(response.status).toBe(200);
@@ -161,6 +162,7 @@ describe("GET /api/files — kết quả", () => {
       "name",
       "projectId",
       "projectName",
+      "shortcut",
       "spaceId",
       "spaceName",
       "url",

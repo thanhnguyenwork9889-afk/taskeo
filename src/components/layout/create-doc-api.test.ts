@@ -22,6 +22,7 @@ const FILE: DriveFileItem = {
   projectId: null,
   spaceName: "Marketing",
   projectName: null,
+  shortcut: false,
 };
 
 function jsonResponse(body: unknown, status = 200): Response {
