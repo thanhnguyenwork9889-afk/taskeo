@@ -12,7 +12,10 @@ vi.mock("./granted-scopes", () => ({ hasGoogleScope: mocks.hasGoogleScope }));
 vi.mock("googleapis", () => ({ google: { drive: mocks.googleDrive } }));
 vi.mock("./client", () => ({ getGoogleAuth: mocks.getGoogleAuth }));
 
-import { DRIVE_LIST_FIELDS, listDriveFiles } from "./drive-files";
+import { DOC_KIND_MIME, DRIVE_FILE_CREATE_FIELDS } from "@/domain/drive-files";
+import type { DocKind } from "@/domain/types";
+
+import { DRIVE_LIST_FIELDS, createDriveFile, listDriveFiles } from "./drive-files";
 import { DRIVE_TOTAL_TIMEOUT_MS, type DriveProvisionDeps } from "./drive-provision";
 import { GOOGLE_SCOPES } from "./scopes";
 
@@ -106,10 +109,13 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function expectSafeSingleLog(expected: Record<string, unknown>) {
+const LIST_LOG = "[google/drive] Không liệt kê được file Drive";
+const CREATE_LOG = "[google/drive] Không tạo được file Drive";
+
+function expectSafeSingleLog(expected: Record<string, unknown>, expectedMessage = LIST_LOG) {
   expect(errorSpy).toHaveBeenCalledTimes(1);
   const [message, fields] = errorSpy.mock.calls[0] as [string, Record<string, unknown>];
-  expect(message).toBe("[google/drive] Không liệt kê được file Drive");
+  expect(message).toBe(expectedMessage);
   expect(fields).toEqual(expected);
   const json = JSON.stringify(errorSpy.mock.calls);
   expect(json).not.toContain(SECRET_TOKEN);
@@ -357,5 +363,152 @@ describe("listDriveFiles với defaultDeps", () => {
 
     await expect(listDriveFiles(USER, [Q1], 20)).resolves.toEqual({ status: "ok", files: [file("f1")] });
     expect(mocks.getGoogleAuth).toHaveBeenCalledWith(USER);
+  });
+});
+
+describe("createDriveFile", () => {
+  const PARENT = "folder-1";
+  const input = (kind: DocKind = "doc") => ({ name: "Kế hoạch", kind, parentId: PARENT });
+
+  it("không có scope → not_connected, không gọi getDrive / files.create, không log", async () => {
+    const { drive, create } = fakeDrive();
+    const { deps, hasDriveScope, getDrive } = fakeDeps(drive);
+    hasDriveScope.mockResolvedValue(false);
+
+    await expect(createDriveFile(USER, input(), deps)).resolves.toEqual({ status: "not_connected" });
+    expect(hasDriveScope).toHaveBeenCalledWith(USER);
+    expect(getDrive).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it.each<DocKind>(["doc", "sheet", "slide"])(
+    "%s → files.create đúng mimeType / parents / fields, có signal, trả file đã lọc trường",
+    async (kind) => {
+      const { drive, create } = fakeDrive();
+      const created = file("new-1", { mimeType: DOC_KIND_MIME[kind], parents: [PARENT] });
+      create.mockResolvedValue({ data: { ...created, owners: [{ emailAddress: "x@y" }] } });
+      const { deps, getDrive } = fakeDeps(drive);
+
+      await expect(createDriveFile(USER, input(kind), deps)).resolves.toEqual({
+        status: "ok",
+        file: created,
+      });
+      expect(getDrive).toHaveBeenCalledWith(USER);
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(create).toHaveBeenCalledWith(
+        {
+          requestBody: { name: "Kế hoạch", mimeType: DOC_KIND_MIME[kind], parents: [PARENT] },
+          fields: DRIVE_FILE_CREATE_FIELDS,
+        },
+        { signal: expect.any(AbortSignal) },
+      );
+      expect(create.mock.calls[0]?.[1].signal.aborted).toBe(false);
+      expect(errorSpy).not.toHaveBeenCalled();
+    },
+  );
+
+  it("Drive trả không có id → error, log một dòng DriveFileMissingIdError", async () => {
+    const { drive, create } = fakeDrive();
+    create.mockResolvedValue({ data: { name: "Kế hoạch" } });
+    const { deps } = fakeDeps(drive);
+
+    await expect(createDriveFile(USER, input(), deps)).resolves.toEqual({ status: "error" });
+    expectSafeSingleLog({ userId: USER, error: "DriveFileMissingIdError" }, CREATE_LOG);
+  });
+
+  it("lỗi gaxios mang Authorization / URL → error, log an toàn (không token / URL / message)", async () => {
+    const { drive, create } = fakeDrive();
+    create.mockRejectedValue(fakeGaxiosError(403));
+    const { deps } = fakeDeps(drive);
+
+    await expect(createDriveFile(USER, input("sheet"), deps)).resolves.toEqual({ status: "error" });
+    expectSafeSingleLog({ userId: USER, error: "GaxiosError", status: 403 }, CREATE_LOG);
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain("Request failed");
+  });
+
+  it("GoogleNotConnectedError → not_connected, không log", async () => {
+    const { drive, create } = fakeDrive();
+    const { deps, getDrive } = fakeDeps(drive);
+    getDrive.mockRejectedValue(namedError("GoogleNotConnectedError"));
+
+    await expect(createDriveFile(USER, input(), deps)).resolves.toEqual({ status: "not_connected" });
+    expect(create).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it("GoogleScopeMissingError từ files.create → not_connected, không log", async () => {
+    const { drive, create } = fakeDrive();
+    create.mockRejectedValue(namedError("GoogleScopeMissingError"));
+    const { deps } = fakeDeps(drive);
+
+    await expect(createDriveFile(USER, input(), deps)).resolves.toEqual({ status: "not_connected" });
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it("quá hạn (totalTimeoutMs nhỏ) → error, log TimeoutError, signal huỷ, dọn timer", async () => {
+    vi.useFakeTimers();
+    const tracker = trackUnhandledRejections();
+    const { drive, create } = fakeDrive();
+    const late = deferred<{ data: unknown }>();
+    create.mockReturnValue(late.promise);
+    const { deps } = fakeDeps(drive, { totalTimeoutMs: 50 });
+
+    const pending = createDriveFile(USER, input(), deps);
+    await vi.advanceTimersByTimeAsync(49);
+    expect(errorSpy).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+
+    await expect(pending).resolves.toEqual({ status: "error" });
+    expect(vi.getTimerCount()).toBe(0);
+    expect(create.mock.calls[0]?.[1].signal.aborted).toBe(true);
+
+    late.resolve({ data: file("late") });
+    await tracker.flush();
+
+    expectSafeSingleLog({ userId: USER, error: "TimeoutError" }, CREATE_LOG);
+    expect(tracker.seen).toEqual([]);
+  });
+
+  it("mặc định dùng hạn tổng DRIVE_TOTAL_TIMEOUT_MS", async () => {
+    vi.useFakeTimers();
+    const { drive, create } = fakeDrive();
+    create.mockReturnValue(new Promise(() => {}));
+    const { deps } = fakeDeps(drive);
+
+    const pending = createDriveFile(USER, input(), deps);
+    await vi.advanceTimersByTimeAsync(DRIVE_TOTAL_TIMEOUT_MS - 1);
+    expect(errorSpy).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(pending).resolves.toEqual({ status: "error" });
+  });
+
+  it("getDrive resolve muộn (sau hạn) → không gọi files.create", async () => {
+    vi.useFakeTimers();
+    const { drive, create } = fakeDrive();
+    const late = deferred<DriveFilesClient>();
+    const { deps, getDrive } = fakeDeps(drive, { totalTimeoutMs: 50 });
+    getDrive.mockReturnValue(late.promise);
+
+    const pending = createDriveFile(USER, input(), deps);
+    await vi.advanceTimersByTimeAsync(50);
+    await expect(pending).resolves.toEqual({ status: "error" });
+
+    late.resolve(drive);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(create).not.toHaveBeenCalled();
+  });
+});
+
+describe("createDriveFile với defaultDeps", () => {
+  it("thiếu drive.file → không nạp client / googleapis", async () => {
+    mocks.hasGoogleScope.mockResolvedValue(false);
+
+    await expect(
+      createDriveFile(USER, { name: "A", kind: "doc", parentId: "p" }),
+    ).resolves.toEqual({ status: "not_connected" });
+    expect(mocks.hasGoogleScope).toHaveBeenCalledWith(USER, GOOGLE_SCOPES.drive);
+    expect(mocks.getGoogleAuth).not.toHaveBeenCalled();
+    expect(mocks.googleDrive).not.toHaveBeenCalled();
   });
 });
