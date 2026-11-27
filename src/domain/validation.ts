@@ -194,31 +194,57 @@ export type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;
 /** Số hoạt động mặc định / tối đa mà `GET /api/activities` trả. */
 export const ACTIVITY_LIST_DEFAULT = 50;
 export const ACTIVITY_LIST_MAX = 200;
-const LIMIT_MESSAGE = `limit phải là số nguyên từ 1 đến ${ACTIVITY_LIST_MAX}`;
 
 /**
- * `limit` chỉ gồm chữ số (không dùng `z.coerce`: nó nhận `1e2`, ` 5`, `0x10`).
- * Thiếu hoặc rỗng → mặc định.
+ * `limit` trong query: chỉ gồm chữ số (không dùng `z.coerce`: nó nhận `1e2`, ` 5`, `0x10`),
+ * số nguyên 1–`max`. Thiếu hoặc rỗng → `fallback`.
  */
-const activityLimitSchema = z
-  .string()
-  .regex(/^\d+$/, LIMIT_MESSAGE)
-  .transform(Number)
-  .pipe(z.number().int().min(1, LIMIT_MESSAGE).max(ACTIVITY_LIST_MAX, LIMIT_MESSAGE));
+function queryLimitSchema(max: number, fallback: number) {
+  const message = `limit phải là số nguyên từ 1 đến ${max}`;
+  return z
+    .string()
+    .optional()
+    .transform((value) => (value === undefined || value === "" ? String(fallback) : value))
+    .pipe(
+      z
+        .string()
+        .regex(/^\d+$/, message)
+        .transform(Number)
+        .pipe(z.number().int().min(1, message).max(max, message)),
+    );
+}
 
 /** Query đọc nhật ký hoạt động. Không strict: key lạ bị bỏ qua. */
 export const listActivitiesQuerySchema = z.object({
-  limit: z
-    .string()
-    .optional()
-    .transform((value) => (value === undefined || value === "" ? String(ACTIVITY_LIST_DEFAULT) : value))
-    .pipe(activityLimitSchema),
+  limit: queryLimitSchema(ACTIVITY_LIST_MAX, ACTIVITY_LIST_DEFAULT),
 });
 
 /** Danh sách key query mà `GET /api/activities` đọc. */
 export const LIST_ACTIVITIES_QUERY_KEYS = ["limit"] as const;
 
 export type ListActivitiesQuery = z.infer<typeof listActivitiesQuerySchema>;
+
+/** Số file mặc định / tối đa mà `GET /api/files` trả. */
+export const FILE_LIST_DEFAULT = 20;
+export const FILE_LIST_MAX = 100;
+
+/** Query liệt kê file Drive. Không strict: key lạ bị bỏ qua. `spaceId` và `projectId` không dùng cùng lúc. */
+export const listFilesQuerySchema = z
+  .object({
+    spaceId: emptyToUndefined(entityIdSchema),
+    projectId: emptyToUndefined(entityIdSchema),
+    kind: emptyToUndefined(docKindSchema),
+    limit: queryLimitSchema(FILE_LIST_MAX, FILE_LIST_DEFAULT),
+  })
+  .refine((query) => !(query.spaceId && query.projectId), {
+    message: "Chỉ lọc theo spaceId hoặc projectId, không dùng cùng lúc",
+    path: ["projectId"],
+  });
+
+/** Danh sách key query mà `GET /api/files` đọc. */
+export const LIST_FILES_QUERY_KEYS = ["spaceId", "projectId", "kind", "limit"] as const;
+
+export type ListFilesQuery = z.infer<typeof listFilesQuerySchema>;
 
 export type QueryObjectResult = { ok: true; value: Record<string, string> } | { ok: false; key: string };
 

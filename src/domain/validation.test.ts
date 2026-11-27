@@ -9,7 +9,10 @@ import {
   ACTIVITY_LIST_DEFAULT,
   ACTIVITY_LIST_MAX,
   ID_MAX_LENGTH,
+  FILE_LIST_DEFAULT,
+  FILE_LIST_MAX,
   LIST_ACTIVITIES_QUERY_KEYS,
+  LIST_FILES_QUERY_KEYS,
   PROJECT_DESCRIPTION_MAX,
   PROJECT_DUE_YEAR_MAX,
   PROJECT_DUE_YEAR_MIN,
@@ -24,6 +27,7 @@ import {
   activityTypeSchema,
   entityIdSchema,
   listActivitiesQuerySchema,
+  listFilesQuerySchema,
   listTasksQuerySchema,
   projectDueDateSchema,
   queryToObject,
@@ -614,5 +618,81 @@ describe("listActivitiesQuerySchema", () => {
     const query = { limit: "10" };
     listActivitiesQuerySchema.parse(query);
     expect(query).toEqual({ limit: "10" });
+  });
+});
+
+describe("listFilesQuerySchema", () => {
+  it("exposes the list limits and query keys", () => {
+    expect(FILE_LIST_DEFAULT).toBe(20);
+    expect(FILE_LIST_MAX).toBe(100);
+    expect(LIST_FILES_QUERY_KEYS).toEqual(["spaceId", "projectId", "kind", "limit"]);
+  });
+
+  it("defaults limit to 20 and leaves filters undefined", () => {
+    expect(listFilesQuerySchema.parse({})).toEqual({ limit: FILE_LIST_DEFAULT });
+  });
+
+  it("treats empty values as not sent", () => {
+    expect(listFilesQuerySchema.parse({ limit: "", kind: "", spaceId: "", projectId: "" })).toEqual({
+      limit: FILE_LIST_DEFAULT,
+    });
+  });
+
+  it.each([
+    ["1", 1],
+    ["100", 100],
+    ["020", 20],
+  ])("accepts limit %j as %d", (limit, expected) => {
+    expect(listFilesQuerySchema.parse({ limit }).limit).toBe(expected);
+  });
+
+  it.each([["0"], ["101"], ["1.5"], ["-1"], ["1e2"], [" 5"], ["abc"], ["0x10"], ["+5"]])("rejects limit %j", (limit) => {
+    expect(listFilesQuerySchema.safeParse({ limit }).success).toBe(false);
+  });
+
+  it.each([["doc"], ["sheet"], ["slide"]])("accepts kind %j", (kind) => {
+    expect(listFilesQuerySchema.parse({ kind })).toEqual({ limit: FILE_LIST_DEFAULT, kind });
+  });
+
+  it.each([["pdf"], ["DOC"], [" doc"]])("rejects kind %j", (kind) => {
+    expect(listFilesQuerySchema.safeParse({ kind }).success).toBe(false);
+  });
+
+  it("accepts spaceId or projectId alone", () => {
+    expect(listFilesQuerySchema.parse({ spaceId: "s1" })).toEqual({ limit: FILE_LIST_DEFAULT, spaceId: "s1" });
+    expect(listFilesQuerySchema.parse({ projectId: "p1", kind: "doc", limit: "5" })).toEqual({
+      limit: 5,
+      projectId: "p1",
+      kind: "doc",
+    });
+  });
+
+  it("rejects spaceId and projectId together", () => {
+    expect(listFilesQuerySchema.safeParse({ spaceId: "s1", projectId: "p1" }).success).toBe(false);
+  });
+
+  it("rejects ids that are too long or contain NUL", () => {
+    expect(listFilesQuerySchema.safeParse({ spaceId: "x".repeat(65) }).success).toBe(false);
+    expect(listFilesQuerySchema.safeParse({ projectId: "a\u0000b" }).success).toBe(false);
+  });
+
+  it("ignores unknown keys", () => {
+    expect(listFilesQuerySchema.parse({ limit: "10", _: "1" })).toEqual({ limit: 10 });
+  });
+
+  it("works with queryToObject output and flags repeated keys", () => {
+    const result = queryToObject(new URLSearchParams("kind=sheet&limit=4&x=1"), LIST_FILES_QUERY_KEYS);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(listFilesQuerySchema.parse(result.value)).toEqual({ kind: "sheet", limit: 4 });
+    expect(queryToObject(new URLSearchParams("kind=doc&kind=sheet"), LIST_FILES_QUERY_KEYS)).toEqual({
+      ok: false,
+      key: "kind",
+    });
+  });
+
+  it("does not modify the input", () => {
+    const query = { limit: "10", spaceId: "s1" };
+    listFilesQuerySchema.parse(query);
+    expect(query).toEqual({ limit: "10", spaceId: "s1" });
   });
 });

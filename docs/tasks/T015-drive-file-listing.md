@@ -85,7 +85,7 @@ Rủi ro / phụ thuộc:
 - Script P7 lặp logic giải mã của `crypto.ts` (chấp nhận, chỉ dùng dev); cần `.env.local` và người dùng đã kết nối Drive.
 - Route mới: đọc `node_modules/next/dist/docs/` về route handler trước khi viết; `connection()` + import động như mẫu activities.
 
-Duyệt kế hoạch: ☑ chờ · ☐ người dùng đã duyệt (ngày) · ☐ bỏ qua (`--yes`)
+Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-27) · ☐ bỏ qua (`--yes`)
 
 ## 3. Thực hiện + kiểm thử
 
