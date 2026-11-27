@@ -4,6 +4,7 @@ import { ArrowUpRight } from "lucide-react";
 import { useUI } from "@/components/layout/ui-context";
 import { DocIcon } from "@/components/ui/doc-icon";
 import { timeAgo } from "@/domain/dates";
+import { ATTACHED_LABEL, ATTACHED_TITLE } from "@/domain/labels";
 import type { WorkspaceFile } from "@/domain/types";
 import { isDriveUrl } from "@/domain/validation";
 import { control, cx } from "@/components/ui/styles";
@@ -20,10 +21,10 @@ interface FileRowProps {
 function AttachedBadge() {
   return (
     <span
-      title="Lối tắt tới file gốc trên Drive, được gắn vào thư mục Taskeo"
+      title={ATTACHED_TITLE}
       className="shrink-0 rounded-md bg-[#F0EBF8] px-2 py-0.5 text-xs text-brand-ink"
     >
-      Đã gắn
+      {ATTACHED_LABEL}
     </span>
   );
 }

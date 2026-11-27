@@ -81,12 +81,13 @@ function namedError(name: string): Error {
   return error;
 }
 
-function fakeGaxiosError(status: number) {
+function fakeGaxiosError(status: number, reason?: string) {
   const error = new Error(`Request failed: Bearer ${SECRET_TOKEN} ${SECRET_URL} ${SECRET_NAME}`);
+  const errors = reason === undefined ? undefined : [{ reason, message: `${SECRET_TOKEN} ${SECRET_NAME}` }];
   return Object.assign(error, {
     status,
     config: { url: SECRET_URL, headers: { Authorization: `Bearer ${SECRET_TOKEN}` } },
-    response: { status, data: { error: { message: `${SECRET_TOKEN} ${SECRET_NAME}` } } },
+    response: { status, data: { error: { message: `${SECRET_TOKEN} ${SECRET_NAME}`, ...(errors && { errors }) } } },
   });
 }
 
@@ -160,7 +161,7 @@ describe("attachDriveShortcut — tạo lối tắt", () => {
 
     expect(result).toEqual({ status: "ok", file: created() });
     expect(get).toHaveBeenCalledWith(
-      { fileId: TARGET, fields: DRIVE_TARGET_FIELDS, supportsAllDrives: true },
+      { fileId: TARGET, fields: DRIVE_TARGET_FIELDS },
       { signal: expect.any(AbortSignal) },
     );
     expect(list).toHaveBeenCalledWith(
@@ -258,6 +259,43 @@ describe("attachDriveShortcut — đích không hợp lệ", () => {
     expect(create).not.toHaveBeenCalled();
     expectSafeSingleLog({ userId: USER, error: "GaxiosError", status: 403 }, FORBIDDEN_LOG);
   });
+
+  it.each(["insufficientFilePermissions", "appNotAuthorizedToFile", "forbidden"])(
+    "get 403 reason %s → invalid_target, không create, log gợi ý appId kèm reason",
+    async (reason) => {
+      const { drive, get, list, create } = fakeDrive();
+      get.mockRejectedValue(fakeGaxiosError(403, reason));
+      const { deps } = fakeDeps(drive);
+
+      await expect(attachDriveShortcut(USER, input, deps)).resolves.toEqual({ status: "invalid_target" });
+      expect(list).not.toHaveBeenCalled();
+      expect(create).not.toHaveBeenCalled();
+      expectSafeSingleLog({ userId: USER, error: "GaxiosError", status: 403, reason }, FORBIDDEN_LOG);
+    },
+  );
+
+  it("get 403 reason lạ (ngoài danh sách) → invalid_target, không log reason", async () => {
+    const { drive, get } = fakeDrive();
+    get.mockRejectedValue(fakeGaxiosError(403, `weird ${SECRET_TOKEN}`));
+    const { deps } = fakeDeps(drive);
+
+    await expect(attachDriveShortcut(USER, input, deps)).resolves.toEqual({ status: "invalid_target" });
+    expectSafeSingleLog({ userId: USER, error: "GaxiosError", status: 403 }, FORBIDDEN_LOG);
+  });
+
+  it.each(["userRateLimitExceeded", "rateLimitExceeded", "dailyLimitExceeded", "quotaExceeded"])(
+    "get 403 reason %s → error, không list / create, log lỗi thường kèm reason",
+    async (reason) => {
+      const { drive, get, list, create } = fakeDrive();
+      get.mockRejectedValue(fakeGaxiosError(403, reason));
+      const { deps } = fakeDeps(drive);
+
+      await expect(attachDriveShortcut(USER, input, deps)).resolves.toEqual({ status: "error" });
+      expect(list).not.toHaveBeenCalled();
+      expect(create).not.toHaveBeenCalled();
+      expectSafeSingleLog({ userId: USER, error: "GaxiosError", status: 403, reason });
+    },
+  );
 
   it("get 500 → error, log sạch", async () => {
     const { drive, get, create } = fakeDrive();

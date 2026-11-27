@@ -16,7 +16,13 @@ import {
 import type { DocKind } from "@/domain/types";
 
 import { runWithDeadline } from "./deadline";
-import { classifyDriveError, driveErrorLogFields, isSilentDriveError } from "./drive-errors";
+import {
+  classifyDriveError,
+  driveErrorLogFields,
+  driveErrorReason,
+  isDriveRateLimitReason,
+  isSilentDriveError,
+} from "./drive-errors";
 import type { DriveFilesClient } from "./drive-folders";
 import { DRIVE_TOTAL_TIMEOUT_MS, defaultDeps, type DriveProvisionDeps } from "./drive-provision";
 
@@ -50,9 +56,27 @@ export class DriveShortcutMissingIdError extends Error {
 
 type TargetCheck = { status: "invalid_target" } | { status: "ok"; name: string; kind: DocKind; parents: string[] };
 
+/** Trường log an toàn: tên lỗi, mã HTTP, và `reason` nếu nằm trong danh sách cố định. */
+function logFields(userId: string, error: unknown) {
+  const reason = driveErrorReason(error);
+  return reason === undefined
+    ? { userId, ...driveErrorLogFields(error) }
+    : { userId, ...driveErrorLogFields(error), reason };
+}
+
 /**
- * Đọc file đích. 404 / 403 của Google → `invalid_target` (403 log một dòng an toàn: với scope
- * `drive.file` thường do appId Picker sai nên file chưa được cấp cho app). Lỗi khác ném tiếp.
+ * Đọc file đích (không bật Shared drives, như các lời gọi Drive khác). Lỗi Google:
+ *
+ * - 404 → `invalid_target`, không log.
+ * - 403 có `reason` giới hạn tốc độ / hạn mức (`rateLimitExceeded`, `userRateLimitExceeded`,
+ *   `dailyLimitExceeded`, `quotaExceeded`, `sharingRateLimitExceeded`) → ném tiếp (thành `error`,
+ *   log như lỗi thường kèm `reason`): lỗi tạm thời, file đích không sai.
+ * - 403 còn lại → `invalid_target`, log một dòng gợi ý appId. Gồm reason quyền (`forbidden`,
+ *   `insufficientFilePermissions`, `appNotAuthorizedToFile`) và cả 403 không đọc được / reason
+ *   lạ: với scope `drive.file`, 403 không phải rate limit gần như luôn là file chưa được cấp cho
+ *   app (appId Picker sai), nên coi là lỗi quyền.
+ *
+ * Lỗi khác ném tiếp.
  */
 async function checkTarget(
   drive: DriveFilesClient,
@@ -63,7 +87,7 @@ async function checkTarget(
   let data;
   try {
     ({ data } = await drive.files.get(
-      { fileId: targetId, fields: DRIVE_TARGET_FIELDS, supportsAllDrives: true },
+      { fileId: targetId, fields: DRIVE_TARGET_FIELDS },
       { signal },
     ));
   } catch (error) {
@@ -71,7 +95,8 @@ async function checkTarget(
     if (info.kind !== "google") throw error;
     if (info.status === HTTP_NOT_FOUND) return { status: "invalid_target" };
     if (info.status === HTTP_FORBIDDEN) {
-      console.error(FORBIDDEN_LOG_MESSAGE, { userId, ...driveErrorLogFields(error) });
+      if (isDriveRateLimitReason(driveErrorReason(error))) throw error;
+      console.error(FORBIDDEN_LOG_MESSAGE, logFields(userId, error));
       return { status: "invalid_target" };
     }
     throw error;
@@ -88,12 +113,13 @@ async function checkTarget(
  *
  * 1. Chưa có scope `drive.file` → `not_connected`, không gọi `getDrive` (không nạp `googleapis`).
  * 2. `GoogleNotConnectedError` / `GoogleScopeMissingError` → `not_connected`, không log.
- * 3. Đích 404 / 403, đã vào thùng rác hoặc không phải 3 loại Google → `invalid_target`.
+ * 3. Đích 404 / 403 do quyền, đã vào thùng rác hoặc không phải 3 loại Google → `invalid_target`
+ *    (403 do rate limit / hạn mức → `error`, xem `checkTarget`).
  * 4. Đích đã nằm trong thư mục, hoặc đã có lối tắt tới nó trong thư mục → `already_attached`.
  * 5. Tạo lối tắt (gắn `appProperties.taskeoTargetKind` để lọc theo loại); thiếu `id` → `error`.
  *
- * Lỗi khác hoặc quá hạn → `error`, log đúng một dòng gồm `userId`, tên lỗi đã phân loại, mã HTTP
- * (không token / URL / header / tên file). Không bao giờ ném. Kiểm-rồi-tạo không nguyên tử: hai
+ * Lỗi khác hoặc quá hạn → `error`, log đúng một dòng gồm `userId`, tên lỗi đã phân loại, mã HTTP,
+ * `reason` nếu thuộc danh sách cố định (không token / URL / header / message / tên file). Không bao giờ ném. Kiểm-rồi-tạo không nguyên tử: hai
  * request đồng thời có thể tạo hai lối tắt.
  */
 export async function attachDriveShortcut(
@@ -142,6 +168,6 @@ export async function attachDriveShortcut(
 
   if (outcome.ok) return outcome.value;
   if (isSilentDriveError(classifyDriveError(outcome.error).kind)) return { status: "not_connected" };
-  console.error(LOG_MESSAGE, { userId, ...driveErrorLogFields(outcome.error) });
+  console.error(LOG_MESSAGE, logFields(userId, outcome.error));
   return { status: "error" };
 }

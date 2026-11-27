@@ -1,4 +1,4 @@
-import { DOC_KIND_MIME, DRIVE_FILE_UNNAMED } from "@/domain/drive-files";
+import { DOC_KIND_MIME, docKindFromMime, DRIVE_FILE_UNNAMED } from "@/domain/drive-files";
 import type { DocKind, PickerTokenResponse } from "@/domain/types";
 import { DRIVE_FILE_ID_PATTERN } from "@/domain/validation";
 
@@ -214,16 +214,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function kindFromMime(mimeType: unknown): DocKind | null {
-  const entry = Object.entries(DOC_KIND_MIME).find(([, mime]) => mime === mimeType);
-  return entry ? (entry[0] as DocKind) : null;
-}
-
 function parsePickedDoc(docs: unknown): PickerResult {
   const first: unknown = Array.isArray(docs) ? docs[0] : undefined;
   if (!isRecord(first)) return { type: "invalid" };
   const { id, name, mimeType } = first;
-  const kind = kindFromMime(mimeType);
+  const kind = typeof mimeType === "string" ? docKindFromMime(mimeType) : null;
   if (typeof id !== "string" || !DRIVE_FILE_ID_PATTERN.test(id) || !kind) return { type: "invalid" };
   const trimmed = typeof name === "string" ? name.trim() : "";
   return { type: "picked", id, name: trimmed || DRIVE_FILE_UNNAMED, kind };

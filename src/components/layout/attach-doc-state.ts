@@ -62,17 +62,29 @@ export function attachErrorMessage(error: unknown, fileName?: string): string {
   return MESSAGES.generic;
 }
 
-/** Pha của luồng chọn + gắn: `opening` = đang nạp script / lấy token / Picker đang mở; `attaching` = đang gửi. */
-export type AttachPhase = "idle" | "opening" | "attaching";
+/**
+ * Pha của luồng chọn + gắn: `loading` = đang nạp script / lấy token (chưa có Picker); `picking` = Picker đang mở;
+ * `attaching` = đang gửi.
+ */
+export type AttachPhase = "idle" | "loading" | "picking" | "attaching";
 
-/** Đang chọn / gửi: khoá ô, không cho đóng hộp thoại (Picker là iframe đè lên Modal). */
+/** Đang chọn / gửi: khoá ô và nút chọn. */
 export function isAttachBusy(phase: AttachPhase): boolean {
   return phase !== "idle";
 }
 
+/**
+ * Cho Esc / bấm ngoài / Hủy đóng hộp thoại không. `loading` đóng được (hủy lượt, bỏ kết quả nạp); `picking`
+ * thì Picker là iframe đè lên Modal, `attaching` thì yêu cầu đã gửi → không đóng.
+ */
+export function canDismissAttach(phase: AttachPhase): boolean {
+  return phase === "idle" || phase === "loading";
+}
+
 const BUTTON_LABELS: Record<AttachPhase, string> = {
   idle: "Chọn từ Google Drive",
-  opening: "Đang mở Google Drive…",
+  loading: "Đang mở Google Drive…",
+  picking: "Đang chọn file trên Google Drive…",
   attaching: "Đang gắn…",
 };
 

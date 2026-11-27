@@ -4,6 +4,7 @@ import type { DriveFileItem, PickerTokenResponse } from "@/domain/types";
 import {
   ATTACH_FILE_CLIENT_TIMEOUT_MS,
   ATTACH_FILE_PATH,
+  PICKER_TOKEN_CLIENT_TIMEOUT_MS,
   PICKER_TOKEN_PATH,
   buildAttachFileBody,
   fetchPickerToken,
@@ -43,6 +44,21 @@ function stubFetch(response: Response | (() => Promise<Response>)) {
   return fake;
 }
 
+/** fetch không bao giờ trả lời; chỉ kết thúc khi `init.signal` bị abort (giống trình duyệt). */
+function stubHangingFetch() {
+  const fake = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(
+    (_input, init) =>
+      new Promise((_resolve, reject) => {
+        const signal = init?.signal;
+        if (!signal) return;
+        if (signal.aborted) reject(signal.reason);
+        signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+      }),
+  );
+  vi.stubGlobal("fetch", fake);
+  return fake;
+}
+
 async function rejection(promise: Promise<unknown>): Promise<CreateDocRequestError> {
   try {
     await promise;
@@ -66,7 +82,7 @@ describe("fetchPickerToken", () => {
     await expect(fetchPickerToken(controller.signal)).resolves.toEqual(TOKEN);
     const [url, init] = fake.mock.calls[0];
     expect(url).toBe(PICKER_TOKEN_PATH);
-    expect(init?.signal).toBe(controller.signal);
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
     expect(init?.method ?? "GET").toBe("GET");
     expect(init?.cache).toBe("no-store");
     expect(new Headers(init?.headers).get("Accept")).toBe("application/json");
@@ -115,6 +131,52 @@ describe("fetchPickerToken", () => {
   it("data không phải object → lỗi", async () => {
     stubFetch(jsonResponse({ data: [TOKEN] }));
     await rejection(fetchPickerToken());
+  });
+
+  it("mặc định hạn chờ 15 s", async () => {
+    const spy = vi.spyOn(AbortSignal, "timeout");
+    stubFetch(jsonResponse({ data: TOKEN }));
+    await fetchPickerToken();
+    expect(PICKER_TOKEN_CLIENT_TIMEOUT_MS).toBe(15_000);
+    expect(spy).toHaveBeenCalledWith(15_000);
+  });
+
+  it("mạng treo quá hạn → status 0, code timeout", async () => {
+    stubHangingFetch();
+    const error = await rejection(fetchPickerToken(undefined, { timeoutMs: 5 }));
+    expect(error.status).toBe(0);
+    expect(error.code).toBe(CREATE_DOC_TIMEOUT_CODE);
+  });
+
+  it("có signal ngoài, mạng treo quá hạn → vẫn code timeout", async () => {
+    stubHangingFetch();
+    const controller = new AbortController();
+    const error = await rejection(fetchPickerToken(controller.signal, { timeoutMs: 5 }));
+    expect(error.code).toBe(CREATE_DOC_TIMEOUT_CODE);
+    expect(controller.signal.aborted).toBe(false);
+  });
+
+  it("signal ngoài abort → ném lại AbortError, không đổi thành timeout", async () => {
+    stubHangingFetch();
+    const controller = new AbortController();
+    const pending = fetchPickerToken(controller.signal, { timeoutMs: 60_000 });
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    await expect(pending).rejects.not.toBeInstanceOf(CreateDocRequestError);
+  });
+
+  it("signal ngoài đã abort từ trước → AbortError", async () => {
+    stubHangingFetch();
+    await expect(fetchPickerToken(AbortSignal.abort(), { timeoutMs: 60_000 })).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("không có AbortSignal.any → tự gộp signal, vẫn abort được", async () => {
+    vi.stubGlobal("AbortSignal", Object.assign(Object.create(AbortSignal), { any: undefined, timeout: AbortSignal.timeout }));
+    stubHangingFetch();
+    const controller = new AbortController();
+    const pending = fetchPickerToken(controller.signal, { timeoutMs: 60_000 });
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
   });
 });
 

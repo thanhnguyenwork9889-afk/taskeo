@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { ATTACHED_LABEL } from "@/domain/labels";
 import { buildAttachFileBody, fetchPickerToken, postAttachFile } from "./attach-doc-api";
 import { attachErrorMessage, PICKER_INVALID_MESSAGE, type AttachPhase } from "./attach-doc-state";
 import {
@@ -17,8 +18,8 @@ import {
 import { DRIVE_FILES_QUERY_KEY } from "./query-keys";
 import { useUI } from "./ui-context";
 
-// Luồng "Chọn từ Google Drive" của hộp thoại gắn file (T018, configured): nạp script + lấy token song song,
-// mở Picker, gửi file đã chọn. Logic thuần (thông báo lỗi, nhãn, parse kết quả Picker) ở các file có test.
+// Luồng "Chọn từ Google Drive" của hộp thoại gắn file (T018, configured): nạp script + lấy token song song
+// (pha `loading`, hủy được), mở Picker (`picking`), gửi file đã chọn (`attaching`). Logic thuần (thông báo lỗi, nhãn, parse kết quả Picker) ở các file có test.
 
 /** Kiểu tối thiểu của `window.gapi` / `window.google` do `api.js` gắn; khai báo cục bộ, không thêm @types. */
 type PickerWindow = Window & { gapi?: GapiLike; google?: { picker?: PickerNamespace } };
@@ -35,7 +36,10 @@ export interface AttachTarget {
 
 type PickedFile = Extract<PickerResult, { type: "picked" }>;
 
-/** Nạp script + lấy token song song rồi mở Picker. Đã unmount khi xong phần chờ → không mở, trả `null`. */
+/**
+ * Nạp script + lấy token song song rồi mở Picker. Lượt đã bị hủy (`signal` abort) hoặc đã unmount khi xong phần
+ * chờ → không mở, trả `null`. Token có hạn chờ phía client (`fetchPickerToken`).
+ */
 async function launchPicker(
   signal: AbortSignal,
   isMounted: () => boolean,
@@ -45,7 +49,7 @@ async function launchPicker(
     loadPickerScript<HTMLScriptElement>({ doc: document, getGapi: () => pickerWindow().gapi }),
     fetchPickerToken(signal),
   ]);
-  if (!isMounted()) return null;
+  if (signal.aborted || !isMounted()) return null;
   const ns = pickerWindow().google?.picker;
   if (!ns) throw new PickerLoadError();
   return openPicker(ns, buildPickerOptions(token), onResult);
@@ -90,8 +94,10 @@ function usePickerSession() {
       else handle.dispose();
     },
     closePicker,
+    /** Kết thúc lượt: đóng Picker, abort fetch token còn bay (kết quả nạp đến sau bị bỏ qua). */
     end() {
       closePicker();
+      abort.current?.abort();
       abort.current = null;
       running.current = false;
     },
@@ -124,8 +130,10 @@ export function useAttachDoc({ onDone }: UseAttachDocOptions) {
       const file = await postAttachFile(buildAttachFileBody({ driveFileId: picked.id, ...target }));
       // Lối tắt đã tạo: làm mới danh sách kể cả khi hộp thoại đã bị gỡ.
       void queryClient.invalidateQueries({ queryKey: DRIVE_FILES_QUERY_KEY });
+      session.end();
       if (!session.isMounted()) return;
-      notify(`Đã gắn “${file.name}”`);
+      setPhase("idle");
+      notify(`${ATTACHED_LABEL} “${file.name}”`);
       onDone();
     } catch (caught) {
       stop(attachErrorMessage(caught, picked.name));
@@ -145,15 +153,23 @@ export function useAttachDoc({ onDone }: UseAttachDocOptions) {
     const signal = session.begin();
     if (!signal) return;
     setError(null);
-    setPhase("opening");
+    setPhase("loading");
     launchPicker(signal, session.isMounted, (result) => handleResult(result, target))
       .then((handle) => {
-        if (handle) session.adopt(handle);
+        if (!handle) return;
+        session.adopt(handle);
+        if (session.isMounted()) setPhase("picking");
       })
       .catch((caught: unknown) => {
-        if (session.isMounted()) stop(attachErrorMessage(caught));
+        // Lượt đã bị hủy (abort / unmount): lỗi abort hay lỗi nạp script đến sau đều bỏ qua.
+        if (!signal.aborted && session.isMounted()) stop(attachErrorMessage(caught));
       });
   };
 
-  return { phase, error, choose };
+  /** Hủy lượt đang nạp script / lấy token (pha `loading`): abort fetch, bỏ kết quả nạp, về `idle`. */
+  const cancel = () => {
+    if (phase === "loading") stop(null);
+  };
+
+  return { phase, error, choose, cancel };
 }

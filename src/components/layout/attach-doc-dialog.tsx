@@ -4,7 +4,14 @@ import type { FormEvent } from "react";
 import { HardDrive } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { control, cx, primaryButton, secondaryButton } from "@/components/ui/styles";
-import { attachButtonLabel, attachDialogState, isAttachBusy, type AttachDialogState, type AttachPhase } from "./attach-doc-state";
+import {
+  attachButtonLabel,
+  attachDialogState,
+  canDismissAttach,
+  isAttachBusy,
+  type AttachDialogState,
+  type AttachPhase,
+} from "./attach-doc-state";
 import type { NamedOption } from "./create-doc-api";
 import { DriveConnectPrompt } from "./drive-connect-prompt";
 import { DrivePlacementFields, LoadingSkeleton, SpacesError, placementStatusClass } from "./drive-placement-fields";
@@ -31,15 +38,18 @@ export function DriveAttachDocDialog({ request, onClose }: DriveAttachDocDialogP
   const spacesQuery = useApiSpaces({ enabled: driveConnected });
   const spaces = spacesQuery.data ?? [];
   const state = attachDialogState({ driveConnected, spacesStatus: spacesQuery.status, spaceCount: spaces.length });
-  const { phase, error, choose } = useAttachDoc({ onDone: onClose });
-  const busy = isAttachBusy(phase);
-  // Đang chọn / gửi: Picker là iframe đè lên Modal → không cho Esc / bấm ngoài / Hủy đóng hộp thoại.
+  const { phase, error, choose, cancel } = useAttachDoc({ onDone: onClose });
+  const dismissible = canDismissAttach(phase);
+  // Picker đang mở (iframe đè lên Modal) / đang gửi → không cho Esc / bấm ngoài / Hủy đóng hộp thoại.
+  // Đang nạp script / lấy token → đóng được: hủy lượt trước rồi đóng.
   const close = () => {
-    if (!busy) onClose();
+    if (!dismissible) return;
+    cancel();
+    onClose();
   };
 
   return (
-    <Modal title={TITLE} onClose={close} dismissible={!busy}>
+    <Modal title={TITLE} onClose={close} dismissible={dismissible}>
       {state === "ready" ? (
         <AttachForm request={request} spaces={spaces} phase={phase} error={error} onChoose={choose} onCancel={close} />
       ) : (
@@ -87,7 +97,7 @@ interface AttachFormProps {
   phase: AttachPhase;
   error: string | null;
   onChoose: (target: AttachTarget) => void;
-  /** Hủy: bản có kiểm `busy`. */
+  /** Hủy: bản có kiểm `canDismissAttach`. */
   onCancel: () => void;
 }
 
@@ -130,7 +140,7 @@ function FormActions({ phase, blocked, onCancel }: FormActionsProps) {
   const busy = isAttachBusy(phase);
   return (
     <div className="flex justify-end gap-3">
-      <button type="button" onClick={onCancel} disabled={busy} className={cancelClass}>
+      <button type="button" onClick={onCancel} disabled={!canDismissAttach(phase)} className={cancelClass}>
         Hủy
       </button>
       <button

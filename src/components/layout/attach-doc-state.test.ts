@@ -9,6 +9,7 @@ import {
   attachButtonLabel,
   attachDialogState,
   attachErrorMessage,
+  canDismissAttach,
   isAttachBusy,
   PICKER_INVALID_MESSAGE,
 } from "./attach-doc-state";
@@ -74,6 +75,12 @@ describe("attachErrorMessage", () => {
     expect(message).toContain("Tài liệu gần đây");
   });
 
+  it("timeout khi lấy token (status 0, code timeout) → câu quá lâu, không phải câu chung", () => {
+    const message = attachErrorMessage(new CreateDocRequestError("Máy chủ phản hồi quá lâu", 0, CREATE_DOC_TIMEOUT_CODE));
+    expect(message).toContain("quá lâu");
+    expect(message).not.toBe("Không gắn được tài liệu. Kiểm tra kết nối mạng rồi thử lại.");
+  });
+
   it("script_load_failed → không tải được Google Picker, nhắc trình chặn quảng cáo", () => {
     const message = attachErrorMessage(new PickerLoadError());
     expect(message).toContain("Không tải được Google Picker");
@@ -102,17 +109,30 @@ describe("attachErrorMessage", () => {
 describe("isAttachBusy", () => {
   it.each([
     ["idle", false],
-    ["opening", true],
+    ["loading", true],
+    ["picking", true],
     ["attaching", true],
   ] as const)("%s → %s", (phase, expected) => {
     expect(isAttachBusy(phase)).toBe(expected);
   });
 });
 
+describe("canDismissAttach", () => {
+  it.each([
+    ["idle", true],
+    ["loading", true],
+    ["picking", false],
+    ["attaching", false],
+  ] as const)("%s → %s", (phase, expected) => {
+    expect(canDismissAttach(phase)).toBe(expected);
+  });
+});
+
 describe("attachButtonLabel", () => {
   it.each([
     ["idle", "Chọn từ Google Drive"],
-    ["opening", "Đang mở Google Drive…"],
+    ["loading", "Đang mở Google Drive…"],
+    ["picking", "Đang chọn file trên Google Drive…"],
     ["attaching", "Đang gắn…"],
   ] as const)("%s → %s", (phase, expected) => {
     expect(attachButtonLabel(phase)).toBe(expected);
