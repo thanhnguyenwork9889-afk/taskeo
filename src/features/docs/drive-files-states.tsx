@@ -1,46 +1,16 @@
 "use client";
 
-import { useFormStatus } from "react-dom";
-import { usePathname, useSearchParams } from "next/navigation";
-import { AlertTriangle, HardDrive, RotateCw } from "lucide-react";
-import { connectGoogleDrive } from "@/server/auth/actions";
-import { currentLocation } from "@/components/layout/drive-status";
-import { cx, primaryButton, secondaryButton } from "@/components/ui/styles";
+import { AlertTriangle, RotateCw } from "lucide-react";
+import { cx, secondaryButton } from "@/components/ui/styles";
 import { driveFilesErrorInfo } from "./drive-files-state";
 
 // Các trạng thái phụ của danh sách file Drive (T015): mời kết nối, đang tải, lỗi.
 // Chỉ vẽ phần nội dung; khung (card) do nơi dùng quyết định.
+// `DriveConnectPrompt` đã chuyển sang `components/layout` (T017); re-export để chỗ dùng cũ không đổi.
+
+export { DriveConnectPrompt } from "@/components/layout/drive-connect-prompt";
 
 const blockClass = "flex flex-col items-center border-t border-line-soft px-4 py-8 text-center";
-
-/** Lời mời kết nối Google Drive; submit `connectGoogleDrive` rồi quay lại đúng trang hiện tại. */
-export function DriveConnectPrompt() {
-  const pathname = usePathname();
-  const redirectTo = currentLocation(pathname, useSearchParams().toString());
-  return (
-    <div className={blockClass}>
-      <HardDrive className="mb-3 h-8 w-8 text-brand" aria-hidden />
-      <p className="text-sm font-medium">Kết nối Google Drive để xem tài liệu</p>
-      <p className="mb-5 mt-2 max-w-sm text-sm leading-6 text-muted">
-        Taskeo chỉ xin quyền với các file do Taskeo tạo hoặc bạn mở bằng Taskeo.
-      </p>
-      <form action={connectGoogleDrive}>
-        <input type="hidden" name="redirectTo" value={redirectTo} />
-        <ConnectButton />
-      </form>
-    </div>
-  );
-}
-
-function ConnectButton() {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" disabled={pending} className={cx(primaryButton, "disabled:cursor-wait disabled:opacity-60")}>
-      <HardDrive className="h-4 w-4" aria-hidden />
-      {pending ? "Đang chuyển tới Google…" : "Kết nối Google Drive"}
-    </button>
-  );
-}
 
 /** Khung chờ: vài dòng giả có cùng chiều cao với `FileRow`. */
 export function DriveFilesSkeleton({ rows }: { rows: number }) {
