@@ -5,6 +5,7 @@ import {
   driveStorageViewState,
   storageBarClass,
   storageBarWidth,
+  storageStatusText,
   storageTooltip,
   type DriveStorageStateInput,
 } from "./drive-storage-state";
@@ -105,5 +106,31 @@ describe("storageTooltip", () => {
   it("không đổi object đầu vào", () => {
     const storage = Object.freeze({ usage: 1, limit: 2, usageInDrive: 1024 ** 3, usageInDriveTrash: 850 * 1024 ** 2 });
     expect(storageTooltip(storage)).toBe("Trong Drive: 1 GB · Thùng rác: 850 MB");
+  });
+});
+
+describe("storageStatusText", () => {
+  const storage = { usage: 1536, limit: 1024 ** 2, usageInDrive: 0, usageInDriveTrash: 0 };
+
+  it("hidden → chuỗi rỗng", () => {
+    expect(storageStatusText({ state: "hidden", storage: null, retrying: false })).toBe("");
+  });
+
+  it("loading → Đang tải dung lượng", () => {
+    expect(storageStatusText({ state: "loading", storage: null, retrying: false })).toBe("Đang tải dung lượng");
+  });
+
+  it("error → Không tải được dung lượng; đang thử lại → Đang thử lại… (để lần thất bại sau được đọc lại)", () => {
+    expect(storageStatusText({ state: "error", storage: null, retrying: false })).toBe("Không tải được dung lượng");
+    expect(storageStatusText({ state: "error", storage: null, retrying: true })).toBe("Đang thử lại…");
+  });
+
+  it("ready → chuỗi dung lượng, kể cả khi đang refetch nền", () => {
+    expect(storageStatusText({ state: "ready", storage, retrying: false })).toBe("Đã dùng 1,5 KB / 1 MB");
+    expect(storageStatusText({ state: "ready", storage, retrying: true })).toBe("Đã dùng 1,5 KB / 1 MB");
+  });
+
+  it("ready nhưng thiếu dữ liệu → chuỗi rỗng", () => {
+    expect(storageStatusText({ state: "ready", storage: null, retrying: false })).toBe("");
   });
 });

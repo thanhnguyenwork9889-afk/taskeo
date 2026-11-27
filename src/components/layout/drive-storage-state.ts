@@ -1,5 +1,5 @@
 import { DRIVE_NOT_CONNECTED_CODE } from "@/domain/drive-files";
-import { formatBytes, type StorageLevel } from "@/domain/drive-storage";
+import { formatBytes, formatStorageUsage, type StorageLevel } from "@/domain/drive-storage";
 import type { DriveStorage } from "@/domain/types";
 import { DriveStorageRequestError } from "./drive-storage-api";
 
@@ -55,4 +55,21 @@ export function storageBarWidth(percent: number): string {
 /** Tooltip: "Trong Drive: X · Thùng rác: Y". */
 export function storageTooltip(storage: DriveStorage): string {
   return `Trong Drive: ${formatBytes(storage.usageInDrive)} · Thùng rác: ${formatBytes(storage.usageInDriveTrash)}`;
+}
+
+export interface DriveStorageStatusInput {
+  state: DriveStorageViewState;
+  storage: DriveStorage | null;
+  retrying: boolean;
+}
+
+/**
+ * Chữ của vùng `role="status"`: đổi nội dung theo trạng thái để trình đọc màn hình đọc kết quả.
+ * Đang thử lại sau lỗi → "Đang thử lại…", nên lần thất bại tiếp theo vẫn đổi chữ và được đọc lại.
+ */
+export function storageStatusText({ state, storage, retrying }: DriveStorageStatusInput): string {
+  if (state === "loading") return "Đang tải dung lượng";
+  if (state === "error") return retrying ? "Đang thử lại…" : "Không tải được dung lượng";
+  if (state === "ready" && storage) return formatStorageUsage(storage);
+  return "";
 }
