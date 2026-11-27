@@ -27,7 +27,8 @@ const SPACE_NOT_FOUND_MESSAGE = "Không tìm thấy không gian";
 const PROJECT_NOT_FOUND_MESSAGE = "Không tìm thấy dự án";
 const DRIVE_NOT_CONNECTED_MESSAGE = "Bạn chưa kết nối Google Drive";
 const DRIVE_ERROR_MESSAGE = "Không tải được tài liệu từ Google Drive, vui lòng thử lại sau";
-const DRIVE_CREATE_ERROR_MESSAGE = "Không tạo được tài liệu trên Google Drive, vui lòng thử lại";
+const DRIVE_CREATE_ERROR_MESSAGE =
+  "Không tạo được tài liệu trên Google Drive. Tài liệu có thể đã được tạo — hãy xem Tài liệu gần đây trước khi thử lại.";
 
 /**
  * GET /api/files?spaceId=&projectId=&kind=&limit=

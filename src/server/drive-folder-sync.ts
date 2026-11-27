@@ -30,8 +30,11 @@ function logDriveDbError(message: string, logContext: LogContext, error: unknown
   console.error(message, { ...logContext, error: error instanceof Error ? error.name : "unknown" });
 }
 
-/** Chạy một lệnh ghi best-effort: lỗi chỉ log an toàn, không ném. */
-async function saveDriveFolderId(
+/**
+ * Chạy một lệnh ghi id thư mục Drive best-effort: lỗi chỉ log an toàn
+ * (`"<prefix> Không lưu được driveFolderId"`), không ném.
+ */
+export async function saveDriveFolderId(
   write: () => Promise<unknown>,
   log: DriveFolderLog,
   logContext: LogContext,

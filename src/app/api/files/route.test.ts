@@ -338,7 +338,10 @@ describe("POST /api/files — kết quả", () => {
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({
       data: null,
-      error: { message: "Không tạo được tài liệu trên Google Drive, vui lòng thử lại" },
+      error: {
+        message:
+          "Không tạo được tài liệu trên Google Drive. Tài liệu có thể đã được tạo — hãy xem Tài liệu gần đây trước khi thử lại.",
+      },
     });
   });
 

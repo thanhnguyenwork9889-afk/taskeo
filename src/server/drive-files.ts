@@ -195,6 +195,10 @@ function targetIndex(target: CreateTarget, folderId: string) {
  * Tạo một Google Doc / Sheet / Slide trống trong thư mục Drive của dự án (nếu có `projectId`) hoặc
  * không gian, trả `DriveFileItem` cùng hình dạng `GET /api/files`. Thư mục đích chưa có → tạo bù;
  * tạo bù không được → `drive_error`, không tạo file ra ngoài thư mục Taskeo. Không ghi Activity.
+ *
+ * Không có hạn tổng ở server: mỗi lệnh gọi Google ≤ 10 s, nên tổng tối đa ~30 s (tạo bù thư mục không
+ * gian + dự án + tạo file). Client hết hạn trước khi bước cuối xong, hoặc file đã tạo nhưng không ánh xạ
+ * được (`drive_error`), có thể để lại file mồ côi trên Drive; người dùng thử lại sẽ tạo bản trùng.
  */
 export async function createFile(
   userId: string,
@@ -222,5 +226,12 @@ export async function createFile(
     parents: result.file.parents?.length ? result.file.parents : [folder.folderId],
   };
   const file = toDriveFileItem(raw, targetIndex(target, folder.folderId));
-  return file ? { ok: true, file } : { ok: false, reason: "drive_error" };
+  if (file) return { ok: true, file };
+  // File đã nằm trên Drive nhưng không trả được: chỉ log id nội bộ, không tên file / URL.
+  console.error(`${FILES_LOG.prefix} File Drive vừa tạo không ánh xạ được`, {
+    userId,
+    spaceId: target.space.id,
+    projectId: target.project?.id ?? null,
+  });
+  return { ok: false, reason: "drive_error" };
 }

@@ -10,7 +10,13 @@ const SPACES_PATH = "/api/spaces";
 const FILES_PATH = "/api/files";
 const FALLBACK_MESSAGE = "Không gọi được máy chủ";
 const MALFORMED_MESSAGE = "Phản hồi từ máy chủ không hợp lệ";
+const TIMEOUT_MESSAGE = "Máy chủ phản hồi quá lâu";
 const MAX_NETWORK_RETRIES = 1;
+
+/** Hạn chờ `POST /api/files` ở client; lớn hơn tổng hạn phía server (~30 s) để server kịp trả lỗi trước. */
+export const CREATE_FILE_CLIENT_TIMEOUT_MS = 45_000;
+/** `code` của `CreateDocRequestError` khi hết hạn chờ ở client (kèm `status` 0). */
+export const CREATE_DOC_TIMEOUT_CODE = "timeout";
 
 /** Lỗi khi API trả mã không OK hoặc phản hồi sai hình dạng. */
 export class CreateDocRequestError extends Error {
@@ -117,14 +123,31 @@ export function fetchApiProjects(spaceId: string, signal?: AbortSignal): Promise
   return request(`${SPACES_PATH}/${encodeURIComponent(spaceId)}/projects`, { signal }, optionsFromBody);
 }
 
-/** Tạo file Google trống trong thư mục Drive (`POST /api/files`, 201 `{ data: { file } }`). */
-export function postDriveFile(body: CreateFileBody): Promise<DriveFileItem> {
+function isTimeout(signal: AbortSignal): boolean {
+  return signal.aborted && signal.reason instanceof DOMException && signal.reason.name === "TimeoutError";
+}
+
+/**
+ * Tạo file Google trống trong thư mục Drive (`POST /api/files`, 201 `{ data: { file } }`). Quá `timeoutMs`
+ * → `CreateDocRequestError` status 0, code `CREATE_DOC_TIMEOUT_CODE` (file có thể đã được tạo).
+ */
+export async function postDriveFile(
+  body: CreateFileBody,
+  { timeoutMs = CREATE_FILE_CLIENT_TIMEOUT_MS }: { timeoutMs?: number } = {},
+): Promise<DriveFileItem> {
+  const signal = AbortSignal.timeout(timeoutMs);
   const init: RequestInit = {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal,
   };
-  return request(FILES_PATH, init, fileFromBody);
+  try {
+    return await request(FILES_PATH, init, fileFromBody);
+  } catch (error) {
+    if (isTimeout(signal)) throw new CreateDocRequestError(TIMEOUT_MESSAGE, 0, CREATE_DOC_TIMEOUT_CODE);
+    throw error;
+  }
 }
 
 /** Giá trị form → body API: trim tên, bỏ `projectId` rỗng. Không sửa `values`. */

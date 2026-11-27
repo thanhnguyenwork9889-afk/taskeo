@@ -44,7 +44,7 @@ export function closePendingTab(tab: PendingTab | null): void {
 
 /**
  * Sau khi API trả về: url null / không phải Drive HTTPS → đóng tab, `no_url`; không có tab (bị chặn) → `blocked`
- * (giao diện hiện liên kết); còn lại chuyển tab tới file → `opened`.
+ * (giao diện hiện liên kết); còn lại chuyển tab tới file → `opened`. Gán địa chỉ ném lỗi → cố đóng tab, `blocked`.
  */
 export function finishPendingTab(tab: PendingTab | null, url: string | null): FinishPendingTabResult {
   if (!url || !isDriveUrl(url)) {
@@ -52,6 +52,11 @@ export function finishPendingTab(tab: PendingTab | null, url: string | null): Fi
     return "no_url";
   }
   if (!tab) return "blocked";
-  tab.location.href = url;
+  try {
+    tab.location.href = url;
+  } catch {
+    closePendingTab(tab);
+    return "blocked";
+  }
   return "opened";
 }

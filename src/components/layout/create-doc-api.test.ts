@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { DRIVE_NOT_CONNECTED_CODE } from "@/domain/drive-files";
 import type { DriveFileItem } from "@/domain/types";
 import {
+  CREATE_DOC_TIMEOUT_CODE,
+  CREATE_FILE_CLIENT_TIMEOUT_MS,
   CreateDocRequestError,
   buildCreateFileBody,
   fetchApiProjects,
@@ -155,6 +157,44 @@ describe("postDriveFile", () => {
     await rejection(postDriveFile(body));
     stubFetch(jsonResponse({ data: FILE, error: null }, 201));
     await rejection(postDriveFile(body));
+  });
+});
+
+describe("postDriveFile timeout", () => {
+  const body = { name: "Kế hoạch", kind: "doc" as const, spaceId: "s1" };
+
+  /** fetch giả treo cho tới khi signal huỷ, rồi reject bằng lý do huỷ (như trình duyệt). */
+  function stubHangingFetch() {
+    const fake = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(
+      (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+        }),
+    );
+    vi.stubGlobal("fetch", fake);
+    return fake;
+  }
+
+  it("hạn mặc định lớn hơn tổng hạn server (~30 s)", () => {
+    expect(CREATE_FILE_CLIENT_TIMEOUT_MS).toBe(45_000);
+  });
+
+  it("truyền AbortSignal cho fetch", async () => {
+    const fake = stubFetch(jsonResponse({ data: { file: FILE }, error: null }, 201));
+    await postDriveFile(body);
+    expect(fake.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("fetch treo quá hạn → CreateDocRequestError status 0, code timeout", async () => {
+    stubHangingFetch();
+    const error = await rejection(postDriveFile(body, { timeoutMs: 10 }));
+    expect(error.status).toBe(0);
+    expect(error.code).toBe(CREATE_DOC_TIMEOUT_CODE);
+  });
+
+  it("lỗi mạng khác không bị đổi thành timeout", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new TypeError("Failed to fetch"))));
+    await expect(postDriveFile(body, { timeoutMs: 1_000 })).rejects.toBeInstanceOf(TypeError);
   });
 });
 

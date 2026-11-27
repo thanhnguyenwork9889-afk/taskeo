@@ -534,12 +534,51 @@ describe("createFile", () => {
     });
   });
 
-  it("file Drive không ánh xạ được (mimeType lạ) → drive_error", async () => {
+  it("file Drive không ánh xạ được (mimeType lạ) → drive_error, log đúng một dòng an toàn", async () => {
     const deps = makeDeps({ createDriveFile: driveOk({ mimeType: "text/plain" }) });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    await expect(createFile(USER, { name: "A", kind: "doc", spaceId: "s1" }, deps)).resolves.toEqual({
-      ok: false,
-      reason: "drive_error",
-    });
+    try {
+      await expect(
+        createFile(USER, { name: "Bí mật", kind: "doc", spaceId: "s1", projectId: "p1" }, deps),
+      ).resolves.toEqual({ ok: false, reason: "drive_error" });
+      expect(log).toHaveBeenCalledTimes(1);
+      expect(log.mock.calls[0]).toEqual([
+        "[files] File Drive vừa tạo không ánh xạ được",
+        { userId: USER, spaceId: "s1", projectId: "p1" },
+      ]);
+      const logged = JSON.stringify(log.mock.calls);
+      expect(logged).not.toContain("Kế hoạch");
+      expect(logged).not.toContain("Bí mật");
+      expect(logged).not.toContain("docs.google.com");
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it("file không ánh xạ được trong không gian (không dự án) → log projectId null", async () => {
+    const deps = makeDeps({ createDriveFile: driveOk({ mimeType: "text/plain" }) });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      await createFile(USER, { name: "A", kind: "doc", spaceId: "s1" }, deps);
+      expect(log.mock.calls).toEqual([
+        ["[files] File Drive vừa tạo không ánh xạ được", { userId: USER, spaceId: "s1", projectId: null }],
+      ]);
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it("createDriveFile error → không log ở createFile", async () => {
+    const deps = makeDeps({ createDriveFile: vi.fn().mockResolvedValue({ status: "error" }) });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      await createFile(USER, { name: "A", kind: "doc", spaceId: "s1" }, deps);
+      expect(log).not.toHaveBeenCalled();
+    } finally {
+      log.mockRestore();
+    }
   });
 });

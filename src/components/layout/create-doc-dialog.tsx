@@ -1,26 +1,26 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useMutation, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { AlertTriangle, RotateCw } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
-import type { DocKind, DriveFileItem } from "@/domain/types";
+import type { DocKind } from "@/domain/types";
 import { SPACE_NAME_MAX } from "@/domain/validation";
 import { control, cx, field, primaryButton, secondaryButton } from "@/components/ui/styles";
 import { buildCreateFileBody, postDriveFile, type CreateFileBody, type CreateFileFormValues, type NamedOption } from "./create-doc-api";
-import { createDocDialogState, createDocErrorMessage, initialProjectId, initialSpaceId, type CreateDocDialogState } from "./create-doc-state";
+import { createDocDialogState, initialProjectId, initialSpaceId, requestedProjectWait, type CreateDocDialogState } from "./create-doc-state";
 import { DocKindField } from "./doc-kind-field";
 import { DriveConnectPrompt } from "./drive-connect-prompt";
-import { closePendingTab, finishPendingTab, openPendingTab } from "./pending-tab";
-import { DRIVE_FILES_QUERY_KEY } from "./query-keys";
-import { useUI, useViewer, type CreateRequest } from "./ui-context";
+import { useViewer, type CreateRequest } from "./ui-context";
 import { useApiProjects, useApiSpaces } from "./use-create-doc-data";
+import { useCreateDocSubmit, type CreatedFile, type CreateFileMutation } from "./use-create-doc-submit";
 
 // Hộp thoại tạo Doc / Sheet / Slide trong thư mục Drive (T017, chế độ configured). Không gian / dự án
 // lấy từ API vì ID store demo chưa khớp DB (T59). Component gọi `useViewer()` → phải nằm trong <Suspense>.
 
 type DocRequest = Extract<CreateRequest, { kind: "doc" }>;
-type CreateFileMutation = UseMutationResult<DriveFileItem, Error, CreateFileBody>;
+/** Giá trị tạm của ô dự án khi tải dự án được yêu cầu lỗi: buộc người dùng chọn một lựa chọn thật. */
+const CHOOSE_PROJECT_VALUE = "__choose__";
 
 const TITLE = "Tạo tài liệu mới";
 const statusClass = "flex flex-col items-center px-2 py-6 text-center";
@@ -34,10 +34,12 @@ interface DriveCreateDocDialogProps {
 export function DriveCreateDocDialog({ request, onClose }: DriveCreateDocDialogProps) {
   const { driveConnected } = useViewer();
   const spacesQuery = useApiSpaces({ enabled: driveConnected });
-  const mutation = useMutation({ mutationFn: postDriveFile });
+  // Bọc lại: TanStack truyền context làm tham số thứ hai, không được lọt vào `options` của `postDriveFile`.
+  const mutation = useMutation({ mutationFn: (body: CreateFileBody) => postDriveFile(body) });
   const spaces = spacesQuery.data ?? [];
   const state = createDocDialogState({ driveConnected, spacesStatus: spacesQuery.status, spaceCount: spaces.length });
   const busy = mutation.isPending;
+  // Modal / Hủy: không đóng khi đang gửi. Sau khi tạo xong dùng `onClose` gốc.
   const close = () => {
     if (!busy) onClose();
   };
@@ -45,7 +47,7 @@ export function DriveCreateDocDialog({ request, onClose }: DriveCreateDocDialogP
   return (
     <Modal title={TITLE} onClose={close} dismissible={!busy}>
       {state === "ready" ? (
-        <CreateDocForm request={request} spaces={spaces} mutation={mutation} onClose={close} />
+        <CreateDocForm request={request} spaces={spaces} mutation={mutation} onCancel={close} onDone={onClose} />
       ) : (
         <DialogStatus state={state} retrying={spacesQuery.isFetching} onRetry={() => void spacesQuery.refetch()} onClose={close} />
       )}
@@ -112,12 +114,6 @@ function SpacesError({ retrying, onRetry }: { retrying: boolean; onRetry: () => 
   );
 }
 
-interface CreatedFile {
-  name: string;
-  /** `null` = không có liên kết hợp lệ để mở. */
-  url: string | null;
-}
-
 /**
  * State của form. Dự án: `projectChoice === null` = người dùng chưa chọn → dùng `initialProjectId` khi danh sách
  * dự án của không gian ban đầu đã tải; đổi không gian → reset về "Không gắn dự án".
@@ -130,69 +126,62 @@ function useDocForm(request: DocRequest, spaces: NamedOption[]) {
   const [projectChoice, setProjectChoice] = useState<string | null>(null);
   const projectsQuery = useApiProjects(spaceId, { enabled: true });
   const projects = projectsQuery.data ?? [];
-  const defaultProjectId = spaceId === startSpaceId ? initialProjectId(request.projectId, projects) : "";
+  const inStartSpace = spaceId === startSpaceId;
+  const defaultProjectId = inStartSpace ? initialProjectId(request.projectId, projects) : "";
   const values: CreateFileFormValues = { name, kind, spaceId, projectId: projectChoice ?? defaultProjectId };
+  const projectWait = requestedProjectWait({
+    requestedProjectId: request.projectId,
+    projectChoice,
+    inStartSpace,
+    projectsStatus: projectsQuery.status,
+  });
   const changeSpace = (id: string) => {
     setSpaceId(id);
     setProjectChoice("");
   };
-  return { values, projects, projectsQuery, setName, setKind, changeSpace, setProjectId: setProjectChoice };
+  return { values, projects, projectsQuery, projectWait, setName, setKind, changeSpace, setProjectId: setProjectChoice };
 }
 
 interface CreateDocFormProps {
   request: DocRequest;
   spaces: NamedOption[];
   mutation: CreateFileMutation;
-  onClose: () => void;
+  /** Hủy: bản có kiểm `busy`. */
+  onCancel: () => void;
+  /** Đã tạo xong: `onClose` gốc. */
+  onDone: () => void;
 }
 
-function CreateDocForm({ request, spaces, mutation, onClose }: CreateDocFormProps) {
+function CreateDocForm({ request, spaces, mutation, onCancel, onDone }: CreateDocFormProps) {
   const form = useDocForm(request, spaces);
-  const { values, projectsQuery } = form;
-  const { notify } = useUI();
-  const queryClient = useQueryClient();
-  const [error, setError] = useState<string | null>(null);
-  const [created, setCreated] = useState<CreatedFile | null>(null);
+  const { values, projectsQuery, projectWait } = form;
+  const { submit, error, created } = useCreateDocSubmit({ mutation, onDone });
   const busy = mutation.isPending;
 
-  const submit = async (event: FormEvent) => {
+  const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     const body = buildCreateFileBody(values);
-    if (!body.name || busy) return;
-    setError(null);
-    // Mở tab ĐỒNG BỘ trong sự kiện submit, trước mọi `await`, để trình duyệt không chặn popup.
-    const tab = openPendingTab(window.open.bind(window));
-    let file: DriveFileItem;
-    try {
-      file = await mutation.mutateAsync(body);
-    } catch (caught) {
-      closePendingTab(tab);
-      setError(createDocErrorMessage(caught));
-      return;
-    }
-    void queryClient.invalidateQueries({ queryKey: DRIVE_FILES_QUERY_KEY });
-    const outcome = finishPendingTab(tab, file.url);
-    if (outcome === "opened") {
-      notify(`Đã tạo ${file.name}`);
-      onClose();
-      return;
-    }
-    setCreated({ name: file.name, url: outcome === "blocked" ? file.url : null });
+    if (!body.name || busy || projectWait) return;
+    // Gọi đồng bộ trong sự kiện: `submit` mở tab chờ trước mọi `await`.
+    void submit(body);
   };
 
-  if (created) return <CreatedNotice file={created} onClose={onClose} />;
+  if (created) return <CreatedNotice file={created} onClose={onDone} />;
 
   return (
-    <form onSubmit={(event) => void submit(event)} className="space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <DocKindField value={values.kind} onChange={form.setKind} disabled={busy} />
       <NameField value={values.name} onChange={form.setName} disabled={busy} />
       <SpaceSelect spaces={spaces} value={values.spaceId} onChange={form.changeSpace} disabled={busy} />
       <ProjectSelect
         projects={form.projects}
-        value={values.projectId}
+        value={projectWait === "error" ? CHOOSE_PROJECT_VALUE : values.projectId}
         onChange={form.setProjectId}
         loading={projectsQuery.isPending}
         failed={projectsQuery.isError}
+        waitFailed={projectWait === "error"}
+        retrying={projectsQuery.isFetching}
+        onRetry={() => void projectsQuery.refetch()}
         disabled={busy}
       />
       {error && (
@@ -200,7 +189,7 @@ function CreateDocForm({ request, spaces, mutation, onClose }: CreateDocFormProp
           {error}
         </p>
       )}
-      <FormActions busy={busy} onCancel={onClose} />
+      <FormActions busy={busy} blocked={projectWait !== null} onCancel={onCancel} />
     </form>
   );
 }
@@ -217,6 +206,7 @@ function NameField({ value, onChange, disabled }: TextFieldProps) {
       Tên
       <input
         required
+        autoFocus
         maxLength={SPACE_NAME_MAX}
         value={value}
         disabled={disabled}
@@ -251,38 +241,77 @@ interface ProjectSelectProps extends TextFieldProps {
   projects: NamedOption[];
   loading: boolean;
   failed: boolean;
+  /** Tải dự án được yêu cầu lỗi: chặn gửi tới khi người dùng tự chọn hoặc tải lại được. */
+  waitFailed: boolean;
+  retrying: boolean;
+  onRetry: () => void;
 }
 
-function ProjectSelect({ projects, value, onChange, loading, failed, disabled }: ProjectSelectProps) {
+function ProjectSelect({ projects, value, onChange, loading, failed, waitFailed, retrying, onRetry, disabled }: ProjectSelectProps) {
   return (
-    <label className="block text-sm font-medium">
-      Dự án
-      <select
-        value={value}
-        disabled={disabled || loading}
-        aria-busy={loading}
-        onChange={(event) => onChange(event.target.value)}
-        className={cx(field, "mt-2 disabled:opacity-60")}
-      >
-        <option value="">{loading ? "Đang tải dự án…" : "Không gắn dự án"}</option>
-        {projects.map((project) => (
-          <option key={project.id} value={project.id}>
-            {project.name}
-          </option>
-        ))}
-      </select>
-      {failed && <span className="mt-1 block text-xs font-normal text-muted">Không tải được danh sách dự án; tài liệu sẽ nằm trong thư mục không gian.</span>}
-    </label>
+    <div>
+      <label className="block text-sm font-medium">
+        Dự án
+        <select
+          value={value}
+          disabled={disabled || loading}
+          aria-busy={loading}
+          onChange={(event) => onChange(event.target.value)}
+          className={cx(field, "mt-2 disabled:opacity-60")}
+        >
+          {waitFailed && (
+            <option value={CHOOSE_PROJECT_VALUE} disabled>
+              Chọn dự án…
+            </option>
+          )}
+          <option value="">{loading ? "Đang tải dự án…" : "Không gắn dự án"}</option>
+          {projects.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {waitFailed && <ProjectsRetry retrying={retrying} onRetry={onRetry} />}
+      {failed && !waitFailed && (
+        <span className="mt-1 block text-xs text-muted">Không tải được danh sách dự án; tài liệu sẽ nằm trong thư mục không gian.</span>
+      )}
+    </div>
   );
 }
 
-function FormActions({ busy, onCancel }: { busy: boolean; onCancel: () => void }) {
+/** Mở từ trang dự án mà tải dự án lỗi: thử lại, hoặc người dùng tự chọn trong ô Dự án. */
+function ProjectsRetry({ retrying, onRetry }: { retrying: boolean; onRetry: () => void }) {
+  return (
+    <div role="alert" className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm leading-6 text-red-800">
+      <span>Không tải được dự án đã chọn. Hãy thử lại hoặc chọn một lựa chọn trong ô Dự án.</span>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={retrying}
+        className="inline-flex shrink-0 items-center gap-1 font-medium underline disabled:cursor-wait disabled:opacity-60"
+      >
+        <RotateCw className={cx("h-4 w-4", retrying && "animate-spin")} aria-hidden />
+        {retrying ? "Đang thử lại…" : "Thử lại"}
+      </button>
+    </div>
+  );
+}
+
+interface FormActionsProps {
+  busy: boolean;
+  /** Đang chờ / lỗi tải dự án được yêu cầu: không cho gửi. */
+  blocked: boolean;
+  onCancel: () => void;
+}
+
+function FormActions({ busy, blocked, onCancel }: FormActionsProps) {
   return (
     <div className="flex justify-end gap-3">
       <button type="button" onClick={onCancel} disabled={busy} className={cancelClass}>
         Hủy
       </button>
-      <button type="submit" disabled={busy} className={cx(primaryButton, "disabled:cursor-wait disabled:opacity-60")}>
+      <button type="submit" disabled={busy || blocked} className={cx(primaryButton, "disabled:opacity-60", busy ? "disabled:cursor-wait" : "disabled:cursor-not-allowed")}>
         {busy ? "Đang tạo…" : "Tạo mới"}
       </button>
     </div>

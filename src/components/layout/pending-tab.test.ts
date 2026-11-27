@@ -48,6 +48,36 @@ describe("finishPendingTab", () => {
     expect(tab.close).not.toHaveBeenCalled();
   });
 
+  it("gán location ném lỗi → cố đóng tab, blocked", () => {
+    const close = vi.fn();
+    const tab = {
+      opener: null,
+      location: Object.defineProperty({} as { href: string }, "href", {
+        set() {
+          throw new Error("denied");
+        },
+      }),
+      close,
+    } as PendingTab;
+    expect(finishPendingTab(tab, DRIVE_URL)).toBe("blocked");
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it("gán location lỗi và close cũng lỗi → vẫn blocked, không ném", () => {
+    const tab = {
+      opener: null,
+      location: Object.defineProperty({} as { href: string }, "href", {
+        set() {
+          throw new Error("denied");
+        },
+      }),
+      close() {
+        throw new Error("closed");
+      },
+    } as PendingTab;
+    expect(finishPendingTab(tab, DRIVE_URL)).toBe("blocked");
+  });
+
   it("tab null → blocked", () => {
     expect(finishPendingTab(null, DRIVE_URL)).toBe("blocked");
   });
