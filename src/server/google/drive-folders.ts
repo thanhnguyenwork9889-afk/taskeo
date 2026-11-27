@@ -23,7 +23,9 @@ export interface DriveRequestOptions {
 
 /**
  * Phần nhỏ nhất của client Drive v3 mà app dùng (dễ giả lập trong test). `about.get` chỉ dùng cho
- * dung lượng (`drive-storage.ts`), chạy được với scope `drive.file`.
+ * dung lượng (`drive-storage.ts`), chạy được với scope `drive.file`. `files.get` dùng cho file đích
+ * của lối tắt (`drive-shortcuts.ts`); với `drive.file` chỉ đọc được file app tạo hoặc user đã chọn
+ * qua Google Picker.
  */
 export interface DriveFilesClient {
   about: {
@@ -33,6 +35,11 @@ export interface DriveFilesClient {
     ): Promise<{ data: drive_v3.Schema$About }>;
   };
   files: {
+    /** Đọc metadata một file (chỉ `fields` đã xin). Dùng khi kiểm file đích trước khi tạo lối tắt. */
+    get(
+      params: drive_v3.Params$Resource$Files$Get,
+      options?: DriveRequestOptions,
+    ): Promise<{ data: drive_v3.Schema$File }>;
     list(
       params: drive_v3.Params$Resource$Files$List,
       options?: DriveRequestOptions,
