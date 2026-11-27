@@ -62,32 +62,60 @@ function errorName(error: unknown): string {
   return error instanceof Error ? error.name : "UnknownError";
 }
 
+/** Giải mã token đã lưu; lỗi (đổi khoá, dữ liệu hỏng) trả null và chỉ log tên lỗi. */
+function tryDecrypt(decrypt: (payload: string) => string, encrypted: string, userId: string): string | null {
+  try {
+    return decrypt(encrypted);
+  } catch (error: unknown) {
+    console.error("[auth/disconnect] Không giải mã được token Google", { userId, error: errorName(error) });
+    return null;
+  }
+}
+
+type DisconnectModules = [
+  typeof import("@/server/db"),
+  typeof import("@/server/google/revoke"),
+  typeof import("@/server/crypto"),
+];
+
+/** Nạp module và đọc Account google; lỗi (nạp module, DB) trả null và chỉ log tên lỗi. */
+async function loadGoogleAccount(userId: string) {
+  try {
+    const modules: DisconnectModules = await Promise.all([
+      import("@/server/db"),
+      import("@/server/google/revoke"),
+      import("@/server/crypto"),
+    ]);
+    const account = await modules[0].prisma.account.findFirst({
+      where: { userId, provider: "google" },
+      orderBy: GOOGLE_ACCOUNT_ORDER,
+      select: { providerAccountId: true, refresh_token: true, access_token: true },
+    });
+    return { modules, account };
+  } catch (error: unknown) {
+    console.error("[auth/disconnect] Không đọc được Account Google", { userId, error: errorName(error) });
+    return null;
+  }
+}
+
 /**
  * Thu hồi quyền Google của user rồi xoá token trong Account google. Trả true nếu đã ngắt.
- * Không ném: mọi lỗi (giải mã, ghi DB) thành false và chỉ log `{ userId, error: error.name }`.
+ * Không ném: mọi lỗi (nạp module, đọc / ghi DB) thành false và chỉ log `{ userId, error: error.name }`.
  * Lỗi ghi DB cũng thành false (không để lan ra) để người dùng thấy thông báo "thử lại" thay vì
  * trang lỗi; bấm lại thì Google trả invalid_token → already-invalid → ghi lại được.
+ * Token không giải mã được (đổi khoá, dữ liệu hỏng) thì không thu hồi được ở Google, chỉ xoá khỏi
+ * DB (vẫn trả true); người dùng có thể tự gỡ quyền của app ở trang tài khoản Google.
  */
 async function revokeAndClearGoogleTokens(userId: string): Promise<boolean> {
+  const loaded = await loadGoogleAccount(userId);
+  if (!loaded?.account) return false;
+  const { account } = loaded;
   const [{ prisma }, { selectRevokeToken, revokeGoogleToken, buildDisconnectedAccountUpdate }, { decrypt }] =
-    await Promise.all([import("@/server/db"), import("@/server/google/revoke"), import("@/server/crypto")]);
-
-  const account = await prisma.account.findFirst({
-    where: { userId, provider: "google" },
-    orderBy: GOOGLE_ACCOUNT_ORDER,
-    select: { providerAccountId: true, refresh_token: true, access_token: true },
-  });
-  if (!account) return false;
+    loaded.modules;
 
   const encrypted = selectRevokeToken(account);
-  if (encrypted) {
-    let token: string;
-    try {
-      token = decrypt(encrypted);
-    } catch (error: unknown) {
-      console.error("[auth/disconnect] Không giải mã được token Google", { userId, error: errorName(error) });
-      return false;
-    }
+  const token = encrypted ? tryDecrypt(decrypt, encrypted, userId) : null;
+  if (token) {
     const result = await revokeGoogleToken(token);
     if (result === "failed") return false;
   }
@@ -111,8 +139,8 @@ async function revokeAndClearGoogleTokens(userId: string): Promise<boolean> {
  * - Demo / cấu hình thiếu → "/"; chưa đăng nhập → "/login".
  * - Ưu tiên refresh token, không có thì access token; giải mã ngay trước khi gửi, không log token.
  * - Thu hồi thành công hoặc token đã hết hiệu lực → xoá token, `scope` còn scope đăng nhập.
- *   Account không còn token → coi như đã ngắt (không gọi Google). Lỗi khác hoặc không có Account
- *   google → không đổi DB.
+ *   Account không còn token → coi như đã ngắt (không gọi Google). Token không giải mã được → không
+ *   thu hồi được ở Google, chỉ xoá khỏi DB. Lỗi khác hoặc không có Account google → không đổi DB.
  * - Về trang cũ (`redirectTo`, chỉ đường dẫn nội bộ) kèm `?drive=disconnected` / `?drive=disconnect-failed`.
  */
 export async function disconnectGoogleDrive(formData: FormData) {

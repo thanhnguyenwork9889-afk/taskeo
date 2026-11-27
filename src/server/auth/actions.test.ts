@@ -307,16 +307,48 @@ describe("disconnectGoogleDrive", () => {
     expect(target).toBe(`/docs?drive=${DISCONNECT_FAILED}`);
   });
 
-  it("reports disconnect-failed without calling Google when decrypt throws", async () => {
+  it("clears tokens without calling Google when decrypt throws (nothing readable to revoke)", async () => {
     mocks.findFirst.mockResolvedValue(storedAccount({ refresh_token: "corrupted-SECRET-payload" }));
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     const target = await runDisconnect("/docs");
 
     expect(mocks.revokeGoogleToken).not.toHaveBeenCalled();
-    expect(mocks.update).not.toHaveBeenCalled();
-    expect(target).toBe(`/docs?drive=${DISCONNECT_FAILED}`);
+    expectDisconnectedUpdate();
+    expect(target).toBe(`/docs?drive=${DISCONNECTED}`);
     expect(errorSpy).toHaveBeenCalledWith(expect.any(String), { userId: "user-1", error: "Error" });
+    errorSpy.mockRestore();
+  });
+
+  it("reports disconnect-failed when decrypt throws and the DB update also fails", async () => {
+    mocks.findFirst.mockResolvedValue(storedAccount({ refresh_token: "corrupted-SECRET-payload" }));
+    mocks.update.mockRejectedValue(new Error("write failed"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const target = await runDisconnect("/docs");
+
+    expect(mocks.revokeGoogleToken).not.toHaveBeenCalled();
+    expect(target).toBe(`/docs?drive=${DISCONNECT_FAILED}`);
+    errorSpy.mockRestore();
+  });
+
+  it("reports disconnect-failed without writing and logs only userId + error name when findFirst throws", async () => {
+    mocks.findFirst.mockRejectedValue(
+      Object.assign(new Error(`read failed ${PLAIN_REFRESH}`), { name: "PrismaClientInitializationError" }),
+    );
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const target = await runDisconnect("/docs");
+
+    expect(mocks.revokeGoogleToken).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.refresh).toHaveBeenCalledTimes(1);
+    expect(target).toBe(`/docs?drive=${DISCONNECT_FAILED}`);
+    expect(errorSpy).toHaveBeenCalledWith(expect.any(String), {
+      userId: "user-1",
+      error: "PrismaClientInitializationError",
+    });
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain(PLAIN_REFRESH);
     errorSpy.mockRestore();
   });
 
@@ -354,6 +386,7 @@ describe("disconnectGoogleDrive", () => {
     ["revoke failed", () => mocks.revokeGoogleToken.mockResolvedValue("failed")],
     ["decrypt threw", () => mocks.findFirst.mockResolvedValue(storedAccount({ refresh_token: `bad:${PLAIN_REFRESH}` }))],
     ["update threw", () => mocks.update.mockRejectedValue(new Error(`boom ${PLAIN_REFRESH} ${PLAIN_ACCESS}`))],
+    ["findFirst threw", () => mocks.findFirst.mockRejectedValue(new Error(`boom ${PLAIN_REFRESH} ${PLAIN_ACCESS}`))],
     ["success", () => undefined],
   ])("never writes a token to the console (%s)", async (_label, arrange) => {
     arrange();

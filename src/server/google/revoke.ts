@@ -67,6 +67,16 @@ async function readJsonBody(response: Response): Promise<unknown> {
   }
 }
 
+/** Huỷ body không cần đọc để giải phóng kết nối; lỗi khi huỷ bỏ qua (không ảnh hưởng kết quả). */
+async function discardBody(response: Response): Promise<null> {
+  try {
+    await response.body?.cancel();
+  } catch {
+    // Bỏ qua: body đã đóng hoặc không huỷ được.
+  }
+  return null;
+}
+
 /** Chỉ lấy tên lỗi (TypeError, TimeoutError, AbortError…), không bao giờ lấy message. */
 function errorName(error: unknown): string {
   return error instanceof Error ? error.name : "UnknownError";
@@ -88,8 +98,8 @@ export async function revokeGoogleToken(
       body: new URLSearchParams({ token }),
       signal: AbortSignal.timeout(REVOKE_TIMEOUT_MS),
     });
-    // 200 là đủ để kết luận; body thành công không mang thông tin cần thiết.
-    const body = response.status === HTTP_OK ? null : await readJsonBody(response);
+    // 200 là đủ để kết luận; body thành công không mang thông tin cần thiết nên huỷ luôn.
+    const body = response.status === HTTP_OK ? await discardBody(response) : await readJsonBody(response);
     const result = classifyRevokeResponse(response.status, body);
     if (result === "failed") {
       console.error("[google/revoke] Thu hồi token thất bại", { status: response.status });

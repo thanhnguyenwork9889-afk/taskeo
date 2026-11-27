@@ -33,6 +33,22 @@ describe("toSafeRedirectPath", () => {
     expect(toSafeRedirectPath(value)).toBe("/");
   });
 
+  it.each(["/.//evil", "/..//evil", "/%2e%2e//evil", "/a/..//evil", "/./%2e//evil?b=1"])(
+    "falls back to / when URL normalization would produce // (%s)",
+    (value) => {
+      expect(toSafeRedirectPath(value)).toBe("/");
+    },
+  );
+
+  it.each([
+    ["/a/../b", "/b"],
+    ["/a/./b", "/a/b"],
+    ["/a/%2e%2e/b?x=1#h", "/b?x=1#h"],
+    ["/../a", "/a"],
+  ])("returns the normalized path for %s", (value, expected) => {
+    expect(toSafeRedirectPath(value)).toBe(expected);
+  });
+
   it("accepts a path at the length limit and rejects one past it", () => {
     const atLimit = "/" + "a".repeat(MAX_REDIRECT_PATH_LENGTH - 1);
     expect(toSafeRedirectPath(atLimit)).toBe(atLimit);

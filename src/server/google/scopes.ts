@@ -15,7 +15,7 @@ export const GOOGLE_SCOPES = {
 export const GOOGLE_SIGN_IN_GRANTED_SCOPE =
   "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile";
 
-export type GoogleScope =(typeof GOOGLE_SCOPES)[keyof typeof GOOGLE_SCOPES];
+export type GoogleScope = (typeof GOOGLE_SCOPES)[keyof typeof GOOGLE_SCOPES];
 
 /** Account.scope là chuỗi các scope cách nhau bởi khoảng trắng; bỏ khoảng trắng thừa và chuỗi rỗng. */
 export function parseScopes(grantedScopes: string | null | undefined): string[] {
