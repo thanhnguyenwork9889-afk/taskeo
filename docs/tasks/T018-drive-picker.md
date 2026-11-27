@@ -101,6 +101,11 @@ Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-27) 
 
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
+| P1 | `80f6788` | validation (driveFileId, attachFileInput), drive-files (q lối tắt, driveEditUrl, shortcut lookup, toDriveFileItem lối tắt, isDriveFileItem, pickRawDriveFile) | ✅ | ✅ | ✅ 1647 | ✅ |
+| P2 | `7d00fb8` | drive-files.test (fields shortcutDetails, cắt trường thừa) | ✅ | ✅ | ✅ 1714 | ✅ |
+| P3 | `a7d3e35` | drive-shortcuts.test (26 test: scope, invalid_target, already_attached, log sạch, quá hạn) | ✅ | ✅ | ✅ 1714 | ✅ |
+| P4 | `2f20714` | env.test (readPickerConfig), picker-token.test (16 test) | ✅ | ✅ | ✅ 1714 | ✅ |
+| P8 | `0c905d3` | create-doc-api.test (fileFromBody shortcut, requestJson) | ✅ | ✅ | ✅ 1714 | ✅ |
 
 ## 4. Review code
 
