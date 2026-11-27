@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T012-drive-connect-toggle` |
 | Tạo từ | `develop` @ `6291f11` |
-| Trạng thái | 5-fix |
+| Trạng thái | 6-rereview |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: người dùng đề nghị sau T011 (2026-11-27): kết nối Drive ngay khi đăng nhập, và nút Kết nối Drive ở sidebar hoạt động như toggle, tắt được. Không có dòng riêng trong sheet (liên quan sheet T30, đã xong ở T010).
@@ -132,11 +132,26 @@ Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewe
 
 ## 5. Fix bug
 
+Commit trước bước 5: `349c6c2`.
+
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
-| R1 | | |
+| R1 | đã sửa: form `disconnectGoogleDrive` bọc cả `Modal`; `useCloseWhenSettled(pending, onClose)` đóng hộp khi `pending` chuyển true → false (thành công hay thất bại) | `d7396d8` |
+| R2 | đã sửa: `Modal` bỏ qua input ẩn / phần tử disabled khi chọn focus và giữ Tab; prop `initialFocusRef` — hộp ngắt kết nối focus nút "Huỷ" trước; không còn phần tử focus được thì chặn Tab | `d7396d8` |
+| R3 | đã sửa: `toSafeRedirectPath` chuẩn hoá bằng `new URL(path, "http://internal")` (origin khác hoặc pathname `//` → `/`); test `/.//evil`, `/..//evil`, `/%2e%2e//evil`, `/a/../b` → `/b`… `withQueryParam` giữ guard `//` làm lớp thêm | `d7396d8` |
+| R4 | đã sửa: token không giải mã được → không gọi Google, vẫn xoá token khỏi DB, báo `disconnected`; JSDoc + docs: token đó không thu hồi được ở Google, người dùng tự gỡ quyền ở trang tài khoản Google | `d7396d8` |
+| R5 | đã sửa: `loadGoogleAccount` bọc `import()` + `findFirst`; lỗi → `disconnect-failed`, log `{ userId, error: name }` | `d7396d8` |
+| R6 | đã sửa: `Modal` prop `dismissible` (mặc định `true`); hộp ngắt kết nối `dismissible={!pending}`, nút Huỷ / Ngắt kết nối / X disabled khi đang gửi | `d7396d8` |
+| R7 | đã sửa: định dạng `GoogleScope = (typeof …` | `d7396d8` |
+| R8 | đã sửa: công tắc dùng `aria-labelledby` (tên) + `aria-describedby` (trạng thái), id bằng `useId` | `d7396d8` |
+| R9 | đã sửa: nhánh 200 huỷ body (`response.body?.cancel()`, lỗi bỏ qua) | `d7396d8` |
+| R10 | để sau (LOW): gom `errorName` khi có nơi thứ ba cần | — |
+| R11 | chấp nhận: action bắt buộc phiên; Account không còn token thì không gọi Google; rate limit chung ở sheet T73 | — |
+| R12 | đã sửa: `persistReSignInTokens` chỉ log `error.name` | `d7396d8` |
+| R13 | để sau (LOW): gom nhãn UI khi có file nhãn chung | — |
+| R14 | chấp nhận: T011 bảo đảm một Account google mỗi user | — |
 
-Kết quả 4 lệnh sau khi sửa:
+Kết quả 4 lệnh sau khi sửa (tự chạy): typecheck ✅ · lint ✅ · test ✅ 936/936 · build ✅.
 
 ## 6. Review lại
 
