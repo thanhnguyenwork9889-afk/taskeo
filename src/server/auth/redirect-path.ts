@@ -19,3 +19,22 @@ export function toSafeRedirectPath(value: unknown): string {
   if (FORBIDDEN_CHARS.test(value)) return SAFE_FALLBACK;
   return value;
 }
+
+// Gốc giả chỉ dùng để parse đường dẫn tương đối; không bao giờ xuất hiện trong kết quả.
+const INTERNAL_BASE = "http://internal";
+
+function setParam(path: string, key: string, value: string): string {
+  const url = new URL(path, INTERNAL_BASE);
+  url.searchParams.set(key, value);
+  return url.pathname + url.search + url.hash;
+}
+
+/**
+ * Gắn (hoặc thay) một tham số query vào đường dẫn chuyển hướng nội bộ, giữ tham số khác và hash.
+ * Đường dẫn được lọc qua `toSafeRedirectPath` trước; nếu chuẩn hoá URL (vd. "/.//evil")
+ * sinh ra "//..." thì dùng "/" để không bao giờ trả về URL trỏ ra ngoài.
+ */
+export function withQueryParam(path: unknown, key: string, value: string): string {
+  const result = setParam(toSafeRedirectPath(path), key, value);
+  return result.startsWith("//") ? setParam(SAFE_FALLBACK, key, value) : result;
+}
