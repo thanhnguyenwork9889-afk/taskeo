@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T017-drive-create-file` |
 | Tạo từ | `develop` @ `2b64678` |
-| Trạng thái | 5-fix |
+| Trạng thái | 6-rereview |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T32** "Tạo Doc/Sheet/Slide trong thư mục, mở tab mới tới file" (giai đoạn 4 · Google Drive, phụ thuộc T31 = T013). Sheet đã chuyển `Chưa làm` → `Đang làm` khi khởi tạo.
@@ -138,9 +138,23 @@ Reviewer đã chạy (2026-11-27, trên `git diff develop...HEAD` @ `eb2207c`): 
 
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
-| R1 | đã sửa / bỏ qua: lý do | |
+| R1 | đã sửa: hàm thuần `requestedProjectWait` (loading / error / null); đang chờ dự án được yêu cầu → khoá "Tạo mới", lỗi tải → cảnh báo + Thử lại, ô dự án có lựa chọn "Chọn dự án…" để người dùng tự gỡ | `230f63b` |
+| R2 | đã sửa: `postDriveFile` có `AbortSignal.timeout` 45 s (`CREATE_FILE_CLIENT_TIMEOUT_MS`), hết hạn → `CreateDocRequestError(…, 0, "timeout")` + câu nhắc xem Tài liệu gần đây | `230f63b` |
+| R3 | đã sửa: gán `location.href` bọc try/catch → đóng tab, trả `blocked` (hiện liên kết) | `230f63b` |
+| R4 | đã sửa một phần: log an toàn khi file vừa tạo không ánh xạ được; thông báo 502 (server + client) nhắc xem Tài liệu gần đây trước khi thử lại; JSDoc `createFile` ghi tổng ~30 s và rủi ro file mồ côi. Chưa thêm hạn tổng ở server (client đã có 45 s) → việc để sau | `230f63b` |
+| R5 | bỏ qua: CSRF là vấn đề chung của mọi route POST (`readJson`), không riêng T017 → đề xuất nhiệm vụ riêng | — |
+| R6 | đã sửa: `onCancel` (kiểm `busy`) cho Modal / Hủy, `onDone` (gốc) cho nhánh thành công và nút Đóng | `230f63b` |
+| R7 | đã sửa: ô Tên `autoFocus` | `230f63b` |
+| R8 | để sau (LOW): fallback `null` chỉ tích tắc | — |
+| R9 | đã sửa: tách `useCreateDocSubmit` (`use-create-doc-submit.ts`), `CreateDocForm` ~40 dòng, `openPendingTab` vẫn chạy đồng bộ trước `await` | `230f63b` |
+| R10 | đã sửa: `projects.ts` dùng `saveDriveFolderId` từ `drive-folder-sync.ts`, giữ chuỗi log và điều kiện where cũ | `230f63b` |
+| R11 | để sau (LOW): helper chung `handleUnexpected`, không riêng T017 | — |
+| R12 | để sau: rate limit thuộc T73 | — |
+| R13 | bỏ qua: đánh đổi có chủ đích (tab `about:blank` do app mở) | — |
+| R14 | để sau: chưa có jsdom; hành vi hộp thoại đã kiểm tay | — |
+| R15 | sửa ở bước 7 (P9 docs) | — |
 
-Kết quả 4 lệnh sau khi sửa:
+Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 1575/1575 · build ✅. Test thêm: `requestedProjectWait` (7), timeout / 502 / timeout code (client), `href` ném lỗi (pending-tab), log nhánh không ánh xạ được (server).
 
 ## 6. Review lại
 
