@@ -177,7 +177,7 @@ Vòng 2 (`git diff e157096..c38ee21`, R15): sửa ở `c38ee21` — `revokeAndCl
 
 **Tài liệu đã cập nhật:** `docs/02-google-cloud.md` (ô tick đăng nhập, công tắc, mục "Ngắt kết nối Drive": thu hồi theo cả tài khoản, các nhánh kết quả, mã `?drive=`), `docs/04-architecture.md` (`revoke.ts`, `drive-switch.tsx`, `withQueryParam`), `docs/tasks/README.md`.
 
-**Merge vào develop:** commit `<hash>`, 2026-11-27
+**Merge vào develop:** commit `ce37dea`, 2026-11-27
 
 **Việc để sau:**
 - Xem lại trên trình duyệt công tắc + hộp xác nhận sau bản sửa: focus vào "Huỷ", Tab không thoát hộp, đang gửi không đóng được, ngắt thất bại thì hộp đóng và thông báo hiện.

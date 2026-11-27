@@ -16,7 +16,7 @@ Quy trình: [07-workflow.md](../07-workflow.md). Mẫu: [_template.md](_template
 | T009 | [Hoàn tất đăng nhập Google: test token + kiểm thử refresh thật](T009-google-auth-verify.md) | `chore/T009-google-auth-verify` | done | `1b9fea9` |
 | T010 | [Thêm scope `drive.file` (xin quyền theo từng bước)](T010-drive-scope.md) | `feat/T010-drive-scope` | done | `3234e6c` |
 | T011 | [Chặn gắn tài khoản Google thứ hai vào cùng một user](T011-block-second-google-account.md) | `fix/T011-block-second-google-account` | done | `aef0d7a` |
-| T012 | [Kết nối Drive lúc đăng nhập + toggle Kết nối / Ngắt kết nối Drive](T012-drive-connect-toggle.md) | `feat/T012-drive-connect-toggle` | done | |
+| T012 | [Kết nối Drive lúc đăng nhập + toggle Kết nối / Ngắt kết nối Drive](T012-drive-connect-toggle.md) | `feat/T012-drive-connect-toggle` | done | `ce37dea` |
 
 ## Việc chờ làm (backlog)
 
