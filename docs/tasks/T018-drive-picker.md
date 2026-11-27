@@ -109,6 +109,8 @@ Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-27) 
 | P5 | `3fbaf2f` | drive-files.test (attachFile 14 test, listFiles lọc lại kind) | ✅ | ✅ | ✅ 1829 | ✅ |
 | P6 | `7f022ba` | picker-token/route.test (12 test, no-store mọi phản hồi) | ✅ | ✅ | ✅ 1829 | ✅ |
 | P9 | `da1fa73` | google-picker.test (34), attach-doc-api.test (30), attach-doc-state.test (23) | ✅ | ✅ | ✅ 1829 | ✅ |
+| P7 | `e1f987b` | files/attach/route.test (25 test) | ✅ | ✅ | ✅ 1860 | ✅ |
+| P10 | `df593d1` | attach-doc-state.test (isAttachBusy, attachButtonLabel) | ✅ | ✅ | ✅ 1860 | ✅ |
 
 ## 4. Review code
 
