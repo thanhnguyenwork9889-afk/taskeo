@@ -7,6 +7,7 @@ import { useSessionStart, useWorkspaceState } from "@/store/workspace-store";
 import { CreateDialog } from "./create-dialog";
 import { cleanedLocation, driveNoticeFromParams } from "./drive-notice";
 import { MobileNav } from "./mobile-nav";
+import { QueryProvider } from "./query-provider";
 import { Sidebar } from "./sidebar";
 import { MobileHeader, Topbar } from "./topbar";
 import { UIContext, useUI, type CreateRequest, type UIContextValue, type ViewerInfo } from "./ui-context";
@@ -89,37 +90,39 @@ export function AppShell({ viewerPromise, children }: AppShellProps) {
   if (!workspace || !value) return <ShellSkeleton />;
 
   return (
-    <UIContext.Provider value={value}>
-      <div className="min-h-screen overflow-x-hidden">
-        <Suspense fallback={null}>
-          <SessionGuard viewerPromise={viewerPromise} />
-        </Suspense>
-        <Suspense fallback={null}>
-          <DriveNotice />
-        </Suspense>
-        {menuOpen && (
-          <button type="button" aria-label="Đóng điều hướng" onClick={() => setMenuOpen(false)} className="fixed inset-0 z-30 bg-slate-900/30 lg:hidden" />
-        )}
-        <Sidebar open={menuOpen} onNavigate={closeMenu} />
-        <div className="lg:ml-[264px]">
-          <MobileHeader onOpenMenu={() => setMenuOpen(true)} />
-          <Topbar onOpenMenu={() => setMenuOpen(true)} />
-          <main className="mx-auto max-w-[1500px] px-4 pb-28 pt-5 md:px-8 md:pb-8 md:pt-8">
-            {children}
-            <footer className="mt-8 text-xs text-[#777582]">Không gian cho những điều quan trọng.</footer>
-          </main>
-        </div>
-        <MobileNav onNavigate={() => setQuery("")} />
-        {toast && (
-          <div
-            role="status"
-            className="fixed bottom-24 left-1/2 z-50 w-[calc(100%-32px)] max-w-md -translate-x-1/2 rounded-xl border border-[#DED7EE] bg-white px-5 py-4 text-sm shadow-lg md:bottom-6"
-          >
-            {toast}
+    <QueryProvider>
+      <UIContext.Provider value={value}>
+        <div className="min-h-screen overflow-x-hidden">
+          <Suspense fallback={null}>
+            <SessionGuard viewerPromise={viewerPromise} />
+          </Suspense>
+          <Suspense fallback={null}>
+            <DriveNotice />
+          </Suspense>
+          {menuOpen && (
+            <button type="button" aria-label="Đóng điều hướng" onClick={() => setMenuOpen(false)} className="fixed inset-0 z-30 bg-slate-900/30 lg:hidden" />
+          )}
+          <Sidebar open={menuOpen} onNavigate={closeMenu} />
+          <div className="lg:ml-[264px]">
+            <MobileHeader onOpenMenu={() => setMenuOpen(true)} />
+            <Topbar onOpenMenu={() => setMenuOpen(true)} />
+            <main className="mx-auto max-w-[1500px] px-4 pb-28 pt-5 md:px-8 md:pb-8 md:pt-8">
+              {children}
+              <footer className="mt-8 text-xs text-[#777582]">Không gian cho những điều quan trọng.</footer>
+            </main>
           </div>
-        )}
-        {createRequest && <CreateDialog request={createRequest} onClose={() => setCreateRequest(null)} />}
-      </div>
-    </UIContext.Provider>
+          <MobileNav onNavigate={() => setQuery("")} />
+          {toast && (
+            <div
+              role="status"
+              className="fixed bottom-24 left-1/2 z-50 w-[calc(100%-32px)] max-w-md -translate-x-1/2 rounded-xl border border-[#DED7EE] bg-white px-5 py-4 text-sm shadow-lg md:bottom-6"
+            >
+              {toast}
+            </div>
+          )}
+          {createRequest && <CreateDialog request={createRequest} onClose={() => setCreateRequest(null)} />}
+        </div>
+      </UIContext.Provider>
+    </QueryProvider>
   );
 }
