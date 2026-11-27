@@ -3,7 +3,8 @@ import { buildDriveFilesQuery, DOC_KIND_MIME, DRIVE_PARENTS_PER_QUERY, type RawD
 import { FILE_LIST_MAX } from "@/domain/validation";
 
 const db = vi.hoisted(() => ({
-  space: { findMany: vi.fn() },
+  space: { findMany: vi.fn(), findFirst: vi.fn() },
+  project: { findFirst: vi.fn() },
 }));
 
 vi.mock("@/server/db", () => ({ prisma: db }));
@@ -19,7 +20,7 @@ vi.mock("@/server/google/drive-provision", () => ({
 import { listFiles } from "./drive-files";
 
 const USER = "user-1";
-const { space } = db;
+const { space, project } = db;
 
 interface ProjectRow {
   id: string;
@@ -57,17 +58,36 @@ function raw(id: string, parent: string, modifiedTime: string, overrides: Partia
   };
 }
 
+/** Dữ liệu DB giả của user; các mock Prisma bên dưới đọc từ đây. */
+let fixture: SpaceRow[] = SPACES;
+
 beforeEach(() => {
   vi.resetAllMocks();
-  space.findMany.mockResolvedValue(SPACES);
+  fixture = SPACES;
+  space.findMany.mockImplementation(async () => fixture);
+  space.findFirst.mockImplementation(
+    async ({ where }: { where: { id: string } }) => fixture.find((row) => row.id === where.id) ?? null,
+  );
+  project.findFirst.mockImplementation(async ({ where }: { where: { id: string } }) => {
+    for (const row of fixture) {
+      const found = row.projects.find((item) => item.id === where.id);
+      if (found) return { ...found, space: { id: row.id, name: row.name } };
+    }
+    return null;
+  });
   listDriveFiles.mockResolvedValue({ status: "ok", files: [] });
 });
 
+const PROJECT_SELECT = { id: true, name: true, driveFolderId: true };
+const SCOPED_PROJECTS = { where: { userId: USER }, take: expect.any(Number), select: PROJECT_SELECT };
+
 describe("listFiles — truy vấn DB", () => {
-  it("một truy vấn không gian + dự án lọc theo userId, có take", async () => {
+  it("không lọc: một truy vấn không gian + dự án lọc theo userId, có take", async () => {
     await listFiles(USER, { limit: 20 });
 
     expect(space.findMany).toHaveBeenCalledTimes(1);
+    expect(space.findFirst).not.toHaveBeenCalled();
+    expect(project.findFirst).not.toHaveBeenCalled();
     const args = space.findMany.mock.calls[0][0];
     expect(args.where).toEqual({ userId: USER });
     expect(args.take).toBeGreaterThan(0);
@@ -75,12 +95,39 @@ describe("listFiles — truy vấn DB", () => {
       id: true,
       name: true,
       driveFolderId: true,
-      projects: {
-        where: { userId: USER },
-        take: expect.any(Number),
-        select: { id: true, name: true, driveFolderId: true },
-      },
+      projects: SCOPED_PROJECTS,
     });
+  });
+
+  it("lọc spaceId: chỉ một space.findFirst theo id + userId, không nạp mọi không gian", async () => {
+    await listFiles(USER, { spaceId: "s1", limit: 20 });
+
+    expect(space.findMany).not.toHaveBeenCalled();
+    expect(project.findFirst).not.toHaveBeenCalled();
+    expect(space.findFirst).toHaveBeenCalledTimes(1);
+    expect(space.findFirst).toHaveBeenCalledWith({
+      where: { id: "s1", userId: USER },
+      select: { ...PROJECT_SELECT, projects: SCOPED_PROJECTS },
+    });
+  });
+
+  it("lọc projectId: chỉ một project.findFirst theo id + userId (cả không gian), không nạp không gian", async () => {
+    await listFiles(USER, { projectId: "p1", limit: 20 });
+
+    expect(space.findMany).not.toHaveBeenCalled();
+    expect(space.findFirst).not.toHaveBeenCalled();
+    expect(project.findFirst).toHaveBeenCalledTimes(1);
+    expect(project.findFirst).toHaveBeenCalledWith({
+      where: { id: "p1", userId: USER, space: { userId: USER } },
+      select: { ...PROJECT_SELECT, space: { select: { id: true, name: true } } },
+    });
+  });
+
+  it("có cả projectId và spaceId: projectId được ưu tiên như trước", async () => {
+    await listFiles(USER, { projectId: "p1", spaceId: "s2", limit: 5 });
+
+    expect(space.findFirst).not.toHaveBeenCalled();
+    expect(listDriveFiles).toHaveBeenCalledWith(USER, [buildDriveFilesQuery({ parentIds: ["f-p1"] })], 5);
   });
 });
 
@@ -124,14 +171,14 @@ describe("listFiles — không lọc (gần đây)", () => {
   });
 
   it("user chưa có thư mục nào → [] và không gọi Drive", async () => {
-    space.findMany.mockResolvedValue([SPACES[2]]);
+    fixture = [SPACES[2]];
 
     await expect(listFiles(USER, { limit: 20 })).resolves.toEqual({ ok: true, files: [] });
     expect(listDriveFiles).not.toHaveBeenCalled();
   });
 
   it("user chưa có không gian nào → [] và không gọi Drive", async () => {
-    space.findMany.mockResolvedValue([]);
+    fixture = [];
 
     await expect(listFiles(USER, { limit: 20 })).resolves.toEqual({ ok: true, files: [] });
     expect(listDriveFiles).not.toHaveBeenCalled();
@@ -180,7 +227,7 @@ describe("listFiles — lọc spaceId", () => {
 
   it("chia khối khi hơn DRIVE_PARENTS_PER_QUERY thư mục và gộp, khử trùng kết quả", async () => {
     const projects = Array.from({ length: 45 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, driveFolderId: `f-p${i}` }));
-    space.findMany.mockResolvedValue([{ id: "big", name: "Lớn", driveFolderId: "f-big", projects }]);
+    fixture = [{ id: "big", name: "Lớn", driveFolderId: "f-big", projects }];
     listDriveFiles.mockResolvedValue({
       status: "ok",
       files: [

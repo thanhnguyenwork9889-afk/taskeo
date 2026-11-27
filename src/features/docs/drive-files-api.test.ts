@@ -110,6 +110,32 @@ describe("fetchDriveFiles", () => {
     await rejection(fetchDriveFiles({}));
   });
 
+  it("bị huỷ khi đang đọc body → ném lại lý do huỷ, không đổi thành ApiRequestError", async () => {
+    const controller = new AbortController();
+    const response = new Response("{}", { status: 200 });
+    vi.spyOn(response, "json").mockImplementation(async () => {
+      controller.abort();
+      throw new DOMException("The operation was aborted.", "AbortError");
+    });
+    stubFetch(response);
+    const error = await fetchDriveFiles({}, controller.signal).catch((reason: unknown) => reason);
+    expect(error).not.toBeInstanceOf(ApiRequestError);
+    expect(error).toBe(controller.signal.reason);
+  });
+
+  it("bị huỷ khi đọc body của phản hồi lỗi → cũng ném lại lý do huỷ", async () => {
+    const controller = new AbortController();
+    const response = new Response("{}", { status: 502 });
+    vi.spyOn(response, "json").mockImplementation(async () => {
+      controller.abort(new DOMException("stop", "AbortError"));
+      throw new DOMException("stop", "AbortError");
+    });
+    stubFetch(response);
+    const error = await fetchDriveFiles({}, controller.signal).catch((reason: unknown) => reason);
+    expect(error).toBe(controller.signal.reason);
+    expect(error).toMatchObject({ name: "AbortError" });
+  });
+
   it("code không phải chuỗi → bỏ qua", async () => {
     stubFetch(jsonResponse({ data: null, error: { message: "x", code: 42 } }, 400));
     const error = await rejection(fetchDriveFiles({}));
@@ -118,20 +144,13 @@ describe("fetchDriveFiles", () => {
 });
 
 describe("shouldRetryDriveFiles", () => {
-  it.each([400, 401, 403, 404, 499])("không retry ApiRequestError %i", (status) => {
+  it.each([400, 401, 403, 404, 499, 500, 502, 503])("không retry ApiRequestError %i (server đã có hạn riêng)", (status) => {
     expect(shouldRetryDriveFiles(0, new ApiRequestError("x", status))).toBe(false);
   });
 
-  it("retry 5xx tối đa 2 lần", () => {
-    const error = new ApiRequestError("x", 502);
-    expect(shouldRetryDriveFiles(0, error)).toBe(true);
-    expect(shouldRetryDriveFiles(1, error)).toBe(true);
-    expect(shouldRetryDriveFiles(2, error)).toBe(false);
-  });
-
-  it("lỗi mạng (không phải ApiRequestError) retry tối đa 2 lần", () => {
+  it("lỗi mạng (không phải ApiRequestError) retry tối đa 1 lần", () => {
     const error = new TypeError("Failed to fetch");
-    expect(shouldRetryDriveFiles(1, error)).toBe(true);
-    expect(shouldRetryDriveFiles(2, error)).toBe(false);
+    expect(shouldRetryDriveFiles(0, error)).toBe(true);
+    expect(shouldRetryDriveFiles(1, error)).toBe(false);
   });
 });

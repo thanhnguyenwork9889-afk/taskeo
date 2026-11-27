@@ -7,7 +7,7 @@ import type { DocKind, DriveFileItem } from "@/domain/types";
 const FILES_PATH = "/api/files";
 const FALLBACK_MESSAGE = "Không tải được danh sách tài liệu";
 const MALFORMED_MESSAGE = "Phản hồi danh sách tài liệu không hợp lệ";
-const MAX_RETRIES = 2;
+const MAX_NETWORK_RETRIES = 1;
 
 /** Lỗi khi API trả mã không OK hoặc phản hồi sai hình dạng. */
 export class ApiRequestError extends Error {
@@ -72,10 +72,12 @@ function errorFromBody(body: unknown, status: number): ApiRequestError {
   return new ApiRequestError(message, status, code);
 }
 
-async function readBody(response: Response): Promise<{ ok: true; value: unknown } | { ok: false }> {
+/** Đọc JSON; JSON hỏng → `{ ok: false }`. Bị huỷ giữa chừng → ném lại lý do huỷ để TanStack nhận ra. */
+async function readBody(response: Response, signal?: AbortSignal): Promise<{ ok: true; value: unknown } | { ok: false }> {
   try {
     return { ok: true, value: await response.json() };
-  } catch {
+  } catch (error) {
+    if (signal?.aborted) throw signal.reason ?? error;
     return { ok: false };
   }
 }
@@ -83,15 +85,18 @@ async function readBody(response: Response): Promise<{ ok: true; value: unknown 
 /** Tải file Drive qua API. Mã không OK, JSON hỏng hoặc sai hình dạng → `ApiRequestError`. */
 export async function fetchDriveFiles(params: DriveFilesParams, signal?: AbortSignal): Promise<DriveFileItem[]> {
   const response = await fetch(driveFilesUrl(params), { signal, headers: { Accept: "application/json" } });
-  const body = await readBody(response);
+  const body = await readBody(response, signal);
   if (!response.ok) throw errorFromBody(body.ok ? body.value : null, response.status);
   const files = body.ok ? filesFromBody(body.value) : null;
   if (!files) throw new ApiRequestError(MALFORMED_MESSAGE, response.status);
   return files;
 }
 
-/** Predicate `retry` của TanStack Query: lỗi 4xx không thử lại; 5xx / lỗi mạng thử lại tối đa 2 lần. */
+/**
+ * Predicate `retry` của TanStack Query: server đã trả lời (`ApiRequestError`, mọi mã) → không thử lại,
+ * vì server đã có hạn chờ Drive riêng; chỉ lỗi mạng mới thử lại, tối đa 1 lần.
+ */
 export function shouldRetryDriveFiles(failureCount: number, error: unknown): boolean {
-  if (error instanceof ApiRequestError && error.status < 500) return false;
-  return failureCount < MAX_RETRIES;
+  if (error instanceof ApiRequestError) return false;
+  return failureCount < MAX_NETWORK_RETRIES;
 }

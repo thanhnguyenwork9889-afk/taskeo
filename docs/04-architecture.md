@@ -58,7 +58,7 @@ src/
 │   └── layout/                  App shell (bọc QueryProvider: query-provider.tsx): sidebar (kèm công tắc Google Drive: drive-switch.tsx), topbar, mobile nav, hộp thoại tạo mới, UI context, drive-status.ts, drive-notice.ts (thông báo ?drive=wrong-account | disconnected | disconnect-failed)
 ├── features/          6. Màn hình theo nghiệp vụ
 │   ├── dashboard/  tasks/  spaces/  projects/  docs/  calendar/
-│   │   (docs/: drive-files-api.ts gọi /api/files, use-drive-files.ts hook TanStack Query, drive-files-state.ts chọn trạng thái demo / connect / loading / error / empty / list)
+│   │   (docs/: drive-files-api.ts gọi /api/files, use-drive-files.ts hook TanStack Query, drive-files-state.ts chọn trạng thái demo / connect / loading / error / empty / list, drive-files-states.tsx lời mời kết nối Drive / khung chờ / khối lỗi)
 ├── app/               7. Chỉ routing (Next.js App Router), mỏng nhất có thể
 │   ├── (auth)/login/            Trang đăng nhập
 │   ├── (app)/                   Layout có sidebar + các trang
@@ -71,6 +71,9 @@ src/
 │   ├── api/activities/          Nhật ký hoạt động (gọi server/activities)
 │   └── api/files/               Liệt kê file Drive (gọi server/drive-files)
 └── proxy.ts           Chuyển về /login khi chưa có cookie phiên (chỉ khi bật auth)
+
+scripts/
+└── dev-create-doc.mjs  Chỉ dùng dev: tạo Doc/Sheet/Slide trống trong thư mục Drive của một không gian để kiểm T015 (sao chép logic giải mã của src/server/crypto.ts — đổi định dạng token thì sửa theo)
 ```
 
 ## Quy tắc import

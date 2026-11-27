@@ -4,7 +4,6 @@ import {
   buildFolderIndex,
   chunk,
   DRIVE_PARENTS_PER_QUERY,
-  type FolderSpace,
   mergeRecent,
   toDriveFileItem,
 } from "@/domain/drive-files";
@@ -42,25 +41,39 @@ interface DrivePlan {
   pageSize: number;
 }
 
+const projectSelect = { id: true, name: true, driveFolderId: true } as const;
+
+/** Lọc thêm userId: dự án luôn thuộc không gian của chính user, nhưng không dựa vào điều đó. */
+function scopedProjects(userId: string) {
+  return { where: { userId }, take: MAX_PROJECTS_PER_SPACE, select: projectSelect };
+}
+
 /**
- * Chọn phạm vi thư mục theo bộ lọc; `null` khi `spaceId` / `projectId` không thuộc user.
- * Index chỉ gồm thư mục trong phạm vi lọc, nên file có nhiều cha vẫn không lọt ra ngoài phạm vi.
+ * Chọn phạm vi thư mục theo bộ lọc, chỉ truy vấn đúng phần bộ lọc cần; `null` khi `spaceId` /
+ * `projectId` không thuộc user. Index chỉ gồm thư mục trong phạm vi lọc, nên file có nhiều cha vẫn
+ * không lọt ra ngoài phạm vi.
  */
-function planDriveQuery(spaces: readonly FolderSpace[], params: ListFilesParams): DrivePlan | null {
+async function planDriveQuery(userId: string, params: ListFilesParams): Promise<DrivePlan | null> {
   const { spaceId, projectId, kind, limit } = params;
 
   if (projectId) {
-    for (const space of spaces) {
-      const project = space.projects.find((item) => item.id === projectId);
-      if (!project) continue;
-      const index = buildFolderIndex([{ ...space, driveFolderId: null, projects: [project] }]);
-      return { index, queries: parentQueries(index, kind), pageSize: limit };
-    }
-    return null;
+    const project = await prisma.project.findFirst({
+      // Dự án lẫn không gian chứa nó đều phải thuộc user.
+      where: { id: projectId, userId, space: { userId } },
+      select: { ...projectSelect, space: { select: { id: true, name: true } } },
+    });
+    if (!project) return null;
+    const { space, ...folder } = project;
+    // Chỉ thư mục dự án: file nằm thẳng trong thư mục không gian không thuộc phạm vi dự án.
+    const index = buildFolderIndex([{ ...space, driveFolderId: null, projects: [folder] }]);
+    return { index, queries: parentQueries(index, kind), pageSize: limit };
   }
 
   if (spaceId) {
-    const space = spaces.find((item) => item.id === spaceId);
+    const space = await prisma.space.findFirst({
+      where: { id: spaceId, userId },
+      select: { ...projectSelect, projects: scopedProjects(userId) },
+    });
     if (!space) return null;
     const index = buildFolderIndex([space]);
     return { index, queries: parentQueries(index, kind), pageSize: limit };
@@ -68,6 +81,11 @@ function planDriveQuery(spaces: readonly FolderSpace[], params: ListFilesParams)
 
   // Không lọc: `q` không kèm parents (hàng trăm thư mục không vừa một `q`); lấy FILE_LIST_MAX file
   // mới nhất rồi giữ file nằm trong thư mục của user qua index.
+  const spaces = await prisma.space.findMany({
+    where: { userId },
+    take: MAX_SPACES,
+    select: { ...projectSelect, projects: scopedProjects(userId) },
+  });
   const index = buildFolderIndex(spaces);
   const queries = index.size === 0 ? [] : [buildDriveFilesQuery({ kind })];
   return { index, queries, pageSize: FILE_LIST_MAX };
@@ -90,19 +108,7 @@ export async function listFiles(
   params: ListFilesParams,
   deps: ListFilesDeps = defaultDeps,
 ): Promise<ListFilesResult> {
-  const spaces = await prisma.space.findMany({
-    where: { userId },
-    take: MAX_SPACES,
-    select: {
-      id: true,
-      name: true,
-      driveFolderId: true,
-      // Lọc thêm userId: dự án luôn thuộc không gian của chính user, nhưng không dựa vào điều đó.
-      projects: { where: { userId }, take: MAX_PROJECTS_PER_SPACE, select: { id: true, name: true, driveFolderId: true } },
-    },
-  });
-
-  const plan = planDriveQuery(spaces, params);
+  const plan = await planDriveQuery(userId, params);
   if (!plan) return { ok: false, reason: "not_found" };
   if (plan.queries.length === 0) return { ok: true, files: [] };
 

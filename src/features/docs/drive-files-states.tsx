@@ -6,6 +6,7 @@ import { AlertTriangle, HardDrive, RotateCw } from "lucide-react";
 import { connectGoogleDrive } from "@/server/auth/actions";
 import { currentLocation } from "@/components/layout/drive-status";
 import { cx, primaryButton, secondaryButton } from "@/components/ui/styles";
+import { driveFilesErrorInfo } from "./drive-files-state";
 
 // Các trạng thái phụ của danh sách file Drive (T015): mời kết nối, đang tải, lỗi.
 // Chỉ vẽ phần nội dung; khung (card) do nơi dùng quyết định.
@@ -61,19 +62,24 @@ export function DriveFilesSkeleton({ rows }: { rows: number }) {
 interface DriveFilesErrorProps {
   onRetry: () => void;
   retrying: boolean;
+  /** Lỗi từ query; quyết định câu giải thích và có hiện nút "Thử lại" hay không. */
+  error?: unknown;
 }
 
-/** Không tải được danh sách (Google lỗi / mạng). Nút "Thử lại" gọi lại API. */
-export function DriveFilesError({ onRetry, retrying }: DriveFilesErrorProps) {
+/** Không tải được danh sách. Lỗi mạng / 5xx có nút "Thử lại"; 4xx (vd. 401 hết phiên) thì không. */
+export function DriveFilesError({ onRetry, retrying, error }: DriveFilesErrorProps) {
+  const { message, canRetry } = driveFilesErrorInfo(error);
   return (
     <div role="alert" className={blockClass}>
       <AlertTriangle className="mb-3 h-8 w-8 text-red-700" aria-hidden />
       <p className="text-sm font-medium">Không tải được tài liệu từ Google Drive</p>
-      <p className="mb-5 mt-2 max-w-sm text-sm leading-6 text-muted">Có thể Google đang bận hoặc mạng chập chờn. Hãy thử lại sau giây lát.</p>
-      <button type="button" onClick={onRetry} disabled={retrying} className={cx(secondaryButton, "disabled:cursor-wait disabled:opacity-60")}>
-        <RotateCw className={cx("h-4 w-4", retrying && "animate-spin")} aria-hidden />
-        {retrying ? "Đang thử lại…" : "Thử lại"}
-      </button>
+      <p className={cx("mt-2 max-w-sm text-sm leading-6 text-muted", canRetry && "mb-5")}>{message}</p>
+      {canRetry && (
+        <button type="button" onClick={onRetry} disabled={retrying} className={cx(secondaryButton, "disabled:cursor-wait disabled:opacity-60")}>
+          <RotateCw className={cx("h-4 w-4", retrying && "animate-spin")} aria-hidden />
+          {retrying ? "Đang thử lại…" : "Thử lại"}
+        </button>
+      )}
     </div>
   );
 }

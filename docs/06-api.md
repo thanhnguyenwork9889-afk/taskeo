@@ -27,7 +27,7 @@
 ### Quy ước chung (từ T004)
 
 - Phản hồi: `{ data, error }`. Lỗi: `{ data: null, error: { message, details?, code? } }`, `details` là `z.flattenError` khi input sai; `code` là mã máy đọc cho lỗi giao diện cần xử lý riêng (hiện chỉ `drive_not_connected`, T015).
-- Mã lỗi: 400 JSON hỏng hoặc input sai (schema `.strict()`, không nhận `userId`, `id`, `order`, `driveFolderId`) · 401 chưa đăng nhập · 404 không có, của người khác hoặc id sai định dạng (không phân biệt) · 503 chế độ demo / thiếu cấu hình (không có DB) · 500 thông báo chung, chỉ log `name`, `message`, `stack`.
+- Mã lỗi: 400 JSON hỏng hoặc input sai (schema `.strict()`, không nhận `userId`, `id`, `order`, `driveFolderId`) · 401 chưa đăng nhập · 404 không có, của người khác hoặc id sai định dạng (không phân biệt) · 403 chưa kết nối Google Drive (`error.code = "drive_not_connected"`, T015) · 502 Google lỗi / quá hạn (T015) · 503 chế độ demo / thiếu cấu hình (không có DB) · 500 thông báo chung, chỉ log `name`, `message`, `stack`.
 - `color` phải thuộc `SPACE_PALETTE`, `icon` thuộc `SPACE_ICONS` (`src/domain/labels.ts`); bỏ trống thì server chọn mặc định. Mô tả rỗng lưu `null`.
 - Dự án (T005): `status` thuộc `ACTIVE | ON_HOLD | DONE | ARCHIVED`; `dueDate` là `YYYY-MM-DD` có thật, năm 1900–2100, hoặc `null`; lưu nửa đêm UTC, đọc lại theo UTC. Tên trùng so không phân biệt hoa thường (`ILIKE` đã thoát `\ % _`), kèm bắt lỗi unique `P2002` của DB.
 - Kiểm trùng tên rồi mới ghi, không atomic: hai request đồng thời khác hoa thường có thể cùng qua (unique của DB chỉ chặn trùng chính xác).

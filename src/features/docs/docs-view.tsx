@@ -93,7 +93,7 @@ function DemoDocsList({ kind, onCreate }: { kind: DocKind | null; onCreate: () =
 /** Chế độ configured: file thật trong thư mục Drive của Taskeo, lọc loại qua `?type=`. */
 function DriveDocsList({ kind }: { kind: DocKind | null }) {
   const { query } = useUI();
-  const { state, files, retry, retrying } = useDriveFileList({ kind: kind ?? undefined, limit: DOCS_LIMIT }, query);
+  const { state, files, error, retry, retrying } = useDriveFileList({ kind: kind ?? undefined, limit: DOCS_LIMIT }, query);
   if (state === "list") {
     return (
       <section className={listCard}>
@@ -108,7 +108,7 @@ function DriveDocsList({ kind }: { kind: DocKind | null }) {
     <section className={listCard}>
       {state === "connect" && <DriveConnectPrompt />}
       {state === "loading" && <DriveFilesSkeleton rows={SKELETON_ROWS} />}
-      {state === "error" && <DriveFilesError onRetry={retry} retrying={retrying} />}
+      {state === "error" && <DriveFilesError onRetry={retry} retrying={retrying} error={error} />}
     </section>
   );
 }

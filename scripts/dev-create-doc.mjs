@@ -5,12 +5,20 @@
 //
 // Cách dùng:
 //   node --env-file=.env.local scripts/dev-create-doc.mjs <email> <spaceId> [doc|sheet|slide] [name]
+//   Nếu DATABASE_URL không trỏ tới localhost/127.0.0.1 (vd. nhánh dev trên Neon), phải đặt thêm
+//   ALLOW_DEV_SCRIPT=1:
+//   ALLOW_DEV_SCRIPT=1 node --env-file=.env.local scripts/dev-create-doc.mjs <email> <spaceId> ...
+//
+// Rào chắn khi khởi động (trước khi đọc bí mật hay chạm DB): từ chối chạy nếu NODE_ENV=production,
+// VERCEL_ENV=production, hoặc DATABASE_URL không phải localhost mà thiếu ALLOW_DEV_SCRIPT=1.
 //
 // Cần: DATABASE_URL, TOKEN_ENCRYPTION_KEY, AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET; người dùng đã kết nối Drive.
 //
 // Script cố ý lặp lại logic giải mã token của src/server/crypto.ts thay vì import, vì src/ dùng
 // "server-only" và alias `@/` mà Node chạy trực tiếp không hiểu. Nếu định dạng trong crypto.ts đổi,
 // phải sửa ở đây theo.
+// BẮT BUỘC: mọi thay đổi định dạng mã hoá trong src/server/crypto.ts (tiền tố, IV, tag, thuật toán)
+// phải cập nhật phần "Giải mã" bên dưới, nếu không script sẽ giải mã sai.
 //
 // An toàn: không in token, không ghi token ra đâu cả; lỗi chỉ in tên lỗi và mã HTTP.
 
@@ -36,7 +44,44 @@ const DEFAULT_NAMES = {
 };
 
 const USAGE =
-  "Cách dùng: node --env-file=.env.local scripts/dev-create-doc.mjs <email> <spaceId> [doc|sheet|slide] [name]";
+  "Cách dùng: [ALLOW_DEV_SCRIPT=1] node --env-file=.env.local scripts/dev-create-doc.mjs <email> <spaceId> [doc|sheet|slide] [name]\n" +
+  "(ALLOW_DEV_SCRIPT=1 bắt buộc khi DATABASE_URL không trỏ tới localhost/127.0.0.1, vd. nhánh dev Neon.)";
+
+const LOCAL_DB_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+
+/** Chỉ trả về host để so sánh; không bao giờ in DATABASE_URL. URL hỏng => coi như không phải local. */
+function databaseHostIsLocal(databaseUrl) {
+  if (!databaseUrl) return false;
+  try {
+    return LOCAL_DB_HOSTS.has(new URL(databaseUrl).hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Rào chắn "chỉ dev": chạy trước mọi thứ khác (parse tham số, đọc bí mật, tạo PrismaClient).
+ * Thoát với mã 1 và thông điệp rõ ràng; không in giá trị biến môi trường nào.
+ */
+function assertDevOnly() {
+  const refuse = (reason) => {
+    console.error(`Từ chối chạy scripts/dev-create-doc.mjs: ${reason}`);
+    process.exit(1);
+  };
+  if (process.env.NODE_ENV === "production") {
+    refuse("NODE_ENV=production. Script này chỉ dùng ở dev.");
+  }
+  if (process.env.VERCEL_ENV === "production") {
+    refuse("VERCEL_ENV=production. Script này chỉ dùng ở dev.");
+  }
+  if (!databaseHostIsLocal(process.env.DATABASE_URL) && process.env.ALLOW_DEV_SCRIPT !== "1") {
+    refuse(
+      "DATABASE_URL không trỏ tới localhost/127.0.0.1 (hoặc chưa đặt). " +
+        "Nếu đây là DB dev (vd. nhánh dev trên Neon), chạy lại với ALLOW_DEV_SCRIPT=1. " +
+        "Tuyệt đối không dùng với DB production.",
+    );
+  }
+}
 
 // --- Giải mã: bản sao của src/server/crypto.ts (định dạng `v1:iv:tag:ciphertext`, base64) ---
 const ALGORITHM = "aes-256-gcm";
@@ -141,6 +186,8 @@ async function main() {
     await prisma.$disconnect();
   }
 }
+
+assertDevOnly();
 
 main().catch((error) => {
   console.error(error instanceof CliError ? error.message : `Lỗi: ${describeError(error)}`);

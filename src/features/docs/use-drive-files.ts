@@ -23,6 +23,13 @@ export function useDriveFileList(params: DriveFilesParams, query: string) {
   const { isDemo, driveConnected } = useViewer();
   const result = useDriveFiles(params, { enabled: !isDemo && driveConnected });
   const files = (result.data ?? []).filter((file) => matchesQuery(query, file.name));
-  const state = driveFilesViewState({ isDemo, driveConnected, status: result.status, error: result.error, count: files.length });
-  return { state, files, retry: () => void result.refetch(), retrying: result.isFetching };
+  const state = driveFilesViewState({
+    isDemo,
+    driveConnected,
+    status: result.status,
+    error: result.error,
+    hasData: result.data !== undefined,
+    count: files.length,
+  });
+  return { state, files, error: result.error, retry: () => void result.refetch(), retrying: result.isFetching };
 }

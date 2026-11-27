@@ -56,10 +56,10 @@ function DemoRecentDocs() {
 /** Chế độ configured: file thật trong thư mục Drive của Taskeo. */
 function DriveRecentDocs() {
   const { query } = useUI();
-  const { state, files, retry, retrying } = useDriveFileList({ limit: RECENT_FETCH_LIMIT }, query);
+  const { state, files, retry, retrying, error } = useDriveFileList({ limit: RECENT_FETCH_LIMIT }, query);
   if (state === "connect") return <DriveConnectPrompt />;
   if (state === "loading") return <DriveFilesSkeleton rows={RECENT_LIMIT} />;
-  if (state === "error") return <DriveFilesError onRetry={retry} retrying={retrying} />;
+  if (state === "error") return <DriveFilesError onRetry={retry} retrying={retrying} error={error} />;
   if (state !== "list") return <NoRecentDocs />;
   return files
     .slice(0, RECENT_LIMIT)
