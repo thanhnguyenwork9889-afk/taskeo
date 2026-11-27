@@ -89,7 +89,7 @@ Rủi ro / phụ thuộc:
 - Không có jsdom: hộp thoại / Suspense / popup chỉ kiểm tay (Chrome, cả khi bật chặn popup).
 - Kiểm thật cần tài khoản đã kết nối Drive, một không gian + một dự án tạo qua API; nên có một không gian cũ `driveFolderId = null` để thử nhánh tạo bù.
 
-Duyệt kế hoạch: ☐ chờ · ☐ người dùng đã duyệt (ngày) · ☐ bỏ qua (`--yes`)
+Duyệt kế hoạch: ☑ người dùng đã duyệt (2026-11-27), giữ phương án tách P3
 
 ## 3. Thực hiện + kiểm thử
 

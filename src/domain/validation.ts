@@ -246,6 +246,17 @@ export const LIST_FILES_QUERY_KEYS = ["spaceId", "projectId", "kind", "limit"] a
 
 export type ListFilesQuery = z.infer<typeof listFilesQuerySchema>;
 
+// Input tạo file Google trống trong thư mục Drive (POST /api/files). Strict chặn driveFolderId, userId...;
+// `projectId` rỗng (giá trị "không chọn dự án" của form) coi như không gửi.
+export const createFileInputSchema = z.strictObject({
+  name,
+  kind: docKindSchema,
+  spaceId: entityIdSchema,
+  projectId: emptyToUndefined(entityIdSchema),
+});
+
+export type CreateFileInput = z.infer<typeof createFileInputSchema>;
+
 export type QueryObjectResult = { ok: true; value: Record<string, string> } | { ok: false; key: string };
 
 /**

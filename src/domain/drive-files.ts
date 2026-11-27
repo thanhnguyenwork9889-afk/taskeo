@@ -1,4 +1,5 @@
 import type { DocKind, DriveFileItem } from "@/domain/types";
+import { toDriveFolderName } from "@/domain/drive-folder-name";
 import { isDriveUrl } from "@/domain/validation";
 
 // Hàm thuần cho việc liệt kê file Google Drive (T015): dựng chuỗi `q`, ánh xạ file Drive
@@ -19,6 +20,17 @@ export const DRIVE_NOT_CONNECTED_CODE = "drive_not_connected";
 
 /** Tên hiển thị khi Drive không trả tên file. */
 export const DRIVE_FILE_UNNAMED = "Không có tên";
+
+/** Tên file mặc định khi tên người dùng nhập rỗng sau chuẩn hoá. */
+export const DEFAULT_DRIVE_FILE_NAME = "Tài liệu không tên";
+
+/** Trường `files.create` cần trả để dựng `DriveFileItem` (khớp `RawDriveFile`). */
+export const DRIVE_FILE_CREATE_FIELDS = "id,name,mimeType,modifiedTime,webViewLink,parents";
+
+/** Chuẩn hoá tên file Drive giống tên thư mục (`toDriveFolderName`); rỗng → `DEFAULT_DRIVE_FILE_NAME`. */
+export function toDriveFileName(raw: string): string {
+  return toDriveFolderName(raw, DEFAULT_DRIVE_FILE_NAME);
+}
 
 const DOC_KIND_ENTRIES = Object.entries(DOC_KIND_MIME) as [DocKind, string][];
 

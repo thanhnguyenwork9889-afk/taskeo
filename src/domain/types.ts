@@ -105,6 +105,11 @@ export interface ListFilesResponse {
   files: DriveFileItem[];
 }
 
+/** Phần `data` của `POST /api/files`. */
+export interface CreateFileResponse {
+  file: DriveFileItem;
+}
+
 /** Dung lượng Google (byte) từ Drive `about.get` → `storageQuota`. `limit` null = không giới hạn. */
 export interface DriveStorage {
   usage: number;
