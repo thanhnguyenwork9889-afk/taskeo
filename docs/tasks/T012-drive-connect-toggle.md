@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T012-drive-connect-toggle` |
 | Tạo từ | `develop` @ `6291f11` |
-| Trạng thái | 3-build |
+| Trạng thái | 4-review |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: người dùng đề nghị sau T011 (2026-11-27): kết nối Drive ngay khi đăng nhập, và nút Kết nối Drive ở sidebar hoạt động như toggle, tắt được. Không có dòng riêng trong sheet (liên quan sheet T30, đã xong ở T010).
@@ -91,11 +91,23 @@ Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-27) 
 | P7 | `5935783` | — (trình duyệt: `/login` có ô tick mặc định bật, nhãn + mô tả, console sạch) | ✅ | ✅ | ✅ 920/920 | ✅ |
 | P6 | `07b3a25` | 4 test `currentLocation` (`drive-status.test.ts`); UI chưa xem được vì pane mất phiên — gộp vào P9 | ✅ | ✅ | ✅ 924/924 | ✅ |
 | P8 | (commit docs này) | — (docs 02: ô tick đăng nhập, công tắc, mục "Ngắt kết nối Drive", mã `?drive=`; docs 04: `revoke.ts`, `drive-switch.tsx`, `withQueryParam`) | — | — | — | — |
-| P9 | chờ người dùng | — | | | | |
+| P9 | không commit (kiểm thật) | — | ✅ | ✅ | ✅ 924/924 | ✅ |
 
 Ghi chú P1: `selectRevokeToken` trả token **đã mã hoá** (đúng cột DB), P4 giải mã ngay trước khi gọi; 200 trả `revoked` không đọc body. Ghi chú P2: `toSafeRedirectPath` cho qua `/.//evil`, `/a/..//evil`, `/%2e//evil`, sau `new URL` thành `//evil`; `withQueryParam` chặn bằng cách kiểm kết quả không bắt đầu bằng `//` (có test). `toSafeRedirectPath` chưa sửa — đưa vào review.
 
 Ghi chú P3+P4: cùng file `actions.ts` nên commit chung. Lỗi khi ghi DB sau khi thu hồi → `disconnect-failed` (log `{ userId, error: name }`): bấm lại thì Google trả `invalid_token` → ghi lại được. Lỗi đọc Account (`findFirst`) vẫn lan ra trang lỗi.
+
+**Kiểm thật trên DB dev** (2026-11-27; người dùng thao tác ở `localhost:3000` rồi báo đã xong; lệnh dùng một lần qua `vite-node`, không commit, không in token):
+
+| Kiểm | Kết quả |
+|---|---|
+| `Account` / `User` | vẫn 2 / 2, không có dòng mới |
+| `…pmwenu` (tài khoản người dùng thử công tắc) | token cấp lại lúc 01:11Z (đồng ý lại với Google), `scope` có `drive.file`, access + refresh `v1:` |
+| Gọi Drive API (`files.list`) bằng token hiện tại | cả hai tài khoản thành công |
+
+- DB chỉ giữ trạng thái cuối nên bước "ngắt kết nối" (token = null, scope chỉ còn đăng nhập) không còn dấu vết sau khi bật lại; kết quả bước đó dựa trên báo cáo của người dùng + test của P4 / P1.
+- Chưa thấy dấu vết bước "đăng nhập không tick" (không có phiên mới chỉ với scope đăng nhập); hành vi có test ở P3.
+- Hộp xác nhận (portal) và công tắc: người dùng đã dùng thật; Claude chưa xem tận mắt vì pane mất phiên.
 
 ## 4. Review code
 
