@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T018-drive-picker` |
 | Tạo từ | `develop` @ `9a22909` |
-| Trạng thái | 5-fix |
+| Trạng thái | 6-rereview |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T34** "Google Picker: gắn file có sẵn trên Drive vào dự án" (giai đoạn 4 · Google Drive, phụ thuộc T30 = T010). Sheet đã ở `Đang làm` khi khởi tạo, giữ nguyên.
@@ -139,8 +139,23 @@ Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewe
 
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
+| R1 | đã sửa: `fetchPickerToken` hạn 15 s (gộp signal ngoài + `AbortSignal.timeout`, hết hạn → code `timeout`); pha `loading` / `picking` / `attaching`, `canDismissAttach`: đang nạp script / lấy token thì Esc / Hủy đóng được (abort fetch, không mở Picker muộn) | `2787a46` |
+| R2 | đã sửa: `driveErrorReason` đọc `reason` (danh sách cố định); 403 rate limit / quota → `error` (502), 403 còn lại → `invalid_target` | `2787a46` |
+| R3 | đã sửa: bỏ `supportsAllDrives` ở `files.get` | `2787a46` |
+| R4 | đã sửa ở P12: docs 02 ghi đúng token mang mọi scope đã cấp + biện pháp giảm thiểu | `84ad8f2` |
+| R5 | để sau: CSP `script-src https://apis.google.com https://www.gstatic.com`, `frame-src https://docs.google.com` làm cùng T73 (đã ghi docs 02) | — |
+| R6 | đã sửa: thành công → `session.end()` trước `onDone()` | `2787a46` |
+| R7 | đã sửa: `end()` abort fetch đang bay | `2787a46` |
+| R8 | đã sửa: dùng `docKindFromMime` của domain | `2787a46` |
+| R9 | đã sửa: `ATTACHED_LABEL` / `ATTACHED_TITLE` trong `domain/labels.ts` | `2787a46` |
+| R10 | để sau: lối tắt có file đích đã xoá vẫn hiện (ghi việc để sau) | — |
+| R11 | để sau: rate limit ở T73 | — |
+| R12 | bỏ qua: chấp nhận (UI khoá khi gửi, chỉ tạo rác trong Drive của chính user) | — |
+| R13 | bỏ qua: cả hai trường hợp đều 404 đúng, câu đủ rõ | — |
+| R14 | bỏ qua: cùng tiền lệ `FileRow`, ESLint không cấm | — |
+| R15 | đã sửa ở P12: docs 02 có mục tạo + giới hạn API key | `84ad8f2` |
 
-Kết quả 4 lệnh sau khi sửa:
+Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 1914 · build ✅
 
 ## 6. Review lại
 
