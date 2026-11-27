@@ -1,6 +1,6 @@
 import "server-only";
 
-// Phạm vi nạp: module này chỉ được import từ `@/server/spaces` và `@/server/projects`, mà hai
+// Phạm vi nạp: module này chỉ được import từ `@/server/spaces`, `@/server/projects` và `./drive-files`, mà các
 // module đó chỉ được route import động ở chế độ `configured` — chế độ demo không bao giờ nạp nó.
 // Import tĩnh duy nhất có I/O là `./granted-scopes` (Prisma). `./client` và `googleapis` KHÔNG
 // được import tĩnh: chúng chỉ được import động trong `defaultDeps.getDrive`, sau khi đã thấy
@@ -11,6 +11,7 @@ import {
   toDriveFolderName,
 } from "@/domain/drive-folder-name";
 
+import { runWithDeadline } from "./deadline";
 import { classifyDriveError, driveErrorLogFields, isSilentDriveError } from "./drive-errors";
 import { createFolder, ensureRootFolder, type DriveFilesClient } from "./drive-folders";
 import { hasGoogleScope } from "./granted-scopes";
@@ -44,12 +45,6 @@ export const defaultDeps: DriveProvisionDeps = {
   },
 };
 
-function timeoutError(): Error {
-  const error = new Error("Quá hạn tạo thư mục Drive");
-  error.name = "TimeoutError";
-  return error;
-}
-
 /**
  * Chạy `work` trong hạn tổng; không bao giờ ném. Lỗi được phân loại: chưa kết nối / thiếu scope
  * thì im lặng, còn lại log đúng một dòng chỉ gồm `logContext`, tên lỗi đã phân loại và mã HTTP.
@@ -70,26 +65,15 @@ async function runBestEffort(
   deps: DriveProvisionDeps,
   logContext: { userId: string; spaceId: string; projectId?: string },
 ): Promise<void> {
-  const controller = new AbortController();
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => {
-      const error = timeoutError();
-      controller.abort(error);
-      reject(error);
-    }, deps.totalTimeoutMs ?? DRIVE_TOTAL_TIMEOUT_MS);
-  });
-  try {
-    // `work()` trong async wrapper: lỗi ném đồng bộ cũng thành promise bị từ chối.
-    await Promise.race([(async () => work(controller.signal))(), deadline]);
-  } catch (error) {
-    // Đã huỷ vì hết hạn thì luôn báo TimeoutError, kể cả khi lỗi về trước là AbortError của gaxios.
-    const reported: unknown = controller.signal.aborted ? controller.signal.reason : error;
-    if (isSilentDriveError(classifyDriveError(reported).kind)) return;
-    console.error(LOG_MESSAGE, { ...logContext, ...driveErrorLogFields(reported) });
-  } finally {
-    clearTimeout(timer);
-  }
+  const outcome = await runWithDeadline(
+    work,
+    deps.totalTimeoutMs ?? DRIVE_TOTAL_TIMEOUT_MS,
+    "Quá hạn tạo thư mục Drive",
+  );
+  if (outcome.ok) return;
+  // Đã huỷ vì hết hạn thì `runWithDeadline` luôn báo TimeoutError, kể cả khi lỗi về trước là AbortError.
+  if (isSilentDriveError(classifyDriveError(outcome.error).kind)) return;
+  console.error(LOG_MESSAGE, { ...logContext, ...driveErrorLogFields(outcome.error) });
 }
 
 /**

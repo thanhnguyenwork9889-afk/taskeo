@@ -1,0 +1,177 @@
+# T015 · Liệt kê file Drive theo không gian / dự án + Tài liệu gần đây
+
+| | |
+|---|---|
+| Nhánh | `feat/T015-drive-file-listing` |
+| Tạo từ | `develop` @ `6074fb4` |
+| Trạng thái | done |
+| Ngày tạo | 2026-11-27 |
+
+Nguồn: sheet nhiệm vụ, dòng **T33** "Liệt kê file theo không gian/dự án + Tài liệu gần đây" (giai đoạn 4 · Google Drive). Phụ thuộc T31 (thư mục Drive cho không gian / dự án, xong ở T013). Trạng thái trên sheet đã là `Đang làm` từ trước, giữ nguyên.
+
+Commit đầu nhánh `1776cab` (người dùng chọn): đồng bộ `package-lock.json` với `engines` trong `package.json` và thêm `.idea/` vào `.gitignore` — không thuộc nội dung T33.
+
+## 1. Docs – yêu cầu
+
+**Mục tiêu:** Người dùng đã kết nối Google Drive thấy file Google Docs / Sheets / Slides thật trong thư mục Drive của Taskeo: danh sách "Tài liệu gần đây" ở Tổng quan và trang Kho lưu trữ `/docs` (lọc theo loại `?type=`). Server có API liệt kê file theo không gian / dự án để các tab Tài liệu dùng khi giao diện chuyển sang dữ liệu thật.
+
+**Hiện trạng (2026-11-27, `develop` @ `6074fb4`):**
+- `Space.driveFolderId` / `Project.driveFolderId` được ghi khi tạo qua API (T013). Thư mục: `Taskeo / <không gian> / <dự án>`, gắn `appProperties` `taskeoRole` = `root` / `space` / `project`.
+- Scope `drive.file`: app chỉ thấy file do app tạo hoặc người dùng mở bằng app. Tạo Doc/Sheet/Slide là T32 (chưa làm); người dùng có thể tự tạo file trong thư mục Taskeo trên Drive nhưng app **không** thấy file đó với `drive.file` — chỉ thấy file app tạo / mở. Kiểm thật vì vậy cần một file do app tạo (script dev tạo một Doc trống bằng `files.create` trong thư mục không gian), hoặc làm sau T32.
+- Giao diện chạy store demo (localStorage) ở mọi chế độ. ID không gian / dự án trong store **không trùng** ID trong DB cho tới T59. `recent-docs-card.tsx`, `docs-view.tsx`, tab Tài liệu ở `space-detail.tsx` / `project-detail.tsx` đọc `files` từ store.
+- `useViewer()` (client) có `isDemo`, `driveConnected`. `@tanstack/react-query` đã có trong `package.json` nhưng chưa có `QueryClientProvider`.
+- Hạ tầng sẵn có: `getGoogleAuth`, `hasGoogleScope`, `classifyDriveError` / `driveErrorLogFields`, `escapeDriveQueryValue`, mẫu route `GET /api/activities` (`connection()` → `getApiUserId()` → Zod → import động).
+
+**Phạm vi:**
+- **Server Drive** (`src/server/google/`, `server-only`): hàm liệt kê file với `files.list`, `q` = mimeType thuộc 3 loại Google (`document`, `spreadsheet`, `presentation`) + `trashed=false` (+ điều kiện `'<folderId>' in parents` khi lọc), `orderBy: modifiedTime desc`, `fields` chỉ gồm `id, name, mimeType, modifiedTime, webViewLink, parents`, `pageSize` = `limit`. Timeout + `retry: false` như `drive-provision.ts`; chỉ import động `client` / `googleapis` sau khi thấy scope.
+- **Hàm thuần** (`src/domain/`, có test): mimeType → `DocKind`; dựng chuỗi `q` (thoát giá trị); ánh xạ file Drive → bản ghi phía client theo `parents` khớp `driveFolderId` của không gian / dự án của user (file trong thư mục dự án → cả `projectId` lẫn `spaceId`); bỏ file thiếu `id` / mimeType lạ; chỉ giữ `webViewLink` qua `isDriveUrl`.
+- **Hàm truy vấn** `src/server/drive-files.ts` (hoặc tên tương tự): đọc không gian / dự án của user (lọc `userId`), gọi Drive, ánh xạ.
+  - Tài liệu gần đây (không lọc): file mới sửa nhất mà app thấy, **chỉ giữ file nằm trong thư mục không gian / dự án của user** (file ngoài thư mục Taskeo bị bỏ qua).
+  - Lọc theo `spaceId`: file trong thư mục không gian **và** trong thư mục các dự án của nó. Lọc theo `projectId`: chỉ thư mục dự án. Không gian / dự án không thuộc user → 404; chưa có `driveFolderId` → danh sách rỗng, không gọi Google.
+  - Lọc theo `kind` (`doc` / `sheet` / `slide`).
+- **API** `GET /api/files?spaceId=&projectId=&kind=&limit=` (`limit` 1–100, mặc định 20; `spaceId` và `projectId` không dùng cùng lúc; key lặp → 400). Phản hồi 200 `{ data: { files: DriveFileItem[] } }`, mỗi file có `id, name, kind, url, modifiedAt, spaceId, projectId, spaceName, projectName` (tên để giao diện không phải tra store). Chưa kết nối Drive / thiếu scope → mã lỗi riêng để giao diện hiện lời mời kết nối (planner chọn: 403 kèm `code: "drive_not_connected"` hoặc 200 với cờ). Google lỗi / quá hạn → 502 thông báo chung, log một dòng không token / URL. 401 / 503 như các route khác.
+- **Giao diện (chế độ `configured`):**
+  - `QueryClientProvider` trong app shell (client), hook `useDriveFiles({ spaceId?, projectId?, kind?, limit? })` gọi `/api/files`, `staleTime` hợp lý (vd 60 s), không retry khi 4xx.
+  - `RecentDocsCard` và `DocsView`: chế độ demo giữ nguyên dữ liệu store; `configured` + đã kết nối Drive → dữ liệu thật, phụ đề `dự án · không gian` lấy từ `spaceName` / `projectName`; có trạng thái đang tải, rỗng, lỗi (nút thử lại); chưa kết nối Drive → lời mời kết nối Drive thay cho danh sách.
+  - `FileRow` mở `url` thật trong tab mới; câu "Tài liệu mẫu — giai đoạn 3…" chỉ còn ở chế độ demo. Ô tìm kiếm (`useUI().query`) vẫn lọc theo tên trên dữ liệu thật.
+  - Sửa dòng chú thích cuối `docs-view.tsx` cho đúng hiện trạng.
+- Docs: 02 (liệt kê file với `drive.file`), 04 (file mới), 06 (`GET /api/files`).
+
+**Ngoài phạm vi:**
+- Tab Tài liệu ở `space-detail.tsx` / `project-detail.tsx` và ô đếm "Tài liệu" ở thẻ không gian: vẫn đọc store, vì ID store không khớp ID DB cho tới T59. API đã hỗ trợ lọc `spaceId` / `projectId` để T59 nối thẳng.
+- Tạo Doc/Sheet/Slide (T32), Google Picker (T34), gắn file vào công việc (T60), tìm tên file ở Ctrl+K (T44).
+- Phân trang quá `limit` (nextPageToken), cache phía server, rate limit (T73).
+- Thay store demo bằng TanStack Query cho không gian / dự án / công việc (T59).
+
+**Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
+- [x] Test hàm thuần: mimeType → `DocKind` (3 loại, mimeType lạ bị bỏ); chuỗi `q` đúng và thoát `'` / `\`; ánh xạ `parents` → `spaceId` / `projectId` / tên đúng (file trong thư mục dự án, thư mục không gian, ngoài Taskeo bị bỏ); `url` không phải Drive → `null`.
+- [x] Test hàm truy vấn với client Drive giả: không lọc → chỉ file trong thư mục của user, đúng thứ tự `modifiedTime`; lọc `spaceId` gồm cả thư mục dự án con; lọc `projectId`; không gian / dự án của user khác → 404; chưa có `driveFolderId` → rỗng và không gọi Drive; chưa có scope → không gọi Google, trả kết quả "chưa kết nối"; Google lỗi → lỗi đã phân loại, log không chứa token / URL.
+- [x] Test route `GET /api/files`: 401, 503 (demo), 400 (`limit` sai, `kind` sai, `spaceId` + `projectId` cùng lúc, key lặp), 404, mã "chưa kết nối", 502, 200 đúng hình dạng.
+- [x] Chế độ demo: Tổng quan và `/docs` hiện dữ liệu mẫu như cũ, không gọi `/api/files`, không nạp `googleapis`. (Kiểm qua code + test: `enabled: !isDemo && driveConnected`, nhánh demo không mount query, route trả 503 trước import động; hai reviewer lần theo xác nhận. Chưa chạy tay không có `.env.local` vì dev server của người dùng đang chạy.)
+- [x] Chế độ `configured`, chưa kết nối Drive: Tổng quan và `/docs` hiện lời mời kết nối, không lỗi.
+- [x] Kiểm thật trên dev cùng người dùng: tài khoản đã kết nối Drive, có ít nhất một Doc do app tạo trong thư mục không gian → hiện ở "Tài liệu gần đây" và `/docs` với đúng tên, phụ đề, thời gian; `/docs?type=sheet` lọc đúng; bấm mở đúng file trên Google; `GET /api/files?spaceId=…` trả đúng file.
+- [x] Có trạng thái đang tải, rỗng, lỗi ở hai màn hình (chọn trạng thái kiểm bằng test hàm thuần `driveFilesViewState` / `driveFilesErrorInfo`; chạy tay đã thấy lời mời kết nối và danh sách; không có jsdom nên chưa có test component).
+- [x] 4 lệnh typecheck / lint / test / build xanh.
+- [x] Docs 02, 04, 06 cập nhật.
+
+**Tài liệu bị ảnh hưởng:** 02 Google · 04 kiến trúc · 06 API.
+
+## 2. Kế hoạch từng phần
+
+| Phần | Việc | File | Agent | Test cần viết |
+|---|---|---|---|---|
+| P1 | Kiểu `DriveFileItem { id, name, kind, url, modifiedAt, spaceId, projectId, spaceName, projectName }` + `ListFilesResponse { files }` trong `types.ts`. `domain/drive-files.ts`: `DOC_KIND_MIME`, `docKindFromMime`, chuyển `escapeDriveQueryValue` sang đây, `buildDriveFilesQuery({ kind?, parentIds? })`, `chunk` + `DRIVE_PARENTS_PER_QUERY = 40`, `buildFolderIndex`, `toDriveFileItem` (thư mục dự án thắng thư mục không gian; url qua `isDriveUrl`), `mergeRecent(lists, limit)`, `DRIVE_NOT_CONNECTED_CODE`. `validation.ts`: `listFilesQuerySchema` (limit 1–100 mặc định 20, kind, spaceId/projectId không cùng lúc) + `LIST_FILES_QUERY_KEYS` | `src/domain/types.ts`, `src/domain/drive-files.ts` (+test), `src/domain/validation.ts` (+test) | feature-builder | mime → kind; `q` thoát `'` `\`, có/không parents/kind; chunk; ánh xạ parents (dự án, không gian, ngoài Taskeo, thiếu id); url không phải Drive → null; merge khử trùng + thứ tự; schema |
+| P2 | `drive-query.ts` re-export `escapeDriveQueryValue`. `server/google/drive-files.ts`: `listDriveFiles(userId, queries, pageSize, deps)` → `ok` / `not_connected` / `error`; kiểm scope trước; `files.list` song song mỗi q (`orderBy: modifiedTime desc`, `fields` tối thiểu); hạn tổng 10 s như `runBestEffort`; log 1 dòng `driveErrorLogFields`; dùng lại `defaultDeps` của `drive-provision.ts` | `src/server/google/drive-files.ts` (+test), `src/server/google/drive-query.ts` | google-integrator | không scope → không gọi Drive; đúng tham số; nhiều q song song; `GoogleNotConnectedError` → not_connected; lỗi Gaxios → error, log không token / URL; timeout |
+| P3 | `server/drive-files.ts`: `listFiles(userId, { spaceId?, projectId?, kind?, limit })` → `{ ok, files }` hoặc `not_found` / `drive_not_connected` / `drive_error`. Một truy vấn Prisma không gian + dự án của user. projectId → 1 parent; spaceId → parents chia khối 40; không lọc → `pageSize=100`, lọc trong bộ nhớ theo index thư mục. Không có thư mục → `[]`, không gọi Google | `src/server/drive-files.ts` (+test) | api-builder | chỉ giữ file trong thư mục user, đúng thứ tự; spaceId gồm dự án con, chia khối >40; projectId; user khác → not_found; driveFolderId null → rỗng, không gọi; truyền not_connected / error |
+| P4 | `http.ts`: `code?` trong `ApiError` + `failWithCode`. Route `GET /api/files` theo mẫu activities → 200 `{ files }` · 400 · 401 · 403 `drive_not_connected` · 404 · 502 · 503 | `src/server/http.ts` (+test), `src/app/api/files/route.ts` (+test) | api-builder | 401, 503, 400 (limit, kind, cả hai id, key lặp), 404, 403 có code, 502, 200 |
+| P5 | `components/layout/query-provider.tsx` (QueryClient, staleTime 60 s, không refetch khi focus) bọc trong `AppShell`. `features/docs/drive-files-api.ts` (`ApiRequestError`, `driveFilesUrl`, `fetchDriveFiles`), `use-drive-files.ts` (`useDriveFiles(params, { enabled })`, không retry 4xx), `drive-files-state.ts` (`driveFilesViewState` → demo / connect / loading / error / empty / list) | 4 file trên + `app-shell.tsx`, các `*.test.ts` | feature-builder | `driveFilesUrl`; `fetchDriveFiles` với fetch giả (200, 403 code, 502, JSON hỏng); predicate retry; bảng trạng thái |
+| P6 | `FileRow` nhận `Pick<WorkspaceFile, …>` + prop `demo` (câu "Tài liệu mẫu…" chỉ ở demo). `drive-files-states.tsx`: lời mời kết nối Drive, skeleton, lỗi + thử lại. `RecentDocsCard` (limit 4) và `DocsView` (limit 100, `?type=`): demo giữ store, configured dùng `useDriveFiles`, phụ đề từ `projectName` / `spaceName`, ô tìm kiếm vẫn lọc. Sửa chú thích cuối `docs-view.tsx` | `src/features/docs/{file-row,docs-view,drive-files-states}.tsx`, `src/features/dashboard/recent-docs-card.tsx` | feature-builder | không có jsdom → logic đã test ở P5; chạy tay + ảnh chụp các trạng thái; demo không gọi `/api/files` |
+| P7 | Script dev `scripts/dev-create-doc.mjs` (độc lập, không import `src/`): đọc Account, giải mã token như `crypto.ts`, `files.create` một Doc/Sheet/Slide trống trong thư mục không gian. `node --env-file=.env.local scripts/dev-create-doc.mjs <email> <spaceId> [doc\|sheet\|slide]`. Đầu file ghi rõ chỉ dùng ở dev | `scripts/dev-create-doc.mjs` | google-integrator | không; chạy tay |
+| P8 | Docs 02 (liệt kê với `drive.file`), 04 (file mới), 06 (`GET /api/files`, 403 `drive_not_connected`) | `docs/02-google-cloud.md`, `docs/04-architecture.md`, `docs/06-api.md` | tự làm | không |
+
+Thứ tự: P1 trước → P2, P5, P7 song song → P3 (cần P2) → P4 (cần P3) → P6 (cần P5, thử với P4) → P8.
+
+Quyết định thiết kế:
+- Chưa kết nối Drive → **403 + `error.code = "drive_not_connected"`** (giữ `data` một kiểu; UI xem `driveConnected` trước nên 403 chỉ khi scope bị thu hồi giữa chừng). `ApiError.code?` tương thích ngược.
+- `DriveFileItem` / `ListFilesResponse` ở `domain/types.ts`, dùng chung client + server.
+- Gần đây: không đưa parents vào `q` (200×200 thư mục không vừa), lấy 100 file mới nhất rồi lọc trong bộ nhớ. Theo không gian: chia khối 40 parents mỗi `q`, gọi song song.
+- `QueryClientProvider` chung chung ở `components/layout`; hook + fetch ở `features/docs` (đúng luật lớp).
+
+Rủi ro / phụ thuộc:
+- Chuyển `escapeDriveQueryValue` sang domain: `drive-query.ts` phải re-export để code / test cũ xanh.
+- "Gần đây" có thể ít hơn `limit` nếu app thấy >100 file ngoài thư mục Taskeo (không phân trang) — ghi ở docs 02.
+- Không có jsdom: trạng thái tải / rỗng / lỗi kiểm bằng test hàm thuần + ảnh chụp tay.
+- `useViewer()` có thể suspend; demo phải `enabled: false`, không nạp gì phía server.
+- Script P7 lặp logic giải mã của `crypto.ts` (chấp nhận, chỉ dùng dev); cần `.env.local` và người dùng đã kết nối Drive.
+- Route mới: đọc `node_modules/next/dist/docs/` về route handler trước khi viết; `connection()` + import động như mẫu activities.
+
+Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-27) · ☐ bỏ qua (`--yes`)
+
+## 3. Thực hiện + kiểm thử
+
+| Phần | Commit | Test thêm | typecheck | lint | test | build |
+|---|---|---|---|---|---|---|
+| P1 | `61c1536` | 63 (`drive-files.test.ts`) + `listFilesQuerySchema` (`validation.test.ts`) | ✅ | ✅ | ✅ 1149/1149 | ✅ |
+| P7 | `4c59a41` | — (script dev, `node --check`, lint; chưa chạy thật) | — | ✅ | — | — |
+| P5 | `bc3db00` | 35 (`drive-files-api.test.ts` 23, `drive-files-state.test.ts` 12) | ✅ | ✅ | ✅ | ✅ (đợt chung) |
+| P2 | `3c45ef6` | 19 (`google/drive-files.test.ts` 16, `deadline.test.ts` 3); 28 test `drive-provision` vẫn xanh | ✅ | ✅ | ✅ | ✅ (đợt chung) |
+| P6 | `b34626a` | 3 (`driveFileSubtitle`); không có jsdom → kiểm tay | ✅ | ✅ | ✅ | ✅ (đợt chung) |
+| P3 | `3bc0d89` | 18 (`server/drive-files.test.ts`) | ✅ | ✅ | ✅ | ✅ (đợt chung) |
+| P4 | `a882a86` | 29 (`api/files/route.test.ts` 27, `http.test.ts` +2) | ✅ | ✅ | ✅ 1253/1253 | ✅ `/api/files` ƒ |
+| P8 | `d7e4ccd` | — (docs 02, 04, 06 + sửa chú thích `drive-provision.ts`) | — | ✅ | — | — |
+
+Kiểm tay trên dev (`configured`, đã đăng nhập, **chưa** kết nối Drive): `/docs` và thẻ "Tài liệu gần đây" hiện lời mời kết nối Drive, không lỗi console; `GET /api/files` → 403 `drive_not_connected`, `spaceId`+`projectId` → 400, `limit=0` → 400, `spaceId=nope` → 404. Lần gọi đầu trả 500 do dev server đang chạy từ trước giữ bản biên dịch cũ của `validation.ts`; biên dịch lại (touch file) thì đúng. Còn thiếu: kiểm với Drive đã kết nối + file tạo bằng `scripts/dev-create-doc.mjs` (cần người dùng kết nối Drive).
+
+## 4. Review code
+
+Reviewer đã chạy (trên `git diff develop...HEAD` @ `746b705`): `layer-reviewer`; review TypeScript và review bảo mật giao cho agent `general-purpose` (repo chưa có agent `typescript-reviewer` / `security-reviewer`). Không có CRITICAL / HIGH.
+
+| # | Mức | File:dòng | Vấn đề | Reviewer |
+|---|---|---|---|---|
+| R1 | MEDIUM | `src/server/drive-files.ts:93-103` | Mọi request (kể cả lọc `projectId`) nạp toàn bộ không gian + dự án của user (tới 200 × 200 dòng); không có rate limit → một user lặp request gây tải DB và tốn quota Drive chung | security |
+| R2 | MEDIUM | `src/features/docs/drive-files-state.ts:27` | Xét `status === "error"` trước khi xét có dữ liệu: refetch nền lỗi (TanStack giữ `data`) thay danh sách đang xem bằng khối lỗi | typescript |
+| R3 | MEDIUM | `src/features/docs/drive-files-api.ts:94-96` | Retry cả 502 do hạn 10 s phía server → khung chờ ~33 s trước khi hiện lỗi; nút Thử lại lặp lại cả chu kỳ | typescript |
+| R4 | MEDIUM | `docs/06-api.md` (Quy ước chung, Mã lỗi) | Danh sách mã lỗi chung chưa có 403 `drive_not_connected` và 502 | layer |
+| R5 | LOW | `src/server/drive-files.ts:69-73` | Tài liệu gần đây chỉ xét 100 file mới nhất rồi lọc → có thể thiếu nếu nhiều file ngoài thư mục Taskeo | security |
+| R6 | LOW | `scripts/dev-create-doc.mjs:1-3, 95-100` | "Chỉ dùng dev" chỉ là chú thích, không chặn chạy với env production | security, layer |
+| R7 | LOW | `scripts/dev-create-doc.mjs:41-69` | Logic giải mã sao chép tay từ `crypto.ts`, lệch khi đổi định dạng (đóng an toàn: ném lỗi) | security |
+| R8 | LOW | `src/server/http.ts:69-76` | `handleUnexpected` log `message` / `stack` của lỗi Prisma (có thể chứa id), có từ trước T015 | security |
+| R9 | LOW | `docs/04-architecture.md` | Cây thư mục thiếu `features/docs/drive-files-states.tsx` và `scripts/dev-create-doc.mjs` | layer |
+| R10 | LOW | `src/domain/drive-files.ts:23`, `src/features/docs/docs-view.tsx` | Chữ hiển thị rải trong domain / feature thay vì `domain/labels.ts` | layer |
+| R11 | LOW | `package-lock.json`, `.gitignore` | Thay đổi không thuộc T33 | layer, security |
+| R12 | LOW | `src/features/docs/drive-files-api.ts:75-89` | AbortError khi đọc body bị đổi thành lỗi "phản hồi không hợp lệ" status 200 | typescript |
+| R13 | LOW | `drive-files-state.ts:27`, `drive-files-states.tsx:67-78` | 401 (hết phiên) hiện câu "Google bận, thử lại", thử lại không giúp được | typescript |
+| R14 | LOW | `src/features/docs/use-drive-files.ts:11` | queryKey không có user: nếu đổi tài khoản mà không tải lại trang, thấy cache của tài khoản trước ≤ 60 s | typescript |
+| R15 | LOW | `src/features/docs/*` | Không có test cho hook (`enabled` ở demo / chưa kết nối, lỗi kèm dữ liệu); `deadline.test.ts` thiếu ca reject sau `await` | typescript |
+
+## 5. Fix bug
+
+| Phát hiện | Xử lý | Commit |
+|---|---|---|
+| R1 | đã sửa: `listFiles` chỉ truy vấn theo bộ lọc — `projectId` → `project.findFirst` (kèm `space: { userId }`), `spaceId` → `space.findFirst` + dự án, không lọc → `findMany` như cũ; +4 test kiểm truy vấn hẹp. Rate limit để T73 | `ea1a1f8` |
+| R2 | đã sửa: `driveFilesViewState` nhận `hasData`; lỗi refetch khi đã có dữ liệu vẫn hiện danh sách (403 `drive_not_connected` vẫn chuyển sang lời mời kết nối) | `ea1a1f8` |
+| R3 | đã sửa: không retry `ApiRequestError` (server đã có hạn 10 s); lỗi mạng retry tối đa 1 lần | `ea1a1f8` |
+| R4 | đã sửa: thêm 403 / 502 vào danh sách mã lỗi chung ở docs 06 | `ea1a1f8` |
+| R5 | bỏ qua: chấp nhận, đã ghi ở docs 02 (chưa phân trang) | — |
+| R6 | đã sửa: script từ chối chạy khi `NODE_ENV` / `VERCEL_ENV` = production, hoặc DB không phải localhost mà thiếu `ALLOW_DEV_SCRIPT=1`; không in `DATABASE_URL`; docs 02 ghi cách chạy | `ea1a1f8` |
+| R7 | đã sửa phần nhỏ: đầu script ghi rõ phải sửa theo khi `crypto.ts` đổi định dạng; tách lõi giải mã dùng chung để sau | `ea1a1f8` |
+| R8 | bỏ qua: có từ trước T015, ngoài phạm vi | — |
+| R9 | đã sửa: docs 04 thêm `drive-files-states.tsx` và `scripts/dev-create-doc.mjs` | `ea1a1f8` |
+| R10 | để sau: chưa có quy ước bắt buộc mọi chuỗi giao diện vào `labels.ts` (các feature khác cũng viết tại chỗ) | — |
+| R11 | bỏ qua: người dùng chọn commit riêng ở đầu nhánh (`1776cab`) | — |
+| R12 | đã sửa: AbortError khi đọc body được ném lại (`signal.reason`), không đổi thành lỗi "phản hồi không hợp lệ" | `ea1a1f8` |
+| R13 | đã sửa: `driveFilesErrorInfo` — 401 báo hết phiên, 4xx khác dùng thông báo của API, cả hai không có nút Thử lại; nối vào `/docs` và thẻ Tổng quan | `ea1a1f8` |
+| R14 | để sau: đăng xuất hiện tải lại trang (server action `signOut` chuyển trang), nên cache không sang tài khoản khác; ghi lại | — |
+| R15 | sửa một phần: test cho lỗi kèm dữ liệu, abort khi đọc body, retry; test hook (renderHook) cần jsdom — để sau | `ea1a1f8` |
+
+Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 1272/1272 · build ✅
+
+## 6. Review lại
+
+Vòng 1 (trên `git diff f223ca9..HEAD`, các reviewer như bước 4): **không có CRITICAL / HIGH / MEDIUM**. R1–R15 không thoái lui. Ghi chú LOW, không chặn, để sau:
+- `drive-files-state.ts`: 3 chuỗi thông báo lỗi viết tại chỗ (cùng loại R10).
+- `scripts/dev-create-doc.mjs`: `ALLOW_DEV_SCRIPT=1` vẫn cho chạy với DB production ở xa — giới hạn của rào chắn, thông báo từ chối đã cảnh báo.
+- Refetch nền lỗi khi đã có dữ liệu (kể cả 401 hết phiên) giữ danh sách cũ, không báo gì — có thể thêm dòng nhắc nhỏ.
+
+## 7. Final
+
+**Tóm tắt:** `GET /api/files` liệt kê file Google Docs / Sheets / Slides trong thư mục Drive Taskeo của user (lọc `spaceId` gồm dự án con / `projectId`, `kind`, `limit`), gắn không gian / dự án theo `parents`, chỉ truy vấn DB theo bộ lọc; chưa kết nối → 403 `drive_not_connected`, Google lỗi / quá 10 s → 502. Thẻ "Tài liệu gần đây" và trang `/docs` dùng dữ liệu thật ở chế độ `configured` (TanStack Query; đang tải / rỗng / lỗi / mời kết nối Drive), demo giữ dữ liệu mẫu. Script dev `scripts/dev-create-doc.mjs` tạo file thử (có rào chắn production). Tách `runWithDeadline` dùng chung với tạo thư mục.
+
+**Kiểm thật trên dev (2026-11-27, tài khoản đã kết nối Drive):** tạo bằng script "T015 test doc A" (không gian T013 test A) và "T015 test sheet B" (T013 test B). `/api/files?limit=5` → 2 file, đúng thứ tự, đúng tên không gian; `?kind=sheet` → chỉ sheet; `?spaceId=<A>` → chỉ doc A; `?projectId=<dự án 1>` → rỗng (file nằm ở thư mục không gian). `/docs`, `/docs?type=sheet`, thẻ Tổng quan hiện đúng tên, phụ đề, "1 phút trước"; liên kết `https://docs.google.com/…` mở tab mới (`rel=noreferrer`).
+
+**Tiêu chí nghiệm thu:** đạt hết (đánh dấu ở mục 1; hai dòng có ghi chú cách kiểm).
+
+**Kết quả 4 lệnh cuối:** typecheck ✅ · lint ✅ · test ✅ 1272/1272 · build ✅ (@ `b081a38`).
+
+**Tài liệu đã cập nhật:** 02 (liệt kê file với `drive.file`, script dev), 04 (file mới, QueryProvider, scripts/), 06 (`GET /api/files`, `error.code`, mã 403 / 502).
+
+**Merge vào develop:** commit `<hash>`, 2026-11-27
+
+**Sheet nhiệm vụ:** dòng T33 sẽ chuyển `Xong` sau merge (bước 7, mục 8; kết quả nêu trong báo cáo)
+
+**Việc để sau:**
+- Tab Tài liệu ở trang không gian / dự án và ô đếm tài liệu: nối `/api/files?spaceId|projectId` ở T59 (ID store khác ID DB).
+- Phân trang khi app thấy > 100 file ngoài thư mục Taskeo (R5); rate limit `/api/files` (T73, R1).
+- Gom chuỗi giao diện vào `labels.ts` (R10); dòng nhắc khi refetch nền lỗi mà vẫn hiện dữ liệu cũ; test hook khi có jsdom (R15).
+- Tách lõi giải mã dùng chung cho `crypto.ts` và script dev (R7); log lỗi Prisma không kèm message (R8, có từ trước).
+- File thử "T015 test doc A" / "T015 test sheet B" còn trong Drive dev — xoá tay nếu muốn.

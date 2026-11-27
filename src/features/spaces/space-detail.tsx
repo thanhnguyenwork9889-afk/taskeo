@@ -257,7 +257,7 @@ function DocsPanel({ spaceId, projects, files }: SpaceContent) {
       {files
         .filter((f) => matchesQuery(query, f.name))
         .map((file) => (
-          <FileRow key={file.id} file={file} subtitle={projectNameIn(projects, file.projectId)} />
+          <FileRow key={file.id} file={file} subtitle={projectNameIn(projects, file.projectId)} demo />
         ))}
       {!files.length && <p className="border-t border-line-soft py-10 text-center text-sm text-muted">Chưa có tài liệu. Tạo bản nháp đầu tiên của bạn.</p>}
     </div>

@@ -5,32 +5,12 @@ import {
   escapeDriveQueryValue,
   rootFolderQuery,
 } from "./drive-query";
+import { escapeDriveQueryValue as domainEscape } from "@/domain/drive-files";
 
 describe("escapeDriveQueryValue", () => {
-  it("giữ nguyên chuỗi thường và tiếng Việt", () => {
-    expect(escapeDriveQueryValue("Không gian 1")).toBe("Không gian 1");
-    expect(escapeDriveQueryValue("")).toBe("");
-  });
-
-  it("thoát dấu nháy đơn", () => {
-    expect(escapeDriveQueryValue("it's")).toBe("it\\'s");
-  });
-
-  it("thoát dấu gạch chéo ngược", () => {
-    expect(escapeDriveQueryValue("a\\b")).toBe("a\\\\b");
-  });
-
-  it("thoát \\ trước ' (không thoát hai lần)", () => {
-    // Đầu vào: \'  → \\\'
-    expect(escapeDriveQueryValue("\\'")).toBe("\\\\\\'");
-    expect(escapeDriveQueryValue("'\\")).toBe("\\'\\\\");
-  });
-
-  it("không thể thoát khỏi chuỗi bằng ' or ...", () => {
-    const out = escapeDriveQueryValue("x' or trashed=true or name='y");
-    expect(out).toBe("x\\' or trashed=true or name=\\'y");
-    // Mọi ' đều có \ đứng trước.
-    expect(/(^|[^\\])'/.test(out)).toBe(false);
+  // Test đầy đủ ở src/domain/drive-files.test.ts; ở đây chỉ kiểm tra re-export.
+  it("re-exports the domain function", () => {
+    expect(escapeDriveQueryValue).toBe(domainEscape);
   });
 });
 

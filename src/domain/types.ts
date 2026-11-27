@@ -84,3 +84,23 @@ export interface WorkspaceState {
   files: WorkspaceFile[];
   activities: Activity[];
 }
+
+/** File Google Docs / Sheets / Slides thật trên Drive, nằm trong thư mục không gian / dự án của user. */
+export interface DriveFileItem {
+  id: string;
+  name: string;
+  kind: DocKind;
+  /** `webViewLink` của Drive; `null` nếu không phải liên kết Drive HTTPS. */
+  url: string | null;
+  modifiedAt: string;
+  spaceId: string;
+  /** `null` khi file nằm thẳng trong thư mục không gian. */
+  projectId: string | null;
+  spaceName: string;
+  projectName: string | null;
+}
+
+/** Phần `data` của `GET /api/files`. */
+export interface ListFilesResponse {
+  files: DriveFileItem[];
+}
