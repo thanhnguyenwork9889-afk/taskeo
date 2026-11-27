@@ -2,10 +2,14 @@ import "server-only";
 import { z } from "zod";
 import { hasNoNul, ID_MAX_LENGTH } from "@/domain/validation";
 
-/** Lỗi trả cho client: thông điệp ngắn, `details` chỉ có khi là lỗi validate. */
+/**
+ * Lỗi trả cho client: thông điệp ngắn, `details` chỉ có khi là lỗi validate, `code` chỉ có khi
+ * client cần phân biệt loại lỗi (vd `drive_not_connected`).
+ */
 export interface ApiError {
   message: string;
   details?: unknown;
+  code?: string;
 }
 
 /** Dạng phản hồi chung của mọi API route. */
@@ -27,6 +31,12 @@ export function ok<T>(data: T, status = 200): Response {
 export function fail(status: number, message: string, details?: unknown): Response {
   const error: ApiError = details === undefined ? { message } : { message, details };
   const body: ApiResponse<never> = { data: null, error };
+  return Response.json(body, { status });
+}
+
+/** Như `fail` nhưng kèm `error.code` máy đọc được (không kèm `details`). */
+export function failWithCode(status: number, message: string, code: string): Response {
+  const body: ApiResponse<never> = { data: null, error: { message, code } };
   return Response.json(body, { status });
 }
 

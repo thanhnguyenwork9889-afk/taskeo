@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   duplicateQueryKeyMessage,
   fail,
+  failWithCode,
   handleUnexpected,
   isValidRouteId,
   ok,
@@ -30,6 +31,19 @@ describe("ok / fail", () => {
   it("fail trả { data: null, error: { message } } và chỉ thêm details khi có", async () => {
     expect(await fail(404, "Không tìm thấy").json()).toEqual({ data: null, error: { message: "Không tìm thấy" } });
     expect(await fail(400, "x", { a: 1 }).json()).toEqual({ data: null, error: { message: "x", details: { a: 1 } } });
+  });
+
+  it("fail không có code (tương thích ngược)", async () => {
+    expect((await fail(400, "x").json()).error).not.toHaveProperty("code");
+  });
+
+  it("failWithCode trả { data: null, error: { message, code } }", async () => {
+    const response = failWithCode(403, "Chưa kết nối", "drive_not_connected");
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      data: null,
+      error: { message: "Chưa kết nối", code: "drive_not_connected" },
+    });
   });
 
   it("unauthorized / unavailable trả 401 / 503", () => {
