@@ -171,7 +171,7 @@ Vòng 1 (2026-11-27, `git diff 6290094..HEAD -- src`): `layer-reviewer`, `typesc
 
 **Tài liệu đã cập nhật:** 02 (mục "Tạo Doc / Sheet / Slide (T017)", sửa ghi chú script dev), 04 (`drive-folder-sync.ts`, `createFile`, `createDriveFile`, file mới ở `components/layout`, `api/files` GET + POST), 06 (`POST /api/files`).
 
-**Merge vào develop:** commit `<hash>`, 2026-11-27
+**Merge vào develop:** commit `a4b9f71`, 2026-11-27
 
 **Sheet nhiệm vụ:** dòng T32 sẽ chuyển `Xong` sau merge (bước 7, mục 8; kết quả nêu trong báo cáo)
 
