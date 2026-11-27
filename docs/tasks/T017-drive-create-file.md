@@ -99,6 +99,10 @@ Duyệt kế hoạch: ☑ người dùng đã duyệt (2026-11-27), giữ phươ
 | P2 | `f868aad` | createDriveFile (google/drive-files.test) | ✅ | ✅ | ✅ 1526 | ✅ |
 | P3 | `8b9e1c0` | 15 (drive-folder-sync) | ✅ | ✅ | ✅ 1526 | ✅ |
 | P6 | `2ca0839` | query-keys, create-doc-api, create-doc-state, pending-tab | ✅ | ✅ | ✅ 1526 | ✅ |
+| P4 | `68467f9` | 13 (drive-files createFile) | ✅ | ✅ | ✅ 1558 | ✅ |
+| P5 | `4f9402b` | 19 (api/files POST) | ✅ | ✅ | ✅ 1558 | ✅ |
+| P7 | `9836445` | — (không jsdom; logic test ở P6) | ✅ | ✅ | ✅ 1558 | ✅ |
+| P8 | `a7b4e6a` | — (kiểm tay) | ✅ | ✅ | ✅ 1558 | ✅ |
 
 ## 4. Review code
 
