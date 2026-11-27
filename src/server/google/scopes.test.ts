@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GOOGLE_SCOPES, hasScope, parseScopes } from "./scopes";
+import { GOOGLE_SCOPES, GOOGLE_SIGN_IN_GRANTED_SCOPE, hasScope, parseScopes } from "./scopes";
 
 const DRIVE = GOOGLE_SCOPES.drive;
 
@@ -44,5 +44,23 @@ describe("hasScope", () => {
 
   it("drive.file không suy ra drive đầy đủ", () => {
     expect(hasScope(DRIVE, "https://www.googleapis.com/auth/drive" as typeof DRIVE)).toBe(false);
+  });
+});
+
+describe("GOOGLE_SIGN_IN_GRANTED_SCOPE", () => {
+  it("không chứa scope Google API nào", () => {
+    const granted = parseScopes(GOOGLE_SIGN_IN_GRANTED_SCOPE);
+    for (const apiScope of Object.values(GOOGLE_SCOPES)) {
+      expect(granted).not.toContain(apiScope);
+      expect(GOOGLE_SIGN_IN_GRANTED_SCOPE).not.toContain(apiScope);
+    }
+  });
+
+  it("đúng 3 scope đăng nhập theo dạng Google lưu trong Account.scope", () => {
+    expect(parseScopes(GOOGLE_SIGN_IN_GRANTED_SCOPE)).toEqual([
+      "openid",
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile",
+    ]);
   });
 });

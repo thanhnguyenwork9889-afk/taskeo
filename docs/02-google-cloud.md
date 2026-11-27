@@ -58,7 +58,8 @@ Việc trên Google Cloud Console (làm một lần, cho từng client / môi tr
 
 Luồng trong app:
 
-- Người dùng đã đăng nhập thấy nút **Kết nối Google Drive** ở đáy sidebar (`src/components/layout/sidebar.tsx`); đã cấp thì hiện "Đã kết nối Google Drive". Chế độ demo không hiện.
+- **Lúc đăng nhập (T012):** trang đăng nhập có ô tick "Kết nối Google Drive luôn" (mặc định bật). Tick → `signInWithGoogle` gửi cùng bộ tham số với `connectGoogleDrive` (đăng nhập + `drive.file`); bỏ tick → chỉ `openid email profile`.
+- **Sau khi đăng nhập:** đáy sidebar có công tắc **Google Drive** (`src/components/layout/drive-switch.tsx`, `role="switch"`). Tắt → bật chạy `connectGoogleDrive` (dưới đây); bật → tắt mở hộp xác nhận rồi chạy `disconnectGoogleDrive` (xem "Ngắt kết nối"). Chế độ demo không hiện.
 - Nút gửi form tới server action `connectGoogleDrive` (`src/server/auth/actions.ts`): gọi `signIn("google", { redirectTo }, params)` với `params = buildIncrementalAuthorizationParams([drive])` (`src/server/auth/google-tokens.ts`).
   - Tham số thứ ba của `signIn` **thay hẳn** `scope` của provider, nên `scope` gửi đi là `openid email profile …/drive.file`; `access_type=offline`, `prompt=consent`, `include_granted_scopes=true` giữ như đăng nhập.
   - `login_hint` = email trong phiên, để Google chọn sẵn đúng tài khoản (chọn tài khoản khác sẽ bị chặn, xem dưới).
@@ -69,6 +70,18 @@ Luồng trong app:
 - **Chọn nhầm tài khoản (T011):** một user chỉ có một tài khoản Google. Nếu đang đăng nhập mà người dùng chọn một tài khoản Google khác chưa liên kết, callback `signIn` (`guardSignIn`, `src/server/auth/`) từ chối trước khi Auth.js gắn tài khoản: không ghi gì vào DB, chuyển về `/?drive=wrong-account`, app hiện thông báo "Bạn đã chọn tài khoản Google khác…" rồi bỏ tham số khỏi URL. DB có thêm ràng buộc `@@unique([userId, provider])` trên `Account` ([03-database.md](03-database.md)).
   - Callback đọc phiên từ cookie (`__Secure-authjs.session-token` / `authjs.session-token`) và bảng `Session`, không dùng `auth()`: `auth()` trả "không có phiên" khi DB lỗi, sẽ thành "cho qua". Lỗi DB trong callback → trang lỗi mặc định của Auth.js (`AccessDenied`).
   - Google vẫn ghi nhận người dùng đã đồng ý cho tài khoản bị từ chối; app không lưu token nào của tài khoản đó. Người dùng có thể gỡ quyền ở trang tài khoản Google nếu muốn.
+
+### Ngắt kết nối Drive (T012)
+
+- Server action `disconnectGoogleDrive` (`src/server/auth/actions.ts`) gọi `POST https://oauth2.googleapis.com/revoke` (token trong body form, timeout 10 s; `src/server/google/revoke.ts`). Không dùng `OAuth2Client.revokeToken` của thư viện: hàm đó đặt token vào query string, lỗi mang URL dễ lọt token vào log.
+- **Google không cho thu hồi riêng một scope.** Thu hồi refresh token (hoặc access token khi không có) huỷ **mọi** quyền Taskeo có trên tài khoản Google đó, ở mọi thiết bị — gồm Drive và Calendar khi có. Phiên Taskeo là phiên trong DB nên vẫn đăng nhập. Hộp xác nhận nói rõ điều này.
+- Thu hồi thành công, hoặc Google trả `invalid_token` (đã không còn hiệu lực), hoặc Account không còn token nào → ghi `access_token`, `refresh_token`, `expires_at` = `null`, `scope` = scope đăng nhập (`GOOGLE_SIGN_IN_GRANTED_SCOPE`, dạng Google lưu: `openid …/userinfo.email …/userinfo.profile`). Từ đó `driveConnected` = false và `getGoogleAuth` ném `GoogleNotConnectedError` cho tới khi kết nối lại.
+- Token không giải mã được (đổi `TOKEN_ENCRYPTION_KEY`, dữ liệu hỏng) → không gọi Google (không có token để gửi) nhưng vẫn xoá token khỏi DB và báo `disconnected-local` (thông báo: quyền ở Google vẫn còn, hướng dẫn gỡ ở trang Tài khoản Google → Bảo mật → Ứng dụng bên thứ ba).
+- Lỗi khác (mạng, 5xx, timeout, đọc / ghi DB lỗi) hoặc không có Account google → không đổi DB, báo `disconnect-failed` (riêng trường hợp Google đã thu hồi mà ghi DB lỗi: bấm lại sẽ nhận `invalid_token` và ghi được).
+- Xong thì quay về trang hiện tại kèm `?drive=disconnected`, `?drive=disconnected-local` hoặc `?drive=disconnect-failed` (`withQueryParam`, chỉ đường dẫn nội bộ); `DriveNotice` hiện thông báo rồi bỏ tham số.
+- Bật lại: `connectGoogleDrive` với `prompt=consent` → Google hỏi đồng ý lại, cấp refresh token mới.
+
+Mã `?drive=` mà `DriveNotice` (`src/components/layout/drive-notice.ts`) hiểu: `wrong-account` (T011), `disconnected`, `disconnected-local`, `disconnect-failed` (T012).
 
 ## Bảo mật token
 

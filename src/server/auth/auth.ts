@@ -33,7 +33,10 @@ async function persistReSignInTokens(account: Account | null) {
       data,
     });
   } catch (error: unknown) {
-    console.error("Không lưu được token Google khi đăng nhập lại", { message: error instanceof Error ? error.message : "unknown" });
+    console.error("Không lưu được token Google khi đăng nhập lại", {
+      // Chỉ log tên lỗi: message của Prisma có thể chứa dữ liệu truy vấn (token đã mã hoá).
+      error: error instanceof Error ? error.name : "UnknownError",
+    });
   }
 }
 

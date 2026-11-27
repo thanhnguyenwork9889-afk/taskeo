@@ -44,6 +44,27 @@ function GoogleSignInForm() {
         <GoogleLogo />
         Đăng nhập bằng Google
       </button>
+      <label
+        className={cx(
+          control,
+          "mt-3 flex items-start gap-3 px-3 py-2.5 text-left hover:bg-brand-faint has-focus-visible:ring-2 has-focus-visible:ring-brand",
+        )}
+      >
+        <input
+          type="checkbox"
+          name="connectDrive"
+          value="on"
+          defaultChecked
+          aria-describedby="connect-drive-hint"
+          className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-brand focus-visible:outline-none"
+        />
+        <span className="flex flex-col gap-0.5">
+          <span className="text-sm font-medium">Kết nối Google Drive luôn</span>
+          <span id="connect-drive-hint" className="text-xs leading-5 text-[#65517F]">
+            Taskeo chỉ thấy các file do Taskeo tạo hoặc bạn chọn mở.
+          </span>
+        </span>
+      </label>
     </form>
   );
 }
