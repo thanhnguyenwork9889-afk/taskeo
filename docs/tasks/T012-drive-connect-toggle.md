@@ -155,7 +155,15 @@ Kết quả 4 lệnh sau khi sửa (tự chạy): typecheck ✅ · lint ✅ · t
 
 ## 6. Review lại
 
-Vòng 1:
+Vòng 1 (`git diff 349c6c2..HEAD`, cùng ba reviewer): không có CRITICAL / HIGH. Xác nhận R1–R9, R12 đúng; 6 dialog khác dùng `Modal` giữ hành vi cũ. Phát hiện mới:
+
+| # | Mức | Vấn đề | Xử lý |
+|---|---|---|---|
+| R15 | MEDIUM | Token không giải mã được → xoá DB nhưng báo `disconnected`, người dùng không biết quyền ở Google còn (layer, security) | sửa ở vòng 2: mã riêng `disconnected-local` + câu hướng dẫn gỡ quyền ở trang tài khoản Google |
+| R16 | MEDIUM | `confirming` vẫn true sau khi ngắt thành công (typescript) | bỏ qua: không tái hiện được — sidebar render `<DriveSwitch key={drive}>`, đổi `connected` → `connect` làm React dựng lại component, `confirming` về `false` |
+| R17 | LOW | Đang gửi: nút Huỷ disabled → focus rơi về `body` (layer, security, typescript) | để sau: `trapTab` đã chặn Tab không thoát hộp |
+| R18 | LOW | `decrypt` trả chuỗi rỗng bị coi như không có token | chấp nhận: nhất quán với R4 |
+| R19 | LOW | `discardBody`, log của `auth.ts` chưa có test riêng; `toSafeRedirectPath` chuẩn hoá đổi `/a?` → `/a` | để sau / chấp nhận |
 
 ## 7. Final
 
