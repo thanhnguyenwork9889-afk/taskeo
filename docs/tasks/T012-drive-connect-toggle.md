@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T012-drive-connect-toggle` |
 | Tạo từ | `develop` @ `6291f11` |
-| Trạng thái | 4-review |
+| Trạng thái | 5-fix |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: người dùng đề nghị sau T011 (2026-11-27): kết nối Drive ngay khi đăng nhập, và nút Kết nối Drive ở sidebar hoạt động như toggle, tắt được. Không có dòng riêng trong sheet (liên quan sheet T30, đã xong ở T010).
@@ -111,11 +111,24 @@ Ghi chú P3+P4: cùng file `actions.ts` nên commit chung. Lỗi khi ghi DB sau 
 
 ## 4. Review code
 
-Reviewer đã chạy:
+Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewer` trên `git diff develop...HEAD` @ `c069ff5`. Không có CRITICAL. Đã xác nhận: token chỉ trong body form, log chỉ status / `error.name`, URL thu hồi cố định (không SSRF); `disconnectGoogleDrive` xác thực trước, truy vấn / update theo `userId` (không IDOR); `redirect()` ngoài try/catch; CSRF do Next kiểm Origin; `withQueryParam` chặn `//` sau chuẩn hoá; ranh giới lớp đúng.
 
 | # | Mức | File:dòng | Vấn đề | Reviewer |
 |---|---|---|---|---|
-| R1 | | | | |
+| R1 | HIGH | `src/components/layout/drive-switch.tsx` (state `confirming`), `sidebar.tsx` (`key={drive}`) | Ngắt kết nối thất bại → `drive` vẫn `connected`, component không dựng lại, `confirming` vẫn true → hộp xác nhận vẫn mở, thông báo `disconnect-failed` nằm sau lớp phủ | typescript (HIGH), layer (MEDIUM) |
+| R2 | HIGH (a11y) | `src/components/ui/modal.tsx` focus ban đầu + `FOCUSABLE` | `querySelector("input, …")` chọn `<input type="hidden">` → `.focus()` không có tác dụng, focus ở lại công tắc phía sau, Tab có thể thoát khỏi hộp; `FOCUSABLE` cũng gom input ẩn | typescript |
+| R3 | MEDIUM | `src/server/auth/redirect-path.ts` `toSafeRedirectPath` | Cho qua `/.//evil`, `/..//evil`, `/%2e%2e//evil` (sau `new URL` thành `//evil`). Hiện chưa khai thác được (Auth.js ghép `baseUrl + url`, cùng origin; `withQueryParam` đã chặn) nhưng nên chuẩn hoá tại gốc | security |
+| R4 | MEDIUM | `src/server/auth/actions.ts` nhánh `decrypt` lỗi | Token không giải mã được (đổi khoá, dữ liệu hỏng) → luôn `false`, người dùng không bao giờ ngắt kết nối được | security, typescript |
+| R5 | MEDIUM | `actions.ts` `revokeAndClearGoogleTokens` | JSDoc nói "không ném" nhưng `import()` + `findFirst` nằm ngoài try/catch → lỗi DB đọc ra trang lỗi | typescript |
+| R6 | MEDIUM | `modal.tsx` + `drive-switch.tsx` | Đang gửi (`pending`) vẫn đóng được bằng Esc / bấm ngoài / X / Huỷ; request vẫn chạy rồi chuyển trang | typescript |
+| R7 | LOW | `src/server/google/scopes.ts` | Định dạng `GoogleScope =(typeof …` | layer, security, typescript |
+| R8 | LOW | `drive-switch.tsx` `SwitchRow` | `aria-label` ghi đè chữ trạng thái ("Đã kết nối", "Đang chuyển tới Google…") | typescript |
+| R9 | LOW | `src/server/google/revoke.ts` nhánh 200 | Không đọc / huỷ body phản hồi | typescript |
+| R10 | LOW | `actions.ts`, `revoke.ts` | `errorName` lặp; `return;` thay được bằng `else` | typescript |
+| R11 | LOW | `actions.ts` `disconnectGoogleDrive` | Không giới hạn tần suất (đã bắt buộc phiên) | security |
+| R12 | LOW | `src/server/auth/auth.ts` `persistReSignInTokens` (có từ trước) | Log `error.message` của Prisma, có thể chứa dữ liệu truy vấn (token đã mã hoá) | security |
+| R13 | LOW | `drive-switch.tsx` | Chuỗi tiếng Việt viết thẳng trong component | layer |
+| R14 | LOW | `actions.ts` | Chỉ thu hồi Account google đầu tiên; chấp nhận vì T011 bảo đảm một Account google mỗi user | typescript |
 
 ## 5. Fix bug
 
