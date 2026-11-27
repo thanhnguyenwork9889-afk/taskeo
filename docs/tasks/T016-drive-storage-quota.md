@@ -135,7 +135,7 @@ Kết quả: sạch, sang bước 7.
 
 **Tài liệu đã cập nhật:** 02 (mục "Dung lượng Google ở sidebar (T016)": `about.get` dùng `drive.file`), 04 (file mới ở `domain/`, `server/google/`, `components/layout/`, route `api/drive/storage/`), 06 (dòng `GET /api/drive/storage`, mã lỗi `drive_not_connected` dùng chung). `docs/tasks/README.md`.
 
-**Merge vào develop:** commit `<hash>`, 2026-11-27
+**Merge vào develop:** commit `bd26a0f`, 2026-11-27
 
 **Sheet nhiệm vụ:** dòng T35 sẽ chuyển `Xong` sau merge (bước 7, mục 8; kết quả nêu trong báo cáo)
 
