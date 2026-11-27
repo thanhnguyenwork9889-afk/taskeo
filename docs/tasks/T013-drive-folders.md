@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T013-drive-folders` |
 | Tạo từ | `develop` @ `0c0ce60` |
-| Trạng thái | 7-final |
+| Trạng thái | done |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T31** "tạo thư mục Drive khi tạo không gian / dự án" (giai đoạn 3 · Google Drive, backlog B5 phần sau). Phụ thuộc T30 (scope `drive.file`, xong ở T010), T011 (một tài khoản Google mỗi user), T012 (kết nối / ngắt kết nối). Mở đường cho sheet T33.
@@ -43,16 +43,16 @@ Nguồn: sheet nhiệm vụ, dòng **T31** "tạo thư mục Drive khi tạo kh�
 - Xử lý trùng hai thư mục gốc khi hai request đồng thời cùng tạo lần đầu (chấp nhận, ghi rủi ro).
 
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
-- [ ] Test hàm thuần: tên thư mục chuẩn hoá đúng (trim, ký tự điều khiển, dài quá, rỗng); chuỗi `q` thoát `'` / `\` đúng; phân loại lỗi đúng.
-- [ ] Test `drive-folders.ts` với client Drive giả: tìm thấy thư mục gốc → không tạo mới; không có → tạo đúng tên, `mimeType`, `appProperties`; thư mục không gian / dự án tạo đúng `parents` và `appProperties`.
-- [ ] Test luồng tạo không gian: có `drive.file` → `driveFolderId` được lưu và trả trong `Space`; không có scope / chưa kết nối → không gọi Google, `driveFolderId = null`; Google ném lỗi → vẫn `ok: true`, `driveFolderId = null`, log không chứa token / URL.
-- [ ] Test luồng tạo dự án: có scope → thư mục con nằm trong thư mục không gian và được lưu; không gian chưa có thư mục → tạo bù rồi tạo thư mục dự án; lỗi Drive → dự án và activity vẫn tạo, `driveFolderId = null`.
-- [ ] Route `POST /api/spaces` và `POST /api/spaces/[id]/projects` giữ nguyên mã trạng thái và hình dạng lỗi cũ (test route có sẵn vẫn xanh).
-- [ ] Chế độ demo không đổi: không import `googleapis` khi chạy demo, 4 lệnh xanh.
-- [ ] Kiểm thật trên dev cùng người dùng: gọi `POST /api/spaces` và `POST /api/spaces/{id}/projects` với tài khoản đã kết nối Drive → My Drive có `Taskeo / <không gian> / <dự án>`, DB lưu đúng hai id; tạo thêm không gian thứ hai dùng lại thư mục "Taskeo" cũ; khi đã ngắt Drive → không gian vẫn tạo, `driveFolderId = null`.
-- [ ] Chữ ở `create-dialog.tsx` / `space-detail.tsx` đúng hiện trạng.
-- [ ] 4 lệnh typecheck / lint / test / build xanh.
-- [ ] Docs 02, 04, 06 cập nhật.
+- [x] Test hàm thuần: tên thư mục chuẩn hoá đúng (trim, ký tự điều khiển, dài quá, rỗng); chuỗi `q` thoát `'` / `\` đúng; phân loại lỗi đúng.
+- [x] Test `drive-folders.ts` với client Drive giả: tìm thấy thư mục gốc → không tạo mới; không có → tạo đúng tên, `mimeType`, `appProperties`; thư mục không gian / dự án tạo đúng `parents` và `appProperties`.
+- [x] Test luồng tạo không gian: có `drive.file` → `driveFolderId` được lưu và trả trong `Space`; không có scope / chưa kết nối → không gọi Google, `driveFolderId = null`; Google ném lỗi → vẫn `ok: true`, `driveFolderId = null`, log không chứa token / URL.
+- [x] Test luồng tạo dự án: có scope → thư mục con nằm trong thư mục không gian và được lưu; không gian chưa có thư mục → tạo bù rồi tạo thư mục dự án; lỗi Drive → dự án và activity vẫn tạo, `driveFolderId = null`.
+- [x] Route `POST /api/spaces` và `POST /api/spaces/[id]/projects` giữ nguyên mã trạng thái và hình dạng lỗi cũ (test route có sẵn vẫn xanh).
+- [x] Chế độ demo không đổi: không import `googleapis` khi chạy demo, 4 lệnh xanh.
+- [x] Kiểm thật trên dev cùng người dùng: gọi `POST /api/spaces` và `POST /api/spaces/{id}/projects` với tài khoản đã kết nối Drive → My Drive có `Taskeo / <không gian> / <dự án>`, DB lưu đúng hai id; tạo thêm không gian thứ hai dùng lại thư mục "Taskeo" cũ; khi đã ngắt Drive → không gian vẫn tạo, `driveFolderId = null`.
+- [x] Chữ ở `create-dialog.tsx` / `space-detail.tsx` đúng hiện trạng.
+- [x] 4 lệnh typecheck / lint / test / build xanh.
+- [x] Docs 02, 04, 06 cập nhật.
 
 **Tài liệu bị ảnh hưởng:** 02 Google · 04 kiến trúc · 06 API.
 
@@ -166,13 +166,21 @@ Vòng 2 (`git diff 183d5a7~2..183d5a7~1`, tức `3c376a2`; `general-purpose` ki�
 
 ## 7. Final
 
-**Tóm tắt:**
+**Tóm tắt:** Đóng T31 trong sheet. Khi user có `drive.file`, `createSpace` tạo thư mục `Taskeo / <không gian>` (thư mục gốc tìm qua `appProperties.taskeoRole=root` + `'me' in owners`, không lưu DB) và lưu `Space.driveFolderId`; `createProject` tạo thư mục con, lưu `Project.driveFolderId` — không gian chưa có thư mục thì tạo bù, ghi có điều kiện rồi đọc lại id để hai request đồng thời luôn dùng chung một thư mục không gian. Best-effort: chưa có scope → không nạp `googleapis`; Google lỗi / quá hạn / ghi DB lỗi → vẫn 201 với `driveFolderId = null`, log chỉ tên lỗi đã phân loại + mã HTTP. Timeout 5 s mỗi request Drive (`retry: false`), hạn tổng 10 s có `AbortController`, refresh token 10 s mỗi lần thử. Thêm: listener `"tokens"` không ghi lại token sau khi ngắt kết nối (rủi ro của T012). Module mới: `domain/drive-folder-name.ts`, `server/google/drive-{query,errors,folders,provision}.ts`. Test: 937 (sau T012) → 1063. 4 lệnh lần cuối (@ `54de816`, code không đổi từ `3c376a2`): typecheck ✅ · lint ✅ · test ✅ 1063/1063 · build ✅.
 
-**Tiêu chí nghiệm thu:** (đánh dấu ở mục 1)
+**Tiêu chí nghiệm thu:** đánh dấu cả 10 ở mục 1. Kiểm thật trên dev (2026-11-27, cùng người dùng, sau khi bật Google Drive API):
+- Đã kết nối Drive: `POST /api/spaces` "T013 test A" → 201, có `driveFolderId`; `POST /api/spaces/{A}/projects` "T013 dự án 1" → 201, DB có `Project.driveFolderId`; "T013 test B" → 201, có `driveFolderId`. Người dùng xác nhận My Drive có đúng **một** thư mục "Taskeo" chứa A (bên trong có dự án 1) và B.
+- Đã ngắt Drive: "T013 test C" + "T013 dự án C", "T013 test D" + "T013 dự án D" → 201, `driveFolderId = null` (DB xác nhận; Account không còn scope Drive / token).
+- Ghi chú: khi tạo C có **một** dòng log `[google/drive] Không tạo được thư mục Drive` (file log của Next chỉ ghi `{}`, không đọc được các trường); lặp lại ở D (đã ngắt hẳn) không có log. Suy luận: lúc tạo C, thao tác ngắt kết nối chưa ghi xong DB (scope còn, token đã bị Google thu hồi → refresh lỗi → log đúng hành vi best-effort), tới dự án C thì DB đã sạch. Chưa chứng minh được.
 
-**Tài liệu đã cập nhật:**
+**Tài liệu đã cập nhật:** `docs/02-google-cloud.md` (bật Google Drive API, cây thư mục, `appProperties`, best-effort, timeout / abort, đồng thời, không đồng bộ khi sửa / xoá, listener `"tokens"`), `docs/04-architecture.md` (5 file mới, ghi chú `client.ts`), `docs/06-api.md` (hai `POST`), `docs/tasks/README.md`.
 
-**Merge vào develop:** commit `<hash>`, ngày
+**Merge vào develop:** commit `<hash>`, 2026-11-27
 
 **Việc để sau:**
--
+- Dữ liệu kiểm thật trên DB dev: không gian "T013 test A–D" (kèm dự án) và thư mục tương ứng trên Drive — xoá khi người dùng muốn.
+- Khi nối giao diện vào API (T59): chữ `NOTES` trong `create-dialog.tsx` đang ghi "Chế độ demo:" — chỉ hiện ở demo hoặc viết lại.
+- LOW: R5 thư mục không gian trong thùng rác; R7 rate limit (sheet T73); R9 guard persist theo đúng refresh token; R10 giữ ZWJ trong tên; R13 gom một hạn + một client khi tạo bù thư mục không gian (~20 s).
+- Đổi tên / xoá thư mục khi sửa / xoá không gian hay dự án; nút tạo lại thư mục khi lần đầu lỗi; tạo bù hàng loạt cho không gian cũ.
+- Log của `next dev` ghi object thành `{}` trong `.next/dev/logs/` — khi cần điều tra, đọc stdout của server.
+- Tiếp theo theo sheet: T33.
