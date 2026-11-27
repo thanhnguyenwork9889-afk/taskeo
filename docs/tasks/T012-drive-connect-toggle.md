@@ -78,7 +78,7 @@ Rủi ro / phụ thuộc:
 - Chuỗi `?drive=` lặp ở hai lớp, giữ khớp bằng test (như T011).
 - P9 cần người dùng; bước "gọi Drive API thất bại" có thể kiểm bằng lệnh dùng một lần (như T010).
 
-Duyệt kế hoạch: ☑ chờ · ☐ người dùng đã duyệt (ngày) · ☐ bỏ qua (`--yes`)
+Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-27) · ☐ bỏ qua (`--yes`)
 
 ## 3. Thực hiện + kiểm thử
 
