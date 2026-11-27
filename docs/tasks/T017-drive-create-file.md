@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T017-drive-create-file` |
 | Tạo từ | `develop` @ `2b64678` |
-| Trạng thái | 7-final |
+| Trạng thái | done |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T32** "Tạo Doc/Sheet/Slide trong thư mục, mở tab mới tới file" (giai đoạn 4 · Google Drive, phụ thuộc T31 = T013). Sheet đã chuyển `Chưa làm` → `Đang làm` khi khởi tạo.
@@ -46,15 +46,15 @@ Nguồn: sheet nhiệm vụ, dòng **T32** "Tạo Doc/Sheet/Slide trong thư m�
 - Rate limit (T73). Xoá `scripts/dev-create-doc.mjs` (có thể giữ để thử, ghi vào việc để sau).
 
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
-- [ ] Test hàm Drive tạo file với client giả: không scope → không gọi Drive, `not_connected`; tham số `files.create` đúng (mimeType theo loại, `parents`, `fields`); thiếu `id` → `error`; lỗi Gaxios → `error`, log không chứa token / URL; quá hạn → `error`.
-- [ ] Test hàm truy vấn `createFile`: không gian / dự án của user khác → `not_found`; `projectId` không thuộc `spaceId` → `not_found`; thư mục dự án được chọn khi có `projectId`; thư mục `null` → tạo bổ sung và lưu `driveFolderId`; tạo bổ sung lỗi → `drive_error`, không gọi tạo file; trả `DriveFileItem` đúng tên không gian / dự án.
-- [ ] Test route `POST /api/files`: 401, 503 (demo), 400 (thiếu tên, tên quá dài, `kind` sai, JSON hỏng), 404, 403 có `code`, 502, 201 đúng hình dạng.
-- [ ] Test hàm thuần phía client (gọi API tạo file, chọn trạng thái hộp thoại, xử lý tab mở trước) — logic tách khỏi component vì không có jsdom.
-- [ ] Chế độ demo: hộp thoại tạo tài liệu như cũ (ghi store), không gọi `/api/files` / `/api/spaces`.
-- [ ] Chế độ `configured`, chưa kết nối Drive: hộp thoại hiện lời mời kết nối, không lỗi.
-- [ ] Kiểm thật trên dev cùng người dùng: tạo một Doc, một Sheet, một Slide (ít nhất một cái trong dự án) → file nằm đúng thư mục `Taskeo / <không gian> [/ <dự án>]` trên Drive, tab mới mở đúng file, file hiện ở "Tài liệu gần đây" và `/docs` không cần tải lại trang.
-- [ ] 4 lệnh typecheck / lint / test / build xanh.
-- [ ] Docs 02, 04, 06 cập nhật.
+- [x] Test hàm Drive tạo file với client giả: không scope → không gọi Drive, `not_connected`; tham số `files.create` đúng (mimeType theo loại, `parents`, `fields`); thiếu `id` → `error`; lỗi Gaxios → `error`, log không chứa token / URL; quá hạn → `error`.
+- [x] Test hàm truy vấn `createFile`: không gian / dự án của user khác → `not_found`; `projectId` không thuộc `spaceId` → `not_found`; thư mục dự án được chọn khi có `projectId`; thư mục `null` → tạo bổ sung và lưu `driveFolderId`; tạo bổ sung lỗi → `drive_error`, không gọi tạo file; trả `DriveFileItem` đúng tên không gian / dự án.
+- [x] Test route `POST /api/files`: 401, 503 (demo), 400 (thiếu tên, tên quá dài, `kind` sai, JSON hỏng), 404, 403 có `code`, 502, 201 đúng hình dạng.
+- [x] Test hàm thuần phía client (gọi API tạo file, chọn trạng thái hộp thoại, xử lý tab mở trước) — logic tách khỏi component vì không có jsdom.
+- [x] Chế độ demo: hộp thoại tạo tài liệu như cũ (ghi store), không gọi `/api/files` / `/api/spaces`. (Kiểm qua code + review: nhánh `isDemo` render form store, không mount hook API; route trả 503 trước import động. Chưa chạy tay ở chế độ demo.)
+- [x] Chế độ `configured`, chưa kết nối Drive: hộp thoại hiện lời mời kết nối, không lỗi. (Kiểm qua test `createDocDialogState` + code: `useApiSpaces({ enabled: driveConnected })`; tài khoản dev đã kết nối nên chưa chạy tay nhánh này.)
+- [x] Kiểm thật trên dev cùng người dùng: tạo một Doc, một Sheet, một Slide (ít nhất một cái trong dự án) → file nằm đúng thư mục `Taskeo / <không gian> [/ <dự án>]` trên Drive, tab mới mở đúng file, file hiện ở "Tài liệu gần đây" và `/docs` không cần tải lại trang.
+- [x] 4 lệnh typecheck / lint / test / build xanh.
+- [x] Docs 02, 04, 06 cập nhật.
 
 **Tài liệu bị ảnh hưởng:** 02 Google · 04 kiến trúc · 06 API.
 
@@ -165,15 +165,22 @@ Vòng 1 (2026-11-27, `git diff 6290094..HEAD -- src`): `layer-reviewer`, `typesc
 
 ## 7. Final
 
-**Tóm tắt:**
+**Tóm tắt:** Ở chế độ `configured`, người dùng đã kết nối Drive tạo được Google Docs / Sheets / Slides trống trong thư mục Drive của không gian hoặc dự án qua hộp thoại "Tạo tài liệu"; file mở trong tab mới (bị chặn popup → liên kết "Mở tài liệu") và hiện ngay ở "Tài liệu gần đây" / `/docs`. Server: `POST /api/files` → `createFile` (lọc `userId`, dự án đúng không gian, tạo bù thư mục khi còn `null`) → `createDriveFile` (`files.create`, kiểm scope trước, hạn 10 s, log an toàn). Client: danh sách không gian / dự án lấy từ API, mở tab trước để tránh chặn popup, hạn 45 s, chặn gửi khi đang chờ dự án được yêu cầu. Tách phần tạo bù thư mục khỏi `projects.ts` sang `drive-folder-sync.ts`. Demo giữ nguyên. Test: 1459 → 1575.
 
-**Tiêu chí nghiệm thu:** (đánh dấu ở mục 1)
+**Tiêu chí nghiệm thu:** đạt cả 9 (đánh dấu ở mục 1; hai tiêu chí demo / chưa kết nối kiểm qua code + test, chưa chạy tay).
 
-**Tài liệu đã cập nhật:**
+**Tài liệu đã cập nhật:** 02 (mục "Tạo Doc / Sheet / Slide (T017)", sửa ghi chú script dev), 04 (`drive-folder-sync.ts`, `createFile`, `createDriveFile`, file mới ở `components/layout`, `api/files` GET + POST), 06 (`POST /api/files`).
 
-**Merge vào develop:** commit `<hash>`, ngày
+**Merge vào develop:** commit `<hash>`, 2026-11-27
 
 **Sheet nhiệm vụ:** dòng T32 sẽ chuyển `Xong` sau merge (bước 7, mục 8; kết quả nêu trong báo cáo)
 
 **Việc để sau:**
--
+- R5 CSRF cho mọi route POST / PATCH / DELETE (`readJson`: bắt buộc `application/json`, từ chối `Sec-Fetch-Site: cross-site` / Origin lạ) — nhiệm vụ riêng hoặc gộp T73.
+- R4 hạn tổng phía server cho `createFile` (hiện ~30 s tối đa, client 45 s); file mồ côi khi quá hạn.
+- R12 rate limit `POST /api/files` (T73). R11 `handleUnexpected` bỏ `message` lỗi Prisma khỏi log.
+- R8 fallback Suspense của hộp thoại; R14 test component (cần jsdom / RTL).
+- LOW vòng review lại: câu "Không tải được dự án đã chọn" khi ID store không có trong DB (hết ở T59); test hằng số 45 s; `isTimeout` với Safari < 16.
+- Nút "Tạo tài liệu" ở trang không gian / dự án truyền ID store → chọn không gian đầu tiên ở `configured` (T59).
+- Xoá hoặc giữ `scripts/dev-create-doc.mjs` (không còn cần cho kiểm thật).
+- Dữ liệu thử trên dev: không gian "T017 thử", "Dự án T017" và 3 file thử trên Drive — người dùng tự quyết giữ / xoá.
