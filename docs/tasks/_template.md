@@ -71,7 +71,7 @@ Vòng 1:
 
 **Merge vào develop:** commit `<hash>`, ngày
 
-**Sheet nhiệm vụ:** dòng T<xx> → `Xong` (ngày) · hoặc: không có dòng
+**Sheet nhiệm vụ:** dòng T<xx> sẽ chuyển `Xong` sau merge (bước 7, mục 8; kết quả nêu trong báo cáo) · hoặc: không có dòng
 
 **Việc để sau:**
 -
