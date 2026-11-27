@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T015-drive-file-listing` |
 | Tạo từ | `develop` @ `6074fb4` |
-| Trạng thái | 5-fix |
+| Trạng thái | 6-rereview |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T33** "Liệt kê file theo không gian/dự án + Tài liệu gần đây" (giai đoạn 4 · Google Drive). Phụ thuộc T31 (thư mục Drive cho không gian / dự án, xong ở T013). Trạng thái trên sheet đã là `Đang làm` từ trước, giữ nguyên.
@@ -128,9 +128,23 @@ Reviewer đã chạy (trên `git diff develop...HEAD` @ `746b705`): `layer-revie
 
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
-| R1 | đã sửa / bỏ qua: lý do | |
+| R1 | đã sửa: `listFiles` chỉ truy vấn theo bộ lọc — `projectId` → `project.findFirst` (kèm `space: { userId }`), `spaceId` → `space.findFirst` + dự án, không lọc → `findMany` như cũ; +4 test kiểm truy vấn hẹp. Rate limit để T73 | `ea1a1f8` |
+| R2 | đã sửa: `driveFilesViewState` nhận `hasData`; lỗi refetch khi đã có dữ liệu vẫn hiện danh sách (403 `drive_not_connected` vẫn chuyển sang lời mời kết nối) | `ea1a1f8` |
+| R3 | đã sửa: không retry `ApiRequestError` (server đã có hạn 10 s); lỗi mạng retry tối đa 1 lần | `ea1a1f8` |
+| R4 | đã sửa: thêm 403 / 502 vào danh sách mã lỗi chung ở docs 06 | `ea1a1f8` |
+| R5 | bỏ qua: chấp nhận, đã ghi ở docs 02 (chưa phân trang) | — |
+| R6 | đã sửa: script từ chối chạy khi `NODE_ENV` / `VERCEL_ENV` = production, hoặc DB không phải localhost mà thiếu `ALLOW_DEV_SCRIPT=1`; không in `DATABASE_URL`; docs 02 ghi cách chạy | `ea1a1f8` |
+| R7 | đã sửa phần nhỏ: đầu script ghi rõ phải sửa theo khi `crypto.ts` đổi định dạng; tách lõi giải mã dùng chung để sau | `ea1a1f8` |
+| R8 | bỏ qua: có từ trước T015, ngoài phạm vi | — |
+| R9 | đã sửa: docs 04 thêm `drive-files-states.tsx` và `scripts/dev-create-doc.mjs` | `ea1a1f8` |
+| R10 | để sau: chưa có quy ước bắt buộc mọi chuỗi giao diện vào `labels.ts` (các feature khác cũng viết tại chỗ) | — |
+| R11 | bỏ qua: người dùng chọn commit riêng ở đầu nhánh (`1776cab`) | — |
+| R12 | đã sửa: AbortError khi đọc body được ném lại (`signal.reason`), không đổi thành lỗi "phản hồi không hợp lệ" | `ea1a1f8` |
+| R13 | đã sửa: `driveFilesErrorInfo` — 401 báo hết phiên, 4xx khác dùng thông báo của API, cả hai không có nút Thử lại; nối vào `/docs` và thẻ Tổng quan | `ea1a1f8` |
+| R14 | để sau: đăng xuất hiện tải lại trang (server action `signOut` chuyển trang), nên cache không sang tài khoản khác; ghi lại | — |
+| R15 | sửa một phần: test cho lỗi kèm dữ liệu, abort khi đọc body, retry; test hook (renderHook) cần jsdom — để sau | `ea1a1f8` |
 
-Kết quả 4 lệnh sau khi sửa:
+Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 1272/1272 · build ✅
 
 ## 6. Review lại
 
