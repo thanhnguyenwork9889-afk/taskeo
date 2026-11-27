@@ -7,12 +7,12 @@
 | `/api/auth/*` | `src/app/api/auth/[...nextauth]/route.ts` | Auth.js (đăng nhập Google, callback, session) |
 | Server action `signInWithGoogle`, `signOutAction` | `src/server/auth/actions.ts` | Đăng nhập / đăng xuất từ giao diện |
 | `GET /api/spaces` | `src/app/api/spaces/route.ts` | Danh sách không gian của người dùng (tối đa 200) |
-| `POST /api/spaces` | `src/app/api/spaces/route.ts` | Tạo không gian. Body `{ name, description?, color?, icon? }` → 201; 409 khi đã có 200 không gian |
+| `POST /api/spaces` | `src/app/api/spaces/route.ts` | Tạo không gian. Body `{ name, description?, color?, icon? }` → 201; 409 khi đã có 200 không gian. Đã kết nối Drive → tạo thư mục Drive, `driveFolderId` trong phản hồi; Drive lỗi vẫn 201 với `driveFolderId: null` (T013) |
 | `GET /api/spaces/[id]` | `src/app/api/spaces/[id]/route.ts` | Một không gian → 200 / 404 |
 | `PATCH /api/spaces/[id]` | `src/app/api/spaces/[id]/route.ts` | Sửa các trường gửi lên (≥ 1 trường) → 200 / 404 |
 | `DELETE /api/spaces/[id]` | `src/app/api/spaces/[id]/route.ts` | Xoá không gian, kéo theo dự án và công việc (cascade) → 204 / 404 |
 | `GET /api/spaces/[id]/projects` | `src/app/api/spaces/[id]/projects/route.ts` | Dự án của không gian (tối đa 200) → 200 / 404 không gian lạ |
-| `POST /api/spaces/[id]/projects` | `src/app/api/spaces/[id]/projects/route.ts` | Tạo dự án. Body `{ name, description?, status?, dueDate? }` → 201; 404 không gian lạ; 409 trùng tên trong không gian hoặc đã có 200 dự án (giới hạn xét trước trùng tên) |
+| `POST /api/spaces/[id]/projects` | `src/app/api/spaces/[id]/projects/route.ts` | Tạo dự án. Body `{ name, description?, status?, dueDate? }` → 201; 404 không gian lạ; 409 trùng tên trong không gian hoặc đã có 200 dự án (giới hạn xét trước trùng tên). Đã kết nối Drive → tạo thư mục con, lưu `Project.driveFolderId` (không trả ra client); Drive lỗi vẫn 201 (T013) |
 | `GET /api/projects/[id]` | `src/app/api/projects/[id]/route.ts` | Một dự án → 200 / 404 |
 | `PATCH /api/projects/[id]` | `src/app/api/projects/[id]/route.ts` | Sửa các trường gửi lên (≥ 1 trường) → 200 / 404 / 409 đổi tên trùng. Không đổi được `spaceId` |
 | `DELETE /api/projects/[id]` | `src/app/api/projects/[id]/route.ts` | Xoá dự án; công việc giữ lại trong không gian với `projectId = null` (`onDelete: SetNull`) → 204 / 404 |
