@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T013-drive-folders` |
 | Tạo từ | `develop` @ `0c0ce60` |
-| Trạng thái | 6-rereview |
+| Trạng thái | 7-final |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T31** "tạo thư mục Drive khi tạo không gian / dự án" (giai đoạn 3 · Google Drive, backlog B5 phần sau). Phụ thuộc T30 (scope `drive.file`, xong ở T010), T011 (một tài khoản Google mỗi user), T012 (kết nối / ngắt kết nối). Mở đường cho sheet T33.
@@ -162,7 +162,7 @@ Vòng 1 (`git diff 745f6fc..2c3ec8f`; `layer-reviewer` + `general-purpose` kiêm
 
 Kết quả 4 lệnh sau vòng 2 (tự chạy): typecheck ✅ · lint ✅ · test ✅ 1063/1063 · build ✅.
 
-Vòng 2:
+Vòng 2 (`git diff 183d5a7~2..183d5a7~1`, tức `3c376a2`; `general-purpose` kiêm TypeScript / bảo mật / quy ước): không có phát hiện. Xác nhận R11 thật sự bắt lỗi (thêm tạm import tĩnh `googleapis` hoặc `./client` → test đỏ; chạy xáo trộn thứ tự 5 seed đều xanh; bỏ bước khôi phục mock → 2 test `getDrive` đỏ, nên bước đó cần thiết), R12 đúng với code, R14 luôn gỡ listener. → `7-final`.
 
 ## 7. Final
 
