@@ -95,7 +95,10 @@ Duyệt kế hoạch: ☑ người dùng đã duyệt (2026-11-27), giữ phươ
 
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
-| P1 | | | | | | |
+| P1 | `5af49c8` | 15 (validation, drive-files) | ✅ | ✅ | ✅ 1459 | ✅ |
+| P2 | `f868aad` | createDriveFile (google/drive-files.test) | ✅ | ✅ | ✅ 1526 | ✅ |
+| P3 | `8b9e1c0` | 15 (drive-folder-sync) | ✅ | ✅ | ✅ 1526 | ✅ |
+| P6 | `2ca0839` | query-keys, create-doc-api, create-doc-state, pending-tab | ✅ | ✅ | ✅ 1526 | ✅ |
 
 ## 4. Review code
 
