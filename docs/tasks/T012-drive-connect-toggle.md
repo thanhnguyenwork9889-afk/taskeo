@@ -84,7 +84,18 @@ Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-27) 
 
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
-| P1 | | | | | | |
+| P1 | `3cf07d9` | `scopes.test.ts` + `revoke.test.ts` (61 test trong `src/server/google`; spy cả 5 hàm console, token không xuất hiện) | ✅ | ✅ | ✅ 893/893 | ✅ |
+| P2 | `4ab4ccd` | 22 test (`redirect-path.test.ts`) | ✅ | ✅ | ✅ 893/893 | ✅ |
+| P5 | `71d6150` | 16 test (`drive-notice.test.ts`) | ✅ | ✅ | ✅ 893/893 | ✅ |
+| P3+P4 | `d76c7d8` | 27 test mới trong `actions.test.ts` (143/143 trong `src/server/auth`; spy 5 hàm console ở 4 kịch bản, không chứa token) | ✅ | ✅ | ✅ 920/920 | ✅ |
+| P7 | `5935783` | — (trình duyệt: `/login` có ô tick mặc định bật, nhãn + mô tả, console sạch) | ✅ | ✅ | ✅ 920/920 | ✅ |
+| P6 | `07b3a25` | 4 test `currentLocation` (`drive-status.test.ts`); UI chưa xem được vì pane mất phiên — gộp vào P9 | ✅ | ✅ | ✅ 924/924 | ✅ |
+| P8 | (commit docs này) | — (docs 02: ô tick đăng nhập, công tắc, mục "Ngắt kết nối Drive", mã `?drive=`; docs 04: `revoke.ts`, `drive-switch.tsx`, `withQueryParam`) | — | — | — | — |
+| P9 | chờ người dùng | — | | | | |
+
+Ghi chú P1: `selectRevokeToken` trả token **đã mã hoá** (đúng cột DB), P4 giải mã ngay trước khi gọi; 200 trả `revoked` không đọc body. Ghi chú P2: `toSafeRedirectPath` cho qua `/.//evil`, `/a/..//evil`, `/%2e//evil`, sau `new URL` thành `//evil`; `withQueryParam` chặn bằng cách kiểm kết quả không bắt đầu bằng `//` (có test). `toSafeRedirectPath` chưa sửa — đưa vào review.
+
+Ghi chú P3+P4: cùng file `actions.ts` nên commit chung. Lỗi khi ghi DB sau khi thu hồi → `disconnect-failed` (log `{ userId, error: name }`): bấm lại thì Google trả `invalid_token` → ghi lại được. Lỗi đọc Account (`findFirst`) vẫn lan ra trang lỗi.
 
 ## 4. Review code
 
