@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T015-drive-file-listing` |
 | Tạo từ | `develop` @ `6074fb4` |
-| Trạng thái | 6-rereview |
+| Trạng thái | 7-final |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T33** "Liệt kê file theo không gian/dự án + Tài liệu gần đây" (giai đoạn 4 · Google Drive). Phụ thuộc T31 (thư mục Drive cho không gian / dự án, xong ở T013). Trạng thái trên sheet đã là `Đang làm` từ trước, giữ nguyên.
@@ -148,7 +148,10 @@ Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 1272/1
 
 ## 6. Review lại
 
-Vòng 1:
+Vòng 1 (trên `git diff f223ca9..HEAD`, các reviewer như bước 4): **không có CRITICAL / HIGH / MEDIUM**. R1–R15 không thoái lui. Ghi chú LOW, không chặn, để sau:
+- `drive-files-state.ts`: 3 chuỗi thông báo lỗi viết tại chỗ (cùng loại R10).
+- `scripts/dev-create-doc.mjs`: `ALLOW_DEV_SCRIPT=1` vẫn cho chạy với DB production ở xa — giới hạn của rào chắn, thông báo từ chối đã cảnh báo.
+- Refetch nền lỗi khi đã có dữ liệu (kể cả 401 hết phiên) giữ danh sách cũ, không báo gì — có thể thêm dòng nhắc nhỏ.
 
 ## 7. Final
 
