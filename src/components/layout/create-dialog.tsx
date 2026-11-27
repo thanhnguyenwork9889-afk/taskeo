@@ -1,16 +1,18 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { Suspense, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/modal";
 import { SpaceStylePicker, type SpaceStyle } from "@/components/ui/space-style-picker";
-import { DEFAULT_SPACE_ICON, DOC_KIND_LABEL, DOC_KINDS, SPACE_PALETTE } from "@/domain/labels";
+import { DEFAULT_SPACE_ICON, SPACE_PALETTE } from "@/domain/labels";
 import type { DocKind, Project, Space, WorkspaceState } from "@/domain/types";
 import { SPACE_DESCRIPTION_MAX, SPACE_NAME_MAX } from "@/domain/validation";
 import { createFile, createProject, createSpace, createTask, projectNameExists } from "@/domain/workspace-actions";
 import { updateWorkspace, useWorkspace } from "@/store/workspace-store";
 import { control, cx, field, primaryButton } from "@/components/ui/styles";
-import { useUI, type CreateRequest } from "./ui-context";
+import { DriveCreateDocDialog } from "./create-doc-dialog";
+import { DocKindField } from "./doc-kind-field";
+import { useUI, useViewer, type CreateRequest } from "./ui-context";
 
 const TITLES: Record<CreateRequest["kind"], string> = {
   task: "Tạo công việc mới",
@@ -77,7 +79,32 @@ function useCreateForm(request: CreateRequest, spaces: Space[], projects: Projec
   return { values, setTitle, changeSpace, setProjectId, setDocKind, setDescription, setStyle };
 }
 
-export function CreateDialog({ request, onClose }: { request: CreateRequest; onClose: () => void }) {
+interface CreateDialogProps {
+  request: CreateRequest;
+  onClose: () => void;
+}
+
+/**
+ * Tài liệu: demo → form store; configured → `DriveCreateDocDialog` (tạo file Drive thật, T017).
+ * `useViewer()` có thể suspend mà `AppShell` render hộp thoại ngoài <Suspense>, nên nhánh tài liệu tự bọc.
+ */
+export function CreateDialog({ request, onClose }: CreateDialogProps) {
+  if (request.kind !== "doc") return <StoreCreateDialog request={request} onClose={onClose} />;
+  return (
+    <Suspense fallback={null}>
+      <DocCreateBranch request={request} onClose={onClose} />
+    </Suspense>
+  );
+}
+
+function DocCreateBranch({ request, onClose }: { request: Extract<CreateRequest, { kind: "doc" }>; onClose: () => void }) {
+  const { isDemo } = useViewer();
+  if (isDemo) return <StoreCreateDialog request={request} onClose={onClose} />;
+  return <DriveCreateDocDialog request={request} onClose={onClose} />;
+}
+
+/** Form ghi vào store (mọi loại; tài liệu chỉ ở chế độ demo). */
+function StoreCreateDialog({ request, onClose }: CreateDialogProps) {
   const workspace = useWorkspace();
   const { spaces, projects } = workspace;
   const { notify } = useUI();
@@ -170,21 +197,6 @@ function SpaceFields({ description, onDescriptionChange, style, onStyleChange }:
       </label>
       <SpaceStylePicker color={style.color} icon={style.icon} onChange={onStyleChange} />
     </>
-  );
-}
-
-function DocKindField({ value, onChange }: { value: DocKind; onChange: (kind: DocKind) => void }) {
-  return (
-    <label className="block text-sm font-medium">
-      Loại tài liệu
-      <select value={value} onChange={(event) => onChange(event.target.value as DocKind)} className={cx(field, "mt-2")}>
-        {DOC_KINDS.map((kind) => (
-          <option key={kind} value={kind}>
-            {DOC_KIND_LABEL[kind]}
-          </option>
-        ))}
-      </select>
-    </label>
   );
 }
 
