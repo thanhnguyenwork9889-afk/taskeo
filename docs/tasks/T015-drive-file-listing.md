@@ -165,7 +165,7 @@ Vòng 1 (trên `git diff f223ca9..HEAD`, các reviewer như bước 4): **không
 
 **Tài liệu đã cập nhật:** 02 (liệt kê file với `drive.file`, script dev), 04 (file mới, QueryProvider, scripts/), 06 (`GET /api/files`, `error.code`, mã 403 / 502).
 
-**Merge vào develop:** commit `<hash>`, 2026-11-27
+**Merge vào develop:** commit `f964164`, 2026-11-27
 
 **Sheet nhiệm vụ:** dòng T33 sẽ chuyển `Xong` sau merge (bước 7, mục 8; kết quả nêu trong báo cáo)
 
