@@ -10,8 +10,8 @@ import { updateWorkspace, useWorkspace } from "@/store/workspace-store";
 import { control, cx, field, primaryButton } from "@/components/ui/styles";
 
 /**
- * Gắn file Drive có sẵn bằng cách dán liên kết. Giai đoạn 3 thay bằng Google Picker
- * (Picker chạy trên trình duyệt nên cần một access token ngắn hạn chỉ có scope drive.file).
+ * Chế độ demo: gắn file Drive có sẵn bằng cách dán liên kết, ghi vào store. Chế độ configured
+ * dùng hộp thoại Google Picker (`openCreate({ kind: "attach" })`, T018) thay cho hộp thoại này.
  */
 export function AttachDriveDialog({ project, onClose }: { project: Project; onClose: () => void }) {
   const { files } = useWorkspace();
@@ -45,7 +45,7 @@ export function AttachDriveDialog({ project, onClose }: { project: Project; onCl
   return (
     <Modal title="Gắn file từ Drive" onClose={onClose} size="lg">
       <p className="mb-5 rounded-lg bg-[#F5F1FB] p-3 text-sm leading-6 text-muted">
-        Google Picker chưa được kết nối. Dán liên kết tệp Google để gắn vào dự án; app không đọc nội dung hay đổi quyền chia sẻ.
+        Chế độ demo: dán liên kết tệp Google để gắn vào dự án; liên kết chỉ lưu trong trình duyệt này, app không đọc nội dung hay đổi quyền chia sẻ.
       </p>
       <form onSubmit={submit} className="space-y-4">
         <label className="block text-sm font-medium">

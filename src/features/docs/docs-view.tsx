@@ -11,6 +11,7 @@ import { docKindSchema } from "@/domain/validation";
 import { APP_NAME } from "@/config/app";
 import { useWorkspace } from "@/store/workspace-store";
 import { card, cx, primaryButton } from "@/components/ui/styles";
+import { AttachDriveButton } from "./attach-drive-button";
 import { DriveConnectPrompt, DriveFilesError, DriveFilesSkeleton } from "./drive-files-states";
 import { driveFileSubtitle } from "./drive-files-state";
 import { FileRow } from "./file-row";
@@ -35,10 +36,13 @@ export function DocsView() {
           <h1 className="text-[28px] font-semibold tracking-tight">{title}</h1>
           <p className="mt-2 text-sm text-muted">Tài liệu Google của bạn, sắp xếp theo từng không gian.</p>
         </div>
-        <button type="button" onClick={create} className={primaryButton}>
-          <Plus className="h-4 w-4" aria-hidden />
-          Tạo {kind ? DOC_KIND_LABEL[kind].toLowerCase() : "tài liệu"}
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <AttachDriveButton />
+          <button type="button" onClick={create} className={primaryButton}>
+            <Plus className="h-4 w-4" aria-hidden />
+            Tạo {kind ? DOC_KIND_LABEL[kind].toLowerCase() : "tài liệu"}
+          </button>
+        </div>
       </div>
       <Suspense fallback={<section className={listCard}><DriveFilesSkeleton rows={SKELETON_ROWS} /></section>}>
         <DocsBody kind={kind} onCreate={create} />
@@ -55,7 +59,7 @@ function DocsBody({ kind, onCreate }: { kind: DocKind | null; onCreate: () => vo
       <p className="text-xs text-muted">
         {isDemo
           ? "Chế độ demo: tài liệu mẫu lưu trong trình duyệt này, chưa nối với Google Drive."
-          : "Tài liệu thật trong các thư mục Drive của Taskeo. Với quyền drive.file, Taskeo chỉ thấy file do Taskeo tạo hoặc bạn mở bằng Taskeo; file tự tạo trực tiếp trên Drive sẽ không hiện ở đây."}
+          : "Tài liệu thật trong các thư mục Drive của Taskeo. Với quyền drive.file, Taskeo chỉ thấy file do Taskeo tạo hoặc bạn gắn qua Taskeo; file tạo trực tiếp trên Drive cần gắn bằng “Gắn file từ Drive” mới hiện ở đây."}
       </p>
     </>
   );
@@ -129,7 +133,7 @@ function DriveDocsEmpty({ kind, searching, onCreate }: { kind: DocKind | null; s
     <EmptyState
       icon={FileText}
       title={none}
-      description="Tạo tài liệu đầu tiên ngay trong Taskeo. Taskeo chỉ thấy file do Taskeo tạo hoặc bạn mở bằng Taskeo."
+      description="Tạo tài liệu đầu tiên ngay trong Taskeo, hoặc gắn file có sẵn bằng nút “Gắn file từ Drive”. Taskeo chỉ thấy file do Taskeo tạo hoặc bạn gắn qua Taskeo."
       actionLabel="Tạo tài liệu"
       onAction={onCreate}
     />

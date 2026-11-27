@@ -10,10 +10,22 @@ import { control, cx } from "@/components/ui/styles";
 
 interface FileRowProps {
   /** `WorkspaceFile` (store demo) hoặc `DriveFileItem` (API) đều vừa. */
-  file: Pick<WorkspaceFile, "name" | "kind" | "modifiedAt" | "url">;
+  file: Pick<WorkspaceFile, "name" | "kind" | "modifiedAt" | "url"> & { shortcut?: boolean };
   subtitle: string;
   /** Dữ liệu mẫu: bấm file chưa có url thì báo đây là tài liệu mẫu. */
   demo?: boolean;
+}
+
+/** Nhãn cho lối tắt Drive (file gốc nằm chỗ khác, được gắn vào thư mục Taskeo). */
+function AttachedBadge() {
+  return (
+    <span
+      title="Lối tắt tới file gốc trên Drive, được gắn vào thư mục Taskeo"
+      className="shrink-0 rounded-md bg-[#F0EBF8] px-2 py-0.5 text-xs text-brand-ink"
+    >
+      Đã gắn
+    </span>
+  );
 }
 
 const rowLayout = "flex w-full items-center gap-3 border-t border-line-soft py-3 text-left";
@@ -31,7 +43,10 @@ export function FileRow({ file, subtitle, demo = false }: FileRowProps) {
     <>
       <DocIcon kind={file.kind} />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">{file.name}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-sm font-medium">{file.name}</span>
+          {file.shortcut && <AttachedBadge />}
+        </span>
         <span className="mt-1 block truncate text-xs text-muted">{subtitle}</span>
       </span>
       <span className="hidden whitespace-nowrap text-xs text-muted sm:block">{timeAgo(file.modifiedAt, now)}</span>

@@ -67,6 +67,18 @@ describe("fetchDriveFiles", () => {
     expect(fake).toHaveBeenCalledWith("/api/files?spaceId=s1&limit=4", expect.objectContaining({ signal: controller.signal }));
   });
 
+  it("giữ lối tắt (shortcut: true)", async () => {
+    const shortcut = { ...FILE, id: "s9", shortcut: true };
+    stubFetch(jsonResponse({ data: { files: [shortcut] }, error: null }));
+    await expect(fetchDriveFiles({})).resolves.toEqual([shortcut]);
+  });
+
+  it("url không phải Drive → url null, vẫn giữ file (bản sao, không sửa body)", async () => {
+    const unsafe = { ...FILE, url: "https://evil.example/x" };
+    stubFetch(jsonResponse({ data: { files: [unsafe] }, error: null }));
+    await expect(fetchDriveFiles({})).resolves.toEqual([{ ...FILE, url: null }]);
+  });
+
   it("200 với danh sách rỗng → []", async () => {
     stubFetch(jsonResponse({ data: { files: [] }, error: null }));
     await expect(fetchDriveFiles({})).resolves.toEqual([]);
@@ -105,6 +117,8 @@ describe("fetchDriveFiles", () => {
     ["files không phải mảng", { data: { files: "x" }, error: null }],
     ["file thiếu id", { data: { files: [{ ...FILE, id: undefined }] }, error: null }],
     ["kind lạ", { data: { files: [{ ...FILE, kind: "pdf" }] }, error: null }],
+    ["file thiếu shortcut", { data: { files: [{ ...FILE, shortcut: undefined }] }, error: null }],
+    ["shortcut không phải boolean", { data: { files: [{ ...FILE, shortcut: "true" }] }, error: null }],
     ["không phải object", ["x"]],
   ])("200 sai hình dạng (%s) → ApiRequestError", async (_label, body) => {
     stubFetch(jsonResponse(body));
