@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T013-drive-folders` |
 | Tạo từ | `develop` @ `0c0ce60` |
-| Trạng thái | 5-fix |
+| Trạng thái | 6-rereview |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T31** "tạo thư mục Drive khi tạo không gian / dự án" (giai đoạn 3 · Google Drive, backlog B5 phần sau). Phụ thuộc T30 (scope `drive.file`, xong ở T010), T011 (một tài khoản Google mỗi user), T012 (kết nối / ngắt kết nối). Mở đường cho sheet T33.
@@ -132,11 +132,22 @@ Reviewer đã chạy (trên `git diff develop...HEAD` @ `e8f9c19`): `layer-revie
 
 ## 5. Fix bug
 
+Trước bước 5: `745f6fc`.
+
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
-| R1 | đã sửa / bỏ qua: lý do | |
+| R1 | đã sửa: `provisionProjectFolder` chỉ tạo thư mục dự án dưới `parentFolderId`; `projects.ts` tạo bù thư mục không gian bằng `provisionSpaceFolder`, ghi có điều kiện `driveFolderId: null`, **đọc lại** id đã lưu rồi mới tạo thư mục dự án → request thua dùng thư mục của request thắng (test ca đua) | `35f373a` |
+| R2 | đã sửa: `runBestEffort` có `AbortController`, hết hạn → `abort(TimeoutError)`; `signal` truyền vào `files.list` / `files.create`, kiểm `throwIfAborted()` trước mỗi bước. Refresh token không nhận signal (ghi JSDoc + docs 02) | `35f373a` |
+| R3 | đã sửa: test promise settle sau hạn (resolve muộn không đổi kết quả, không gọi bước sau; reject muộn chỉ một log, không unhandled rejection; signal đã abort) | `35f373a` |
+| R4 | đã sửa: `vi.resetModules()` + import động lại, kiểm thêm mock `getGoogleAuth` / `google.drive` không được gọi | `35f373a` |
+| R5 | để sau (LOW): kiểm `trashed` của thư mục không gian trước khi dùng | — |
+| R6 | đã sửa: `rootFolderQuery()` thêm `and 'me' in owners` | `35f373a` |
+| R7 | để sau (LOW): rate limit chung ở sheet T73 | — |
+| R8 | đã sửa: comment đầu `drive-provision.ts` nói rõ chỉ nạp ở chế độ configured | `35f373a` |
+| R9 | để sau (LOW): guard persist theo đúng refresh token đã đọc | — |
+| R10 | để sau (LOW): giữ ZWJ trong tên thư mục | — |
 
-Kết quả 4 lệnh sau khi sửa:
+Kết quả 4 lệnh sau khi sửa (tự chạy): typecheck ✅ · lint ✅ · test ✅ 1063/1063 · build ✅.
 
 ## 6. Review lại
 
