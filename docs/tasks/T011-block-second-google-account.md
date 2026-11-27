@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `fix/T011-block-second-google-account` |
 | Tạo từ | `develop` @ `fcde4cf` |
-| Trạng thái | 6-rereview |
+| Trạng thái | done |
 | Ngày tạo | 2026-11-26 |
 
 Nguồn: việc để sau của T010 (sheet **T30**), đề xuất bởi `security-reviewer` (MEDIUM) và kế hoạch T010. Làm trước sheet **T31** (tạo thư mục Drive): T31 dùng token Drive nên token phải thuộc đúng tài khoản Google người dùng đăng nhập.
@@ -33,14 +33,14 @@ Nguồn: việc để sau của T010 (sheet **T30**), đề xuất bởi `securi
 - Thu hồi phía Google quyền mà tài khoản bị từ chối vừa cấp (Google vẫn ghi nhận đồng ý; app không lưu token nào của tài khoản đó).
 
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
-- [ ] Test hàm thuần đủ các trường hợp: không có phiên → cho qua; provider khác `google` → cho qua; tài khoản vừa chọn đã có trong DB → cho qua (Auth.js tự xử lý); user hiện tại chưa có Account google → cho qua; cùng `providerAccountId` → cho qua; khác `providerAccountId` → chặn.
-- [ ] Test callback `signIn`: chặn → trả `"/?drive=wrong-account"` và không gọi gì ghi DB; cho qua → `true`; lỗi tra DB → lỗi lan ra (không trả `true`).
-- [ ] `schema.prisma` có `@@unique([userId, provider])` trên `Account`; migration mới trong `prisma/migrations/` đã áp lên DB dev (`npm run db:status` sạch).
-- [ ] UI: mở `/?drive=wrong-account` khi đã đăng nhập → hiện thông báo, tham số biến khỏi URL.
-- [ ] Kiểm thật trên dev cùng người dùng: bấm Kết nối Google Drive, chọn tài khoản Google thứ hai → về trang chủ với thông báo; DB không có thêm dòng `Account`; chọn đúng tài khoản → vẫn kết nối được.
-- [ ] Đăng nhập lần đầu (user mới) và đăng nhập lại vẫn chạy (test + kiểm thật).
-- [ ] 4 lệnh typecheck / lint / test / build xanh; chế độ demo không đổi.
-- [ ] Docs 02, 03 (và 04 nếu có file mới) cập nhật.
+- [x] Test hàm thuần đủ các trường hợp: không có phiên → cho qua; provider khác `google` → cho qua; tài khoản vừa chọn đã có trong DB → cho qua (Auth.js tự xử lý); user hiện tại chưa có Account google → cho qua; cùng `providerAccountId` → cho qua; khác `providerAccountId` → chặn.
+- [x] Test callback `signIn`: chặn → trả `"/?drive=wrong-account"` và không gọi gì ghi DB; cho qua → `true`; lỗi tra DB → lỗi lan ra (không trả `true`).
+- [x] `schema.prisma` có `@@unique([userId, provider])` trên `Account`; migration mới trong `prisma/migrations/` đã áp lên DB dev (`npm run db:status` sạch).
+- [x] UI: mở `/?drive=wrong-account` khi đã đăng nhập → hiện thông báo, tham số biến khỏi URL.
+- [x] Kiểm thật trên dev cùng người dùng: bấm Kết nối Google Drive, chọn tài khoản Google thứ hai → về trang chủ với thông báo; DB không có thêm dòng `Account`; chọn đúng tài khoản → vẫn kết nối được.
+- [x] Đăng nhập lần đầu (user mới) và đăng nhập lại vẫn chạy (test + kiểm thật).
+- [x] 4 lệnh typecheck / lint / test / build xanh; chế độ demo không đổi.
+- [x] Docs 02, 03 (và 04 nếu có file mới) cập nhật.
 
 **Tài liệu bị ảnh hưởng:** 02 Google · 03 DB · 04 kiến trúc (nếu thêm file).
 
@@ -138,17 +138,20 @@ Kết quả 4 lệnh sau khi sửa (tự chạy): typecheck ✅ · lint ✅ · t
 
 ## 6. Review lại
 
-Vòng 1:
+Vòng 1 (`git diff d924556..25be628`, cùng ba reviewer): không có CRITICAL / HIGH / MEDIUM. Xác nhận R1 (nguồn chung tên cookie, `config/auth-cookies.ts` không import `@/` nên dùng được ở `proxy.ts` Edge; test khoá với `defaultCookies` của đúng bản `@auth/core`), R2, R6 (`cleanedLocation` luôn trả đúng một `/` đầu, không mutate, effect không lặp) đúng. Ghi chú LOW (để sau): `isSafeInternalPath` chưa loại ký tự điều khiển như `/	/host` (pathname từ Next đã mã hoá, rủi ro rất thấp); `auth-cookies.test.ts` dựa vào đường dẫn nội bộ `@auth/core/lib/utils/cookie.js` — vỡ khi nâng cấp thì test đỏ rõ ràng; test không bắt được trường hợp cấu hình `cookies` / `useSecureCookies` trong `auth.ts`. → `7-final`.
 
 ## 7. Final
 
-**Tóm tắt:**
+**Tóm tắt:** Một user chỉ có một tài khoản Google. Callback `signIn` (`guardSignIn`, `src/server/auth/account-link-data.ts`) chạy trước khi Auth.js gắn tài khoản: có phiên (đọc cookie + bảng `Session`, không dùng `auth()` để lỗi DB không thành "cho qua"), tài khoản Google vừa chọn chưa có trong DB, user đã có tài khoản Google khác → trả `/?drive=wrong-account`, không ghi gì vào DB; app hiện thông báo rồi bỏ tham số khỏi URL (`DriveNotice`). Hàm quyết định thuần `shouldBlockAccountLink` có test đủ trường hợp. DB thêm `@@unique([userId, provider])` trên `Account` (thay `@@index([userId])`) làm chốt chặn cuối; tên cookie phiên gom về `src/config/auth-cookies.ts`, khoá với mặc định Auth.js bằng test. Thêm 51 test (791 → 842). Kiểm thật trên DB dev: chọn tài khoản thứ ba → không có `Account` / `User` mới; chọn đúng tài khoản → kết nối Drive được. 4 lệnh lần cuối: typecheck ✅ · lint ✅ · test ✅ 842/842 · build ✅ · `db:status` khớp.
 
-**Tiêu chí nghiệm thu:** (đánh dấu ở mục 1)
+**Tiêu chí nghiệm thu:** đạt cả 8 (mục 1). Ghi chú: "đăng nhập lại" có kiểm thật (người dùng đăng nhập lại cả hai tài khoản, `events.signIn` vẫn ghi token); "đăng nhập lần đầu của user mới" chỉ có test (không phiên → cho qua), chưa tạo user mới thật. Người dùng báo bị đưa về trang đăng nhập sau khi bị chặn; code Auth.js và DB không cho thấy phiên bị mất, người dùng chấp nhận P7 đạt.
 
-**Tài liệu đã cập nhật:**
+**Tài liệu đã cập nhật:** `docs/02-google-cloud.md` (hành vi chọn nhầm tài khoản, vì sao không dùng `auth()`, Google vẫn ghi nhận đồng ý của tài khoản bị từ chối), `docs/03-database.md` (ràng buộc, SQL kiểm trùng, production chưa áp, cách tạo migration khi `migrate dev` không chạy được không tương tác), `docs/04-architecture.md` (`account-link*.ts`, `drive-notice.ts`, `config/auth-cookies.ts`), `docs/tasks/README.md`.
 
-**Merge vào develop:** commit `<hash>`, ngày
+**Merge vào develop:** commit `<hash>`, 2026-11-27
 
 **Việc để sau:**
--
+- **Production:** khi release `develop` → `main`, chạy SQL kiểm trùng ở docs 03 trên Neon `main` rồi `npm run db:deploy`. Trước đó production vẫn được callback chặn.
+- Nếu tái hiện được "bị đưa về đăng nhập sau khi bị chặn" thì mở việc riêng.
+- LOW: R3 chuỗi `/?drive=wrong-account` ở hai lớp, R10 nhãn UI, ký tự điều khiển trong `isSafeInternalPath`, test cấu hình cookie tuỳ biến trong `auth.ts`.
+- Tiếp theo: T012 (ô tick kết nối Drive ở trang đăng nhập + toggle Kết nối / Ngắt kết nối Drive ở sidebar), rồi sheet T31.
