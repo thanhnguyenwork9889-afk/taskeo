@@ -1,16 +1,8 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { prisma } from "@/server/db";
-import { shouldBlockAccountLink } from "@/server/auth/account-link";
-
-const GOOGLE_PROVIDER = "google";
-
-/**
- * Tên cookie phiên theo mặc định của Auth.js: `__Secure-` khi chạy https, không tiền tố khi http.
- * Nếu sau này cấu hình `cookies` hoặc `useSecureCookies` trong auth.ts thì phải sửa theo.
- * Có cả hai thì ưu tiên `__Secure-` (đứng trước trong danh sách).
- */
-const SESSION_COOKIE_NAMES = ["__Secure-authjs.session-token", "authjs.session-token"] as const;
+import { AUTH_SESSION_COOKIE_NAMES } from "@/config/auth-cookies";
+import { GOOGLE_PROVIDER, shouldBlockAccountLink } from "@/server/auth/account-link";
 
 /**
  * Nơi chuyển về khi người dùng chọn tài khoản Google khác tài khoản đang đăng nhập.
@@ -38,7 +30,7 @@ interface GoogleAccountRow {
  */
 export async function readSessionUserId(): Promise<string | null> {
   const store = await cookies();
-  const sessionToken = SESSION_COOKIE_NAMES.map((name) => store.get(name)?.value).find((value) => !!value);
+  const sessionToken = AUTH_SESSION_COOKIE_NAMES.map((name) => store.get(name)?.value).find((value) => !!value);
   if (!sessionToken) return null;
 
   const session = await prisma.session.findUnique({ where: { sessionToken }, select: { userId: true } });

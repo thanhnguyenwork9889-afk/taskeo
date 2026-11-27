@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toISODate } from "@/domain/dates";
 import { useSessionStart, useWorkspaceState } from "@/store/workspace-store";
 import { CreateDialog } from "./create-dialog";
-import { DRIVE_NOTICE_PARAM, driveNoticeFromParams, searchWithout } from "./drive-notice";
+import { cleanedLocation, driveNoticeFromParams } from "./drive-notice";
 import { MobileNav } from "./mobile-nav";
 import { Sidebar } from "./sidebar";
 import { MobileHeader, Topbar } from "./topbar";
@@ -38,12 +38,12 @@ function DriveNotice() {
   const router = useRouter();
   const { notify } = useUI();
   const notice = driveNoticeFromParams(params);
-  const rest = searchWithout(params, DRIVE_NOTICE_PARAM);
+  const target = cleanedLocation(pathname, params);
   useEffect(() => {
     if (!notice) return;
     notify(notice);
-    router.replace(pathname + rest, { scroll: false });
-  }, [notice, rest, pathname, router, notify]);
+    router.replace(target, { scroll: false });
+  }, [notice, target, router, notify]);
   return null;
 }
 

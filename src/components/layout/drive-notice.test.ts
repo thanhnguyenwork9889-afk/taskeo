@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DRIVE_NOTICE_PARAM, driveNoticeFromParams, searchWithout } from "./drive-notice";
+import { DRIVE_NOTICE_PARAM, cleanedLocation, driveNoticeFromParams, searchWithout } from "./drive-notice";
 
 const WRONG_ACCOUNT_MESSAGE = "Bạn đã chọn tài khoản Google khác với tài khoản đang đăng nhập. Hãy chọn đúng tài khoản.";
 
@@ -45,6 +45,29 @@ describe("searchWithout", () => {
   it("does not mutate the input", () => {
     const params = new URLSearchParams("type=task&drive=wrong-account");
     searchWithout(params, "drive");
+    expect(params.toString()).toBe("type=task&drive=wrong-account");
+  });
+});
+
+describe("cleanedLocation", () => {
+  it("keeps a normal pathname and drops the drive param", () => {
+    expect(cleanedLocation("/items", new URLSearchParams("type=task&drive=wrong-account"))).toBe("/items?type=task");
+    expect(cleanedLocation("/", new URLSearchParams("drive=wrong-account"))).toBe("/");
+  });
+
+  it("falls back to / for protocol-relative pathnames", () => {
+    expect(cleanedLocation("//evil.com/x", new URLSearchParams("drive=wrong-account&q=1"))).toBe("/?q=1");
+    expect(cleanedLocation("/\\evil", new URLSearchParams("drive=wrong-account"))).toBe("/");
+  });
+
+  it("falls back to / for empty or relative pathnames", () => {
+    expect(cleanedLocation("", new URLSearchParams("drive=wrong-account"))).toBe("/");
+    expect(cleanedLocation("evil.com", new URLSearchParams("drive=wrong-account&q=1"))).toBe("/?q=1");
+  });
+
+  it("does not mutate the input", () => {
+    const params = new URLSearchParams("type=task&drive=wrong-account");
+    cleanedLocation("//evil.com", params);
     expect(params.toString()).toBe("type=task&drive=wrong-account");
   });
 });

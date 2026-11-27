@@ -25,3 +25,17 @@ export function searchWithout(params: ReadableSearchParams, key: string): string
   const query = next.toString();
   return query ? `?${query}` : "";
 }
+
+/**
+ * Đường dẫn nội bộ để `router.replace` sau khi bỏ tham số `drive`: `pathname` + query còn lại.
+ * Nếu `pathname` không bắt đầu bằng "/" hoặc bắt đầu bằng "//" hay "/\" (có thể bị hiểu là URL ngoài),
+ * trả về "/" + query còn lại thay vì `pathname`. Luôn trả chuỗi bắt đầu bằng đúng một "/". Không sửa `params`.
+ */
+export function cleanedLocation(pathname: string, params: ReadableSearchParams): string {
+  const rest = searchWithout(params, DRIVE_NOTICE_PARAM);
+  return `${isSafeInternalPath(pathname) ? pathname : "/"}${rest}`;
+}
+
+function isSafeInternalPath(pathname: string): boolean {
+  return pathname.startsWith("/") && !pathname.startsWith("//") && !pathname.startsWith("/\\");
+}

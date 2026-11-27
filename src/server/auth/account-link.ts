@@ -1,6 +1,6 @@
 import "server-only";
 
-const GOOGLE_PROVIDER = "google";
+export const GOOGLE_PROVIDER = "google";
 
 /** Dữ liệu để quyết định có chặn gắn tài khoản OAuth vừa chọn vào user hiện tại không. */
 export interface AccountLinkInput {
