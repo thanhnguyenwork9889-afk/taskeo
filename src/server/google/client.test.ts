@@ -4,12 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 type TokensHandler = (tokens: Record<string, unknown>) => void;
 
 const db = vi.hoisted(() => ({
-  account: { findFirst: vi.fn(), update: vi.fn() },
+  account: { findFirst: vi.fn(), updateMany: vi.fn() },
 }));
 
 const fake = vi.hoisted(() => {
   const state: { last: FakeOAuth2Instance | null } = { last: null };
   interface FakeOAuth2Instance {
+    options: unknown[];
     setCredentials: ReturnType<typeof vi.fn>;
     on: ReturnType<typeof vi.fn>;
     handlers: Map<string, (tokens: Record<string, unknown>) => void>;
@@ -21,7 +22,9 @@ const fake = vi.hoisted(() => {
       this.handlers.set(event, handler);
       return this;
     });
-    constructor() {
+    options: unknown[];
+    constructor(...options: unknown[]) {
+      this.options = options;
       state.last = this;
     }
   }
@@ -32,7 +35,7 @@ vi.mock("@/server/db", () => ({ prisma: db }));
 vi.mock("googleapis", () => ({ google: { auth: { OAuth2: fake.FakeOAuth2 } } }));
 
 import { decrypt, encrypt } from "@/server/crypto";
-import { GoogleNotConnectedError, getGoogleAuth } from "./client";
+import { GOOGLE_HTTP_TIMEOUT_MS, GoogleNotConnectedError, getGoogleAuth } from "./client";
 
 const USER = "user-1";
 const PROVIDER_ACCOUNT_ID = "google-sub-123";
@@ -124,6 +127,28 @@ describe("getGoogleAuth", () => {
     });
   });
 
+  it("khởi tạo OAuth2 dạng options với clientId, clientSecret và timeout HTTP", async () => {
+    vi.stubEnv("AUTH_GOOGLE_ID", "client-id.apps.googleusercontent.com");
+    vi.stubEnv("AUTH_GOOGLE_SECRET", "client-secret-value");
+    db.account.findFirst.mockResolvedValue(accountRow());
+
+    await getGoogleAuth(USER);
+
+    expect(lastClient().options).toEqual([
+      {
+        clientId: "client-id.apps.googleusercontent.com",
+        clientSecret: "client-secret-value",
+        transporterOptions: { timeout: GOOGLE_HTTP_TIMEOUT_MS },
+      },
+    ]);
+  });
+
+  it("GOOGLE_HTTP_TIMEOUT_MS là số dương hữu hạn, không quá 30 s", () => {
+    expect(Number.isFinite(GOOGLE_HTTP_TIMEOUT_MS)).toBe(true);
+    expect(GOOGLE_HTTP_TIMEOUT_MS).toBeGreaterThan(0);
+    expect(GOOGLE_HTTP_TIMEOUT_MS).toBeLessThanOrEqual(30_000);
+  });
+
   it("đăng ký listener tokens", async () => {
     db.account.findFirst.mockResolvedValue(accountRow());
 
@@ -136,24 +161,26 @@ describe("getGoogleAuth", () => {
 describe("sự kiện tokens", () => {
   beforeEach(() => {
     db.account.findFirst.mockResolvedValue(accountRow());
-    db.account.update.mockResolvedValue({});
+    db.account.updateMany.mockResolvedValue({ count: 1 });
   });
 
   function lastUpdateArgs() {
-    const call = db.account.update.mock.calls[0];
-    if (!call) throw new Error("account.update chưa được gọi");
+    const call = db.account.updateMany.mock.calls[0];
+    if (!call) throw new Error("account.updateMany chưa được gọi");
     return call[0] as { where: unknown; data: Record<string, unknown> };
   }
 
-  it("ghi access_token mã hoá và expires_at = floor(expiry_date / 1000), đúng where", async () => {
+  it("ghi access_token mã hoá và expires_at = floor(expiry_date / 1000), where có điều kiện refresh_token not null", async () => {
     await getGoogleAuth(USER);
 
     tokensHandler()({ access_token: "ya29.new-access", expiry_date: 1_900_000_000_999 });
-    await vi.waitFor(() => expect(db.account.update).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(db.account.updateMany).toHaveBeenCalledTimes(1));
 
     const { where, data } = lastUpdateArgs();
     expect(where).toEqual({
-      provider_providerAccountId: { provider: "google", providerAccountId: PROVIDER_ACCOUNT_ID },
+      provider: "google",
+      providerAccountId: PROVIDER_ACCOUNT_ID,
+      refresh_token: { not: null },
     });
     expect(typeof data.access_token).toBe("string");
     expect(data.access_token as string).toMatch(/^v1:/);
@@ -165,7 +192,7 @@ describe("sự kiện tokens", () => {
     await getGoogleAuth(USER);
 
     tokensHandler()({ access_token: "ya29.new-access", expiry_date: 1_900_000_000_000 });
-    await vi.waitFor(() => expect(db.account.update).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(db.account.updateMany).toHaveBeenCalledTimes(1));
 
     const { data } = lastUpdateArgs();
     expect(data).not.toHaveProperty("refresh_token");
@@ -182,7 +209,7 @@ describe("sự kiện tokens", () => {
       expiry_date: 1_900_000_000_000,
       scope: "openid email profile",
     });
-    await vi.waitFor(() => expect(db.account.update).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(db.account.updateMany).toHaveBeenCalledTimes(1));
 
     const { data } = lastUpdateArgs();
     expect(data.refresh_token as string).toMatch(/^v1:/);
@@ -190,10 +217,41 @@ describe("sự kiện tokens", () => {
     expect(data.scope).toBe("openid email profile");
   });
 
-  it("lỗi DB: log userId + message, không chứa token gốc lẫn token đã mã hoá", async () => {
+  it("0 dòng được cập nhật (đã ngắt Drive): không ném, không log", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    onTestFinished(() => {
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+      logSpy.mockRestore();
+    });
+    db.account.updateMany.mockResolvedValue({ count: 0 });
+    await getGoogleAuth(USER);
+
+    expect(() =>
+      tokensHandler()({
+        access_token: "ya29.late-access",
+        refresh_token: "1//late-refresh",
+        expiry_date: 1_900_000_000_000,
+        scope: "openid email profile https://www.googleapis.com/auth/drive.file",
+      }),
+    ).not.toThrow();
+    await vi.waitFor(() => expect(db.account.updateMany).toHaveBeenCalledTimes(1));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(lastUpdateArgs().where).toMatchObject({ refresh_token: { not: null } });
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(logSpy).not.toHaveBeenCalled();
+  });
+
+  it("lỗi DB: log userId + error.name, không có message, không chứa token gốc lẫn token đã mã hoá", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     onTestFinished(() => errorSpy.mockRestore());
-    db.account.update.mockRejectedValue(new Error("db down"));
+    const dbError = new Error("db down ya29.secret-new 1//secret-refresh");
+    dbError.name = "PrismaClientKnownRequestError";
+    db.account.updateMany.mockRejectedValue(dbError);
     await getGoogleAuth(USER);
 
     tokensHandler()({
@@ -201,14 +259,15 @@ describe("sự kiện tokens", () => {
       refresh_token: "1//secret-refresh",
       expiry_date: 1_900_000_000_000,
     });
-    await vi.waitFor(() => expect(db.account.update).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(db.account.updateMany).toHaveBeenCalledTimes(1));
     await vi.waitFor(() => expect(errorSpy).toHaveBeenCalledTimes(1));
 
     const args = errorSpy.mock.calls[0];
-    expect(args?.[1]).toEqual({ userId: USER, message: "db down" });
+    expect(args?.[1]).toEqual({ userId: USER, error: "PrismaClientKnownRequestError" });
 
     const updateData = lastUpdateArgs().data;
     const logged = JSON.stringify(args);
+    expect(logged).not.toContain("db down");
     for (const secret of [
       "ya29.secret-new",
       "1//secret-refresh",

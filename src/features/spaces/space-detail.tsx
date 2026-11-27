@@ -112,7 +112,7 @@ function DriveLink({ driveFolderId }: { driveFolderId: string | null }) {
           <ExternalLink className="h-4 w-4" aria-hidden />
         </a>
       ) : (
-        <p className="py-2 text-xs text-muted">Chưa liên kết thư mục Google Drive · Giai đoạn 3 sẽ tự tạo khi tạo không gian.</p>
+        <p className="py-2 text-xs text-muted">Chưa có thư mục Google Drive. Thư mục được tạo khi tạo không gian lúc đã kết nối Drive.</p>
       )}
     </div>
   );

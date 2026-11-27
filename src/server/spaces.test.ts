@@ -13,6 +13,10 @@ const space = vi.hoisted(() => ({
 
 vi.mock("@/server/db", () => ({ prisma: { space } }));
 
+const provisionSpaceFolder = vi.hoisted(() => vi.fn());
+
+vi.mock("@/server/google/drive-provision", () => ({ provisionSpaceFolder }));
+
 import { createSpace, deleteSpace, getSpace, listSpaces, MAX_SPACES, updateSpace } from "./spaces";
 
 const USER = "user-1";
@@ -31,6 +35,8 @@ function record(overrides: Partial<SpaceRecord> = {}): SpaceRecord {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  // Mặc định Drive không tạo được thư mục (chưa kết nối / thiếu scope).
+  provisionSpaceFolder.mockResolvedValue(null);
 });
 
 describe("listSpaces", () => {
@@ -147,6 +153,87 @@ describe("createSpace", () => {
       icon: "home",
       order: 0,
     });
+  });
+});
+
+describe("createSpace · thư mục Drive", () => {
+  beforeEach(() => {
+    space.count.mockResolvedValue(0);
+    space.create.mockImplementation(async ({ data }) => ({ id: "new", driveFolderId: null, ...data }));
+  });
+
+  it("gọi provisionSpaceFolder với id + name của bản ghi vừa tạo", async () => {
+    space.create.mockResolvedValue(record({ id: "created", name: "Tên đã lưu" }));
+
+    await createSpace(USER, { name: "Tên gửi lên" });
+
+    expect(provisionSpaceFolder).toHaveBeenCalledTimes(1);
+    expect(provisionSpaceFolder).toHaveBeenCalledWith(USER, { id: "created", name: "Tên đã lưu" });
+  });
+
+  it("có folderId → updateMany theo id + userId và trả driveFolderId", async () => {
+    provisionSpaceFolder.mockResolvedValue("folder-1");
+    space.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await createSpace(USER, { name: "Mới" });
+
+    expect(space.updateMany).toHaveBeenCalledTimes(1);
+    expect(space.updateMany.mock.calls[0][0]).toEqual({
+      where: { id: "new", userId: USER },
+      data: { driveFolderId: "folder-1" },
+    });
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.space.driveFolderId).toBe("folder-1");
+  });
+
+  it("provision trả null → không ghi, driveFolderId null", async () => {
+    const result = await createSpace(USER, { name: "Mới" });
+
+    expect(space.updateMany).not.toHaveBeenCalled();
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.space.driveFolderId).toBeNull();
+  });
+
+  it("updateMany ném → vẫn ok, driveFolderId null, log không chứa message", async () => {
+    provisionSpaceFolder.mockResolvedValue("folder-1");
+    space.updateMany.mockRejectedValue(new Error("SECRET connection string"));
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      const result = await createSpace(USER, { name: "Mới" });
+
+      expect(result.ok).toBe(true);
+      expect(result.ok && result.space.driveFolderId).toBeNull();
+      expect(log).toHaveBeenCalledTimes(1);
+      expect(log).toHaveBeenCalledWith("[spaces] Không lưu được driveFolderId", {
+        userId: USER,
+        spaceId: "new",
+        error: "Error",
+      });
+      expect(JSON.stringify(log.mock.calls)).not.toContain("SECRET");
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it("updateMany count 0 (không gian vừa bị xoá) → driveFolderId null", async () => {
+    provisionSpaceFolder.mockResolvedValue("folder-1");
+    space.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await createSpace(USER, { name: "Mới" });
+
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.space.driveFolderId).toBeNull();
+  });
+
+  it("đạt giới hạn → không gọi provisionSpaceFolder", async () => {
+    space.count.mockResolvedValue(MAX_SPACES);
+
+    const result = await createSpace(USER, { name: "Thừa" });
+
+    expect(result).toEqual({ ok: false, reason: "limit" });
+    expect(provisionSpaceFolder).not.toHaveBeenCalled();
+    expect(space.updateMany).not.toHaveBeenCalled();
   });
 });
 

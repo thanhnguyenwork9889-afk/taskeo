@@ -22,6 +22,8 @@ export async function GET(): Promise<Response> {
 /**
  * POST /api/spaces { name, description?, color?, icon? } → 201 { data: Space, error: null }
  * Đã đủ MAX_SPACES → 409.
+ * Khi user đã kết nối Drive (scope drive.file), `data.driveFolderId` là id thư mục Drive vừa tạo.
+ * Chưa kết nối / Drive lỗi / ghi id lỗi → vẫn 201 với `driveFolderId: null`.
  */
 export async function POST(request: Request): Promise<Response> {
   try {

@@ -26,8 +26,12 @@ src/
 │   │   ├── session-callback.ts  Dựng phiên trả cho client (chỉ id, name, email, image)
 │   │   └── actions.ts    Server action đăng nhập (tuỳ chọn kèm Drive) / đăng xuất / connectGoogleDrive / disconnectGoogleDrive
 │   └── google/
-│       ├── client.ts     OAuth client theo user
+│       ├── client.ts     OAuth client theo user (timeout refresh; listener "tokens" không ghi lại sau khi ngắt kết nối)
 │       ├── granted-scopes.ts  Scope user đã cấp (Account.scope): hasGoogleScope, requireGoogleScope, GoogleScopeMissingError · GOOGLE_ACCOUNT_ORDER (thứ tự chọn Account google, dùng chung với client.ts)
+│       ├── drive-folders.ts  Drive cấp thấp: ensureRootFolder (thư mục gốc "Taskeo" tìm qua appProperties), createFolder, DriveFilesClient (chỉ import type googleapis)
+│       ├── drive-provision.ts  provisionSpaceFolder / provisionProjectFolder: best-effort, hạn tổng 10 s, không bao giờ ném, chỉ import động client + googleapis khi đã có drive.file
+│       ├── drive-query.ts  Thoát chuỗi q của Drive, rootFolderQuery, DRIVE_FOLDER_MIME
+│       ├── drive-errors.ts  classifyDriveError / driveErrorLogFields: phân loại lỗi Drive, chỉ đọc name / code / status
 │       ├── revoke.ts     Thu hồi quyền Google (POST /revoke, token trong body, timeout) · chọn token · phân loại kết quả · dữ liệu Account sau khi ngắt
 │       └── scopes.ts     Scope theo giai đoạn (hằng số + parseScopes / hasScope thuần)
 ├── domain/            3. Logic nghiệp vụ thuần, có test, chạy được cả client lẫn server
@@ -36,6 +40,7 @@ src/
 │   ├── space-record.ts          Bản ghi DB → Space phía client
 │   ├── project-record.ts        Bản ghi DB → Project phía client, dueDate ↔ YYYY-MM-DD theo UTC
 │   ├── task-record.ts           Bản ghi DB → Task phía client
+│   ├── drive-folder-name.ts     toDriveFolderName: tên không gian / dự án → tên thư mục Drive
 │   ├── task-completion.ts       completedAtFor: quy tắc completedAt dùng chung cho server và store demo
 │   ├── activity-record.ts       Bản ghi DB → Activity phía client; taskActivityTypes, activityRows (dòng activity cần ghi)
 │   ├── workspace-actions.ts     Thao tác dữ liệu dạng hàm thuần

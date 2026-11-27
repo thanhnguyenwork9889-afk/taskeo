@@ -83,6 +83,26 @@ Luồng trong app:
 
 Mã `?drive=` mà `DriveNotice` (`src/components/layout/drive-notice.ts`) hiểu: `wrong-account` (T011), `disconnected`, `disconnected-local`, `disconnect-failed` (T012).
 
+### Thư mục Drive cho không gian / dự án (T013)
+
+Việc trên Google Cloud Console (một lần cho mỗi project Cloud): **APIs & Services → Library → Google Drive API → Enable**. Thiếu bước này mọi lời gọi Drive trả 403 `accessNotConfigured`: không gian / dự án vẫn được tạo nhưng không có thư mục.
+
+Cây thư mục trong My Drive của người dùng:
+
+```
+Taskeo/                      appProperties.taskeoRole = "root"
+└── <tên không gian>/        taskeoRole = "space",   taskeoSpaceId = <Space.id>
+    └── <tên dự án>/         taskeoRole = "project", taskeoProjectId = <Project.id>
+```
+
+- `POST /api/spaces` → `createSpace` ghi DB, rồi `provisionSpaceFolder` (`src/server/google/drive-provision.ts`) tạo thư mục không gian trong thư mục gốc, lưu `Space.driveFolderId`. `POST /api/spaces/[id]/projects` → `createProject` ghi DB (transaction cũ), rồi tạo thư mục con trong thư mục không gian, lưu `Project.driveFolderId`. Không gian chưa có thư mục → `provisionSpaceFolder` tạo bù, ghi có điều kiện `driveFolderId IS NULL`, **đọc lại** id đã lưu rồi mới `provisionProjectFolder` dưới id đó: hai dự án tạo đồng thời luôn nằm trong cùng một thư mục không gian (thư mục không gian của request thua thành thư mục rỗng mồ côi).
+- Thư mục gốc không lưu trong DB: tìm bằng `files.list` với `q` = folder + `appProperties has { key='taskeoRole' and value='root' }` + `trashed=false` + `'me' in owners` (không nhận thư mục gốc người khác chia sẻ, khi sau này có Picker), `orderBy: createdTime`, `pageSize: 1`; không có thì tạo `APP_NAME` ở My Drive. Với `drive.file`, app chỉ thấy thư mục chính nó tạo. Người dùng chuyển "Taskeo" đi chỗ khác vẫn dùng lại được; đưa vào thùng rác thì lần sau tạo thư mục gốc mới.
+- Tên thư mục: `toDriveFolderName` (`src/domain/drive-folder-name.ts`) — NFC, bỏ ký tự điều khiển / vô hình, gộp khoảng trắng, tối đa 200 code point, rỗng → "Không gian không tên" / "Dự án không tên".
+- **Best-effort:** chưa có `drive.file` → không gọi Google và không nạp `googleapis`. Chưa kết nối (không có refresh token) → im lặng. Google lỗi / quá hạn / ghi DB lỗi → vẫn 201, `driveFolderId = null`, log một dòng chỉ có `userId`, `spaceId` / `projectId`, tên lỗi đã phân loại (`drive-errors.ts`) và mã HTTP; không log message / URL / header của lỗi gaxios.
+- Timeout: Drive 5 s mỗi request, `retry: false`; refresh token 10 s mỗi lần thử (`transporterOptions` trong `client.ts`); hạn tổng 10 s cho mỗi lần tạo (tạo dự án trong không gian chưa có thư mục: hai lần, tối đa 20 s). Hết hạn → `AbortController` huỷ request Drive phía client và không bắt đầu lời gọi Drive nào nữa; request đang bay có thể vẫn hoàn tất phía Google (thư mục mồ côi, không ghi DB). Bước refresh token không nhận signal nên có thể chạy nốt ở nền (giới hạn bởi timeout mỗi lần thử).
+- Không đồng bộ khi sửa / xoá: đổi tên không gian / dự án không đổi tên thư mục; xoá không xoá thư mục trên Drive (không xoá dữ liệu của người dùng).
+- Refresh xong sau khi người dùng đã ngắt kết nối không ghi lại token: listener `"tokens"` trong `client.ts` chỉ cập nhật dòng Account còn `refresh_token`.
+
 ## Bảo mật token
 
 - Token Google được mã hoá AES-256-GCM (`src/server/crypto.ts`) trước khi ghi DB, bằng cách bọc `linkAccount` của Prisma adapter.
