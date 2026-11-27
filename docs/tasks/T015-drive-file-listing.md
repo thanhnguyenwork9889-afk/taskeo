@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T015-drive-file-listing` |
 | Tạo từ | `develop` @ `6074fb4` |
-| Trạng thái | 4-review |
+| Trạng thái | 5-fix |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T33** "Liệt kê file theo không gian/dự án + Tài liệu gần đây" (giai đoạn 4 · Google Drive). Phụ thuộc T31 (thư mục Drive cho không gian / dự án, xong ở T013). Trạng thái trên sheet đã là `Đang làm` từ trước, giữ nguyên.
@@ -104,11 +104,25 @@ Kiểm tay trên dev (`configured`, đã đăng nhập, **chưa** kết nối Dr
 
 ## 4. Review code
 
-Reviewer đã chạy:
+Reviewer đã chạy (trên `git diff develop...HEAD` @ `746b705`): `layer-reviewer`; review TypeScript và review bảo mật giao cho agent `general-purpose` (repo chưa có agent `typescript-reviewer` / `security-reviewer`). Không có CRITICAL / HIGH.
 
 | # | Mức | File:dòng | Vấn đề | Reviewer |
 |---|---|---|---|---|
-| R1 | | | | |
+| R1 | MEDIUM | `src/server/drive-files.ts:93-103` | Mọi request (kể cả lọc `projectId`) nạp toàn bộ không gian + dự án của user (tới 200 × 200 dòng); không có rate limit → một user lặp request gây tải DB và tốn quota Drive chung | security |
+| R2 | MEDIUM | `src/features/docs/drive-files-state.ts:27` | Xét `status === "error"` trước khi xét có dữ liệu: refetch nền lỗi (TanStack giữ `data`) thay danh sách đang xem bằng khối lỗi | typescript |
+| R3 | MEDIUM | `src/features/docs/drive-files-api.ts:94-96` | Retry cả 502 do hạn 10 s phía server → khung chờ ~33 s trước khi hiện lỗi; nút Thử lại lặp lại cả chu kỳ | typescript |
+| R4 | MEDIUM | `docs/06-api.md` (Quy ước chung, Mã lỗi) | Danh sách mã lỗi chung chưa có 403 `drive_not_connected` và 502 | layer |
+| R5 | LOW | `src/server/drive-files.ts:69-73` | Tài liệu gần đây chỉ xét 100 file mới nhất rồi lọc → có thể thiếu nếu nhiều file ngoài thư mục Taskeo | security |
+| R6 | LOW | `scripts/dev-create-doc.mjs:1-3, 95-100` | "Chỉ dùng dev" chỉ là chú thích, không chặn chạy với env production | security, layer |
+| R7 | LOW | `scripts/dev-create-doc.mjs:41-69` | Logic giải mã sao chép tay từ `crypto.ts`, lệch khi đổi định dạng (đóng an toàn: ném lỗi) | security |
+| R8 | LOW | `src/server/http.ts:69-76` | `handleUnexpected` log `message` / `stack` của lỗi Prisma (có thể chứa id), có từ trước T015 | security |
+| R9 | LOW | `docs/04-architecture.md` | Cây thư mục thiếu `features/docs/drive-files-states.tsx` và `scripts/dev-create-doc.mjs` | layer |
+| R10 | LOW | `src/domain/drive-files.ts:23`, `src/features/docs/docs-view.tsx` | Chữ hiển thị rải trong domain / feature thay vì `domain/labels.ts` | layer |
+| R11 | LOW | `package-lock.json`, `.gitignore` | Thay đổi không thuộc T33 | layer, security |
+| R12 | LOW | `src/features/docs/drive-files-api.ts:75-89` | AbortError khi đọc body bị đổi thành lỗi "phản hồi không hợp lệ" status 200 | typescript |
+| R13 | LOW | `drive-files-state.ts:27`, `drive-files-states.tsx:67-78` | 401 (hết phiên) hiện câu "Google bận, thử lại", thử lại không giúp được | typescript |
+| R14 | LOW | `src/features/docs/use-drive-files.ts:11` | queryKey không có user: nếu đổi tài khoản mà không tải lại trang, thấy cache của tài khoản trước ≤ 60 s | typescript |
+| R15 | LOW | `src/features/docs/*` | Không có test cho hook (`enabled` ở demo / chưa kết nối, lỗi kèm dữ liệu); `deadline.test.ts` thiếu ca reject sau `await` | typescript |
 
 ## 5. Fix bug
 
