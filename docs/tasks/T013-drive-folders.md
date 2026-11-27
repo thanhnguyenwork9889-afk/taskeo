@@ -175,7 +175,7 @@ Vòng 2 (`git diff 183d5a7~2..183d5a7~1`, tức `3c376a2`; `general-purpose` ki�
 
 **Tài liệu đã cập nhật:** `docs/02-google-cloud.md` (bật Google Drive API, cây thư mục, `appProperties`, best-effort, timeout / abort, đồng thời, không đồng bộ khi sửa / xoá, listener `"tokens"`), `docs/04-architecture.md` (5 file mới, ghi chú `client.ts`), `docs/06-api.md` (hai `POST`), `docs/tasks/README.md`.
 
-**Merge vào develop:** commit `<hash>`, 2026-11-27
+**Merge vào develop:** commit `6f3752b`, 2026-11-27
 
 **Việc để sau:**
 - Dữ liệu kiểm thật trên DB dev: không gian "T013 test A–D" (kèm dự án) và thư mục tương ứng trên Drive — xoá khi người dùng muốn.
