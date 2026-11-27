@@ -65,7 +65,7 @@ Duyệt kế hoạch: ☑ người dùng đã duyệt (2026-11-27)
 
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
-| P1 | (commit P1) | `src/domain/drive-storage.test.ts` (87 test) | ✅ | ✅ | ✅ 1359 | ✅ |
+| P1 | `4d29496` | `src/domain/drive-storage.test.ts` (87 test) | ✅ | ✅ | ✅ 1359 | ✅ |
 
 ## 4. Review code
 
