@@ -95,7 +95,7 @@ Rủi ro / phụ thuộc:
 - PATCH / DELETE không đồng bộ Drive (cố ý). POST có thể chậm thêm tới 10 s.
 - `drive_v3.Drive` có thể không gán khớp `DriveFilesClient` do overload → ép kiểu một chỗ ở `getDrive` nếu cần.
 
-Duyệt kế hoạch: ☑ chờ · ☐ người dùng đã duyệt (ngày) · ☐ bỏ qua (`--yes`)
+Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-27, giữ P3) · ☐ bỏ qua (`--yes`)
 
 ## 3. Thực hiện + kiểm thử
 
