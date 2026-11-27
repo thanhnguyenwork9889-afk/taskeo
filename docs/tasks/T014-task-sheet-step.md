@@ -85,7 +85,7 @@ Vòng 1 (`git diff 333e971..ffb350d`, `layer-reviewer`): cả 6 đã xử lý, k
 
 **Tài liệu đã cập nhật:** `.claude/skills/task/SKILL.md`, `docs/07-workflow.md`, `docs/tasks/_template.md`, `docs/tasks/README.md`.
 
-**Merge vào develop:** commit `<hash>`, ngày
+**Merge vào develop:** commit `b31023c`, 2026-11-27
 
 **Sheet nhiệm vụ:** không có dòng
 
