@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_DRIVE_FILE_NAME,
   DOC_KIND_MIME,
+  DRIVE_FILE_CREATE_FIELDS,
   DRIVE_FILE_UNNAMED,
   DRIVE_NOT_CONNECTED_CODE,
   DRIVE_PARENTS_PER_QUERY,
@@ -11,6 +13,7 @@ import {
   escapeDriveQueryValue,
   mergeRecent,
   toDriveFileItem,
+  toDriveFileName,
   type FolderSpace,
 } from "./drive-files";
 import type { DriveFileItem } from "./types";
@@ -65,6 +68,8 @@ describe("constants", () => {
     expect(DRIVE_PARENTS_PER_QUERY).toBe(40);
     expect(DRIVE_NOT_CONNECTED_CODE).toBe("drive_not_connected");
     expect(DRIVE_FILE_UNNAMED).toBe("Không có tên");
+    expect(DEFAULT_DRIVE_FILE_NAME).toBe("Tài liệu không tên");
+    expect(DRIVE_FILE_CREATE_FIELDS).toBe("id,name,mimeType,modifiedTime,webViewLink,parents");
   });
 });
 
@@ -297,5 +302,29 @@ describe("mergeRecent", () => {
     const list = [item("a", "2026-11-01T00:00:00.000Z"), item("b", "2026-11-02T00:00:00.000Z")];
     mergeRecent([list], 1);
     expect(list.map((file) => file.id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("toDriveFileName", () => {
+  it("keeps a normal name", () => {
+    expect(toDriveFileName("Biên bản họp")).toBe("Biên bản họp");
+  });
+
+  it("trims and collapses whitespace", () => {
+    expect(toDriveFileName("  Kế   hoạch \t Q1  ")).toBe("Kế hoạch Q1");
+  });
+
+  it("replaces control and invisible characters", () => {
+    expect(toDriveFileName("Báo\u0000cáo\n\u200Bnăm")).toBe("Báo cáo năm");
+  });
+
+  it("falls back to the default name when empty after cleaning", () => {
+    expect(toDriveFileName("")).toBe(DEFAULT_DRIVE_FILE_NAME);
+    expect(toDriveFileName("   ")).toBe(DEFAULT_DRIVE_FILE_NAME);
+    expect(toDriveFileName("\u0000\u0007\u200B")).toBe(DEFAULT_DRIVE_FILE_NAME);
+  });
+
+  it("cuts long names to 200 code points", () => {
+    expect(Array.from(toDriveFileName("😀".repeat(250)))).toHaveLength(200);
   });
 });

@@ -51,7 +51,7 @@ function DocsBody({ kind, onCreate }: { kind: DocKind | null; onCreate: () => vo
   const { isDemo } = useViewer();
   return (
     <>
-      {isDemo ? <DemoDocsList kind={kind} onCreate={onCreate} /> : <DriveDocsList kind={kind} />}
+      {isDemo ? <DemoDocsList kind={kind} onCreate={onCreate} /> : <DriveDocsList kind={kind} onCreate={onCreate} />}
       <p className="text-xs text-muted">
         {isDemo
           ? "Chế độ demo: tài liệu mẫu lưu trong trình duyệt này, chưa nối với Google Drive."
@@ -91,7 +91,7 @@ function DemoDocsList({ kind, onCreate }: { kind: DocKind | null; onCreate: () =
 }
 
 /** Chế độ configured: file thật trong thư mục Drive của Taskeo, lọc loại qua `?type=`. */
-function DriveDocsList({ kind }: { kind: DocKind | null }) {
+function DriveDocsList({ kind, onCreate }: { kind: DocKind | null; onCreate: () => void }) {
   const { query } = useUI();
   const { state, files, error, retry, retrying } = useDriveFileList({ kind: kind ?? undefined, limit: DOCS_LIMIT }, query);
   if (state === "list") {
@@ -103,7 +103,7 @@ function DriveDocsList({ kind }: { kind: DocKind | null }) {
       </section>
     );
   }
-  if (state === "empty" || state === "demo") return <DriveDocsEmpty kind={kind} searching={Boolean(query.trim())} />;
+  if (state === "empty" || state === "demo") return <DriveDocsEmpty kind={kind} searching={Boolean(query.trim())} onCreate={onCreate} />;
   return (
     <section className={listCard}>
       {state === "connect" && <DriveConnectPrompt />}
@@ -113,18 +113,25 @@ function DriveDocsList({ kind }: { kind: DocKind | null }) {
   );
 }
 
-/** Rỗng ở chế độ configured: không mời tạo bản nháp vì tạo file Drive thật chưa có (T32). */
-function DriveDocsEmpty({ kind, searching }: { kind: DocKind | null; searching: boolean }) {
+/** Rỗng ở chế độ configured: mời tạo file Drive đầu tiên; khi đang tìm kiếm thì chỉ gợi ý đổi từ khoá. */
+function DriveDocsEmpty({ kind, searching, onCreate }: { kind: DocKind | null; searching: boolean; onCreate: () => void }) {
+  if (searching) {
+    return (
+      <EmptyState
+        icon={FileText}
+        title="Không có tài liệu khớp tìm kiếm"
+        description="Thử từ khoá khác hoặc xoá ô tìm kiếm."
+      />
+    );
+  }
   const none = kind ? `Chưa có tài liệu nào ở mục ${DOC_KIND_LABEL[kind]}` : "Chưa có tài liệu Google nào";
   return (
     <EmptyState
       icon={FileText}
-      title={searching ? "Không có tài liệu khớp tìm kiếm" : none}
-      description={
-        searching
-          ? "Thử từ khoá khác hoặc xoá ô tìm kiếm."
-          : "Taskeo chỉ thấy file do Taskeo tạo hoặc bạn mở bằng Taskeo trong thư mục Drive của Taskeo."
-      }
+      title={none}
+      description="Tạo tài liệu đầu tiên ngay trong Taskeo. Taskeo chỉ thấy file do Taskeo tạo hoặc bạn mở bằng Taskeo."
+      actionLabel="Tạo tài liệu"
+      onAction={onCreate}
     />
   );
 }

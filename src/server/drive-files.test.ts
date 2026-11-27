@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildDriveFilesQuery, DOC_KIND_MIME, DRIVE_PARENTS_PER_QUERY, type RawDriveFile } from "@/domain/drive-files";
+import {
+  buildDriveFilesQuery,
+  DOC_KIND_MIME,
+  DRIVE_PARENTS_PER_QUERY,
+  toDriveFileName,
+  type RawDriveFile,
+} from "@/domain/drive-files";
 import { FILE_LIST_MAX } from "@/domain/validation";
 
 const db = vi.hoisted(() => ({
@@ -11,13 +17,13 @@ vi.mock("@/server/db", () => ({ prisma: db }));
 
 const listDriveFiles = vi.hoisted(() => vi.fn());
 
-vi.mock("@/server/google/drive-files", () => ({ listDriveFiles }));
+vi.mock("@/server/google/drive-files", () => ({ listDriveFiles, createDriveFile: vi.fn() }));
 vi.mock("@/server/google/drive-provision", () => ({
   provisionSpaceFolder: vi.fn(),
   provisionProjectFolder: vi.fn(),
 }));
 
-import { listFiles } from "./drive-files";
+import { createFile, listFiles, type CreateFileDeps } from "./drive-files";
 
 const USER = "user-1";
 const { space, project } = db;
@@ -324,5 +330,255 @@ describe("listFiles — kết quả Drive", () => {
     expect(custom).toHaveBeenCalledTimes(1);
     expect(listDriveFiles).not.toHaveBeenCalled();
     expect(result).toMatchObject({ ok: true, files: [{ id: "a", spaceId: "s2", projectId: null }] });
+  });
+});
+
+describe("createFile", () => {
+  const NOW = new Date("2026-11-27T08:00:00.000Z");
+  const SPACE_ROW = { id: "s1", name: "Công việc", driveFolderId: "f-s1" };
+  const PROJECT_ROW = { id: "p1", name: "Website", driveFolderId: "f-p1" };
+  const SELECT = { id: true, name: true, driveFolderId: true };
+  const LOG = { prefix: "[files]" };
+
+  function created(overrides: Partial<RawDriveFile> = {}): RawDriveFile {
+    return {
+      id: "new-1",
+      name: "Kế hoạch",
+      mimeType: DOC_KIND_MIME.sheet,
+      modifiedTime: "2026-11-27T07:59:00.000Z",
+      webViewLink: "https://docs.google.com/spreadsheets/d/new-1/edit",
+      parents: ["f-s1"],
+      ...overrides,
+    };
+  }
+
+  function driveOk(overrides: Partial<RawDriveFile> = {}) {
+    return vi.fn().mockResolvedValue({ status: "ok", file: created(overrides) });
+  }
+
+  function makeDeps(overrides: Partial<CreateFileDeps> = {}) {
+    return {
+      createDriveFile: driveOk(),
+      hasDriveScope: vi.fn().mockResolvedValue(true),
+      ensureSpaceFolderId: vi.fn().mockResolvedValue("f-new-space"),
+      ensureProjectFolderId: vi.fn().mockResolvedValue("f-new-project"),
+      now: () => NOW,
+      ...overrides,
+    } satisfies CreateFileDeps;
+  }
+
+  beforeEach(() => {
+    space.findFirst.mockResolvedValue(SPACE_ROW);
+    project.findFirst.mockResolvedValue(PROJECT_ROW);
+  });
+
+  it("không gian của user khác → not_found, truy vấn lọc userId, không gọi Drive", async () => {
+    space.findFirst.mockResolvedValue(null);
+    const deps = makeDeps();
+
+    const result = await createFile(USER, { name: "A", kind: "doc", spaceId: "s-other" }, deps);
+
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+    expect(space.findFirst).toHaveBeenCalledWith({ where: { id: "s-other", userId: USER }, select: SELECT });
+    expect(project.findFirst).not.toHaveBeenCalled();
+    expect(deps.hasDriveScope).not.toHaveBeenCalled();
+    expect(deps.createDriveFile).not.toHaveBeenCalled();
+  });
+
+  it("dự án không thuộc spaceId → not_found (where có userId + spaceId), không gọi Drive", async () => {
+    project.findFirst.mockResolvedValue(null);
+    const deps = makeDeps();
+
+    const result = await createFile(USER, { name: "A", kind: "doc", spaceId: "s1", projectId: "p9" }, deps);
+
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+    expect(project.findFirst).toHaveBeenCalledWith({
+      where: { id: "p9", userId: USER, spaceId: "s1" },
+      select: SELECT,
+    });
+    expect(deps.createDriveFile).not.toHaveBeenCalled();
+  });
+
+  it("không có projectId → tạo trong thư mục không gian, tên chuẩn hoá, DriveFileItem đầy đủ", async () => {
+    const deps = makeDeps();
+    const rawName = "Kế\u0007 hoạch";
+
+    const result = await createFile(USER, { name: rawName, kind: "sheet", spaceId: "s1" }, deps);
+
+    expect(project.findFirst).not.toHaveBeenCalled();
+    expect(deps.hasDriveScope).not.toHaveBeenCalled();
+    expect(deps.ensureSpaceFolderId).not.toHaveBeenCalled();
+    expect(deps.createDriveFile).toHaveBeenCalledWith(USER, {
+      name: toDriveFileName(rawName),
+      kind: "sheet",
+      parentId: "f-s1",
+    });
+    expect(result).toEqual({
+      ok: true,
+      file: {
+        id: "new-1",
+        name: "Kế hoạch",
+        kind: "sheet",
+        url: "https://docs.google.com/spreadsheets/d/new-1/edit",
+        modifiedAt: "2026-11-27T07:59:00.000Z",
+        spaceId: "s1",
+        spaceName: "Công việc",
+        projectId: null,
+        projectName: null,
+      },
+    });
+  });
+
+  it("có projectId → parentId là thư mục dự án, DriveFileItem có projectName", async () => {
+    const url = "https://docs.google.com/presentation/d/new-1/edit";
+    const deps = makeDeps({
+      createDriveFile: driveOk({ mimeType: DOC_KIND_MIME.slide, parents: ["f-p1"], webViewLink: url }),
+    });
+
+    const result = await createFile(USER, { name: "Trình bày", kind: "slide", spaceId: "s1", projectId: "p1" }, deps);
+
+    expect(deps.createDriveFile).toHaveBeenCalledWith(USER, { name: "Trình bày", kind: "slide", parentId: "f-p1" });
+    expect(deps.ensureProjectFolderId).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      ok: true,
+      file: { kind: "slide", url, spaceId: "s1", spaceName: "Công việc", projectId: "p1", projectName: "Website" },
+    });
+  });
+
+  it("thư mục không gian null → kiểm scope, ensureSpaceFolderId rồi tạo file với id mới", async () => {
+    space.findFirst.mockResolvedValue({ ...SPACE_ROW, driveFolderId: null });
+    const deps = makeDeps({ createDriveFile: driveOk({ parents: ["f-new-space"] }) });
+
+    const result = await createFile(USER, { name: "A", kind: "doc", spaceId: "s1" }, deps);
+
+    expect(deps.hasDriveScope).toHaveBeenCalledWith(USER);
+    expect(deps.ensureSpaceFolderId).toHaveBeenCalledWith(USER, { ...SPACE_ROW, driveFolderId: null }, LOG);
+    expect(deps.createDriveFile).toHaveBeenCalledWith(USER, { name: "A", kind: "doc", parentId: "f-new-space" });
+    expect(result).toMatchObject({ ok: true, file: { spaceId: "s1", spaceName: "Công việc", projectId: null } });
+  });
+
+  it("thư mục dự án null → ensureProjectFolderId (kèm không gian) rồi tạo file với id mới", async () => {
+    project.findFirst.mockResolvedValue({ ...PROJECT_ROW, driveFolderId: null });
+    const deps = makeDeps({ createDriveFile: driveOk({ parents: ["f-new-project"] }) });
+
+    const result = await createFile(USER, { name: "A", kind: "doc", spaceId: "s1", projectId: "p1" }, deps);
+
+    expect(deps.ensureProjectFolderId).toHaveBeenCalledWith(
+      USER,
+      { space: SPACE_ROW, project: { ...PROJECT_ROW, driveFolderId: null } },
+      LOG,
+    );
+    expect(deps.ensureSpaceFolderId).not.toHaveBeenCalled();
+    expect(deps.createDriveFile).toHaveBeenCalledWith(USER, { name: "A", kind: "doc", parentId: "f-new-project" });
+    expect(result).toMatchObject({ ok: true, file: { projectId: "p1", projectName: "Website" } });
+  });
+
+  it("tạo bù thư mục không gian trả null → drive_error, không gọi createDriveFile", async () => {
+    space.findFirst.mockResolvedValue({ ...SPACE_ROW, driveFolderId: null });
+    const deps = makeDeps({ ensureSpaceFolderId: vi.fn().mockResolvedValue(null) });
+
+    const result = await createFile(USER, { name: "A", kind: "doc", spaceId: "s1" }, deps);
+
+    expect(result).toEqual({ ok: false, reason: "drive_error" });
+    expect(deps.createDriveFile).not.toHaveBeenCalled();
+  });
+
+  it("tạo bù thư mục dự án trả null → drive_error, không gọi createDriveFile", async () => {
+    project.findFirst.mockResolvedValue({ ...PROJECT_ROW, driveFolderId: null });
+    const deps = makeDeps({ ensureProjectFolderId: vi.fn().mockResolvedValue(null) });
+
+    const result = await createFile(USER, { name: "A", kind: "doc", spaceId: "s1", projectId: "p1" }, deps);
+
+    expect(result).toEqual({ ok: false, reason: "drive_error" });
+    expect(deps.createDriveFile).not.toHaveBeenCalled();
+  });
+
+  it("chưa có scope khi cần tạo bù → drive_not_connected, không gọi ensure / createDriveFile", async () => {
+    project.findFirst.mockResolvedValue({ ...PROJECT_ROW, driveFolderId: null });
+    const deps = makeDeps({ hasDriveScope: vi.fn().mockResolvedValue(false) });
+
+    const result = await createFile(USER, { name: "A", kind: "doc", spaceId: "s1", projectId: "p1" }, deps);
+
+    expect(result).toEqual({ ok: false, reason: "drive_not_connected" });
+    expect(deps.ensureSpaceFolderId).not.toHaveBeenCalled();
+    expect(deps.ensureProjectFolderId).not.toHaveBeenCalled();
+    expect(deps.createDriveFile).not.toHaveBeenCalled();
+  });
+
+  it("createDriveFile not_connected → drive_not_connected", async () => {
+    const deps = makeDeps({ createDriveFile: vi.fn().mockResolvedValue({ status: "not_connected" }) });
+
+    await expect(createFile(USER, { name: "A", kind: "doc", spaceId: "s1" }, deps)).resolves.toEqual({
+      ok: false,
+      reason: "drive_not_connected",
+    });
+  });
+
+  it("createDriveFile error → drive_error", async () => {
+    const deps = makeDeps({ createDriveFile: vi.fn().mockResolvedValue({ status: "error" }) });
+
+    await expect(createFile(USER, { name: "A", kind: "doc", spaceId: "s1" }, deps)).resolves.toEqual({
+      ok: false,
+      reason: "drive_error",
+    });
+  });
+
+  it("Drive thiếu modifiedTime / parents → dùng now() và thư mục đích", async () => {
+    const deps = makeDeps({ createDriveFile: driveOk({ modifiedTime: null, parents: undefined }) });
+
+    const result = await createFile(USER, { name: "A", kind: "sheet", spaceId: "s1", projectId: "p1" }, deps);
+
+    expect(result).toMatchObject({
+      ok: true,
+      file: { modifiedAt: NOW.toISOString(), spaceId: "s1", projectId: "p1", projectName: "Website" },
+    });
+  });
+
+  it("file Drive không ánh xạ được (mimeType lạ) → drive_error, log đúng một dòng an toàn", async () => {
+    const deps = makeDeps({ createDriveFile: driveOk({ mimeType: "text/plain" }) });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      await expect(
+        createFile(USER, { name: "Bí mật", kind: "doc", spaceId: "s1", projectId: "p1" }, deps),
+      ).resolves.toEqual({ ok: false, reason: "drive_error" });
+      expect(log).toHaveBeenCalledTimes(1);
+      expect(log.mock.calls[0]).toEqual([
+        "[files] File Drive vừa tạo không ánh xạ được",
+        { userId: USER, spaceId: "s1", projectId: "p1" },
+      ]);
+      const logged = JSON.stringify(log.mock.calls);
+      expect(logged).not.toContain("Kế hoạch");
+      expect(logged).not.toContain("Bí mật");
+      expect(logged).not.toContain("docs.google.com");
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it("file không ánh xạ được trong không gian (không dự án) → log projectId null", async () => {
+    const deps = makeDeps({ createDriveFile: driveOk({ mimeType: "text/plain" }) });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      await createFile(USER, { name: "A", kind: "doc", spaceId: "s1" }, deps);
+      expect(log.mock.calls).toEqual([
+        ["[files] File Drive vừa tạo không ánh xạ được", { userId: USER, spaceId: "s1", projectId: null }],
+      ]);
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it("createDriveFile error → không log ở createFile", async () => {
+    const deps = makeDeps({ createDriveFile: vi.fn().mockResolvedValue({ status: "error" }) });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      await createFile(USER, { name: "A", kind: "doc", spaceId: "s1" }, deps);
+      expect(log).not.toHaveBeenCalled();
+    } finally {
+      log.mockRestore();
+    }
   });
 });

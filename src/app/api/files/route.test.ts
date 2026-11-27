@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { DriveFileItem } from "@/domain/types";
+import type { CreateFileResponse, DriveFileItem } from "@/domain/types";
+import { SPACE_NAME_MAX } from "@/domain/validation";
 
 const mocks = vi.hoisted(() => ({
   connection: vi.fn(async () => undefined),
   getApiUserId: vi.fn(),
   listFiles: vi.fn(),
+  createFile: vi.fn(),
   serverModuleLoaded: vi.fn(),
 }));
 
@@ -13,12 +15,12 @@ vi.mock("@/server/auth/session", () => ({ getApiUserId: mocks.getApiUserId }));
 // Factory đặt tên để `freshRoute` đăng ký lại bằng `vi.doMock` (xoá kết quả mock đã cache).
 const serverDriveFilesModule = vi.hoisted(() => () => {
   mocks.serverModuleLoaded();
-  return { listFiles: mocks.listFiles };
+  return { listFiles: mocks.listFiles, createFile: mocks.createFile };
 });
 
 vi.mock("@/server/drive-files", serverDriveFilesModule);
 
-import { GET } from "./route";
+import { GET, POST } from "./route";
 
 const FILE: DriveFileItem = {
   id: "file_1",
@@ -53,6 +55,7 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   mocks.getApiUserId.mockResolvedValue({ ok: true, userId: "user_1" });
   mocks.listFiles.mockResolvedValue({ ok: true, files: [] });
+  mocks.createFile.mockResolvedValue({ ok: true, file: FILE });
 });
 
 describe("GET /api/files — phiên", () => {
@@ -207,5 +210,149 @@ describe("GET /api/files — kết quả", () => {
     expect(text).not.toContain("secret");
     expect(JSON.parse(text).data).toBeNull();
     expect(console.error).toHaveBeenCalled();
+  });
+});
+
+const VALID_BODY = { name: "Kế hoạch", kind: "doc", spaceId: "sp_1" } as const;
+
+function postRequest(body: unknown): Request {
+  return new Request(URL_BASE, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: typeof body === "string" ? body : JSON.stringify(body),
+  });
+}
+
+describe("POST /api/files — phiên", () => {
+  it("không gọi connection()", async () => {
+    await POST(postRequest(VALID_BODY));
+    expect(mocks.connection).not.toHaveBeenCalled();
+  });
+
+  it("trả 401 khi chưa đăng nhập, không import và không gọi hàm server", async () => {
+    mocks.getApiUserId.mockResolvedValue({ ok: false, status: 401 });
+    const { POST: freshPost } = await freshRoute();
+    const response = await freshPost(postRequest(VALID_BODY));
+    expect(response.status).toBe(401);
+    expect((await response.json()).data).toBeNull();
+    expect(mocks.serverModuleLoaded).not.toHaveBeenCalled();
+    expect(mocks.createFile).not.toHaveBeenCalled();
+  });
+
+  it("trả 503 ở chế độ demo và không import @/server/drive-files", async () => {
+    mocks.getApiUserId.mockResolvedValue({ ok: false, status: 503 });
+    const { POST: freshPost } = await freshRoute();
+    const response = await freshPost(postRequest(VALID_BODY));
+    expect(response.status).toBe(503);
+    expect((await response.json()).data).toBeNull();
+    expect(mocks.serverModuleLoaded).not.toHaveBeenCalled();
+    expect(mocks.createFile).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/files — body", () => {
+  it("trả 400 khi JSON hỏng", async () => {
+    const response = await POST(postRequest("{name:"));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      data: null,
+      error: { message: "Dữ liệu gửi lên không phải JSON hợp lệ" },
+    });
+    expect(mocks.createFile).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["thiếu tên", { kind: "doc", spaceId: "sp_1" }, "name"],
+    ["tên chỉ khoảng trắng", { ...VALID_BODY, name: "   " }, "name"],
+    ["tên quá dài", { ...VALID_BODY, name: "a".repeat(SPACE_NAME_MAX + 1) }, "name"],
+    ["kind sai", { ...VALID_BODY, kind: "pdf" }, "kind"],
+    ["thiếu spaceId", { name: "Kế hoạch", kind: "doc" }, "spaceId"],
+  ])("trả 400 khi %s", async (_label, body, field) => {
+    const response = await POST(postRequest(body));
+    expect(response.status).toBe(400);
+    const json = await response.json();
+    expect(json.data).toBeNull();
+    expect(json.error.details.fieldErrors[field]).toBeDefined();
+    expect(mocks.createFile).not.toHaveBeenCalled();
+  });
+
+  it.each([{ userId: "user_2" }, { driveFolderId: "folder_x" }])("trả 400 khi có khoá lạ %o", async (extra) => {
+    const response = await POST(postRequest({ ...VALID_BODY, ...extra }));
+    expect(response.status).toBe(400);
+    expect((await response.json()).data).toBeNull();
+    expect(mocks.createFile).not.toHaveBeenCalled();
+  });
+
+  it("truyền input đã parse: tên đã trim, projectId rỗng bị bỏ", async () => {
+    await POST(postRequest({ name: "  Kế hoạch  ", kind: "sheet", spaceId: "sp_1", projectId: "" }));
+    expect(mocks.createFile).toHaveBeenCalledTimes(1);
+    expect(mocks.createFile).toHaveBeenCalledWith("user_1", { name: "Kế hoạch", kind: "sheet", spaceId: "sp_1" });
+  });
+
+  it("truyền projectId khi có", async () => {
+    await POST(postRequest({ ...VALID_BODY, kind: "slide", projectId: "pj_1" }));
+    expect(mocks.createFile).toHaveBeenCalledWith("user_1", {
+      name: "Kế hoạch",
+      kind: "slide",
+      spaceId: "sp_1",
+      projectId: "pj_1",
+    });
+  });
+});
+
+describe("POST /api/files — kết quả", () => {
+  it("trả 201 { data: { file }, error: null }", async () => {
+    const response = await POST(postRequest(VALID_BODY));
+    expect(response.status).toBe(201);
+    const json = (await response.json()) as { data: CreateFileResponse; error: null };
+    expect(json).toEqual({ data: { file: FILE }, error: null });
+  });
+
+  it("trả 404 'Không tìm thấy không gian' khi không có projectId", async () => {
+    mocks.createFile.mockResolvedValue({ ok: false, reason: "not_found" });
+    const response = await POST(postRequest(VALID_BODY));
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ data: null, error: { message: "Không tìm thấy không gian" } });
+  });
+
+  it("trả 404 'Không tìm thấy dự án' khi có projectId", async () => {
+    mocks.createFile.mockResolvedValue({ ok: false, reason: "not_found" });
+    const response = await POST(postRequest({ ...VALID_BODY, projectId: "pj_other" }));
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ data: null, error: { message: "Không tìm thấy dự án" } });
+  });
+
+  it("trả 403 kèm code drive_not_connected", async () => {
+    mocks.createFile.mockResolvedValue({ ok: false, reason: "drive_not_connected" });
+    const response = await POST(postRequest(VALID_BODY));
+    expect(response.status).toBe(403);
+    const json = await response.json();
+    expect(json.data).toBeNull();
+    expect(json.error.code).toBe("drive_not_connected");
+    expect(json.error.message).toBe("Bạn chưa kết nối Google Drive");
+  });
+
+  it("trả 502 thông báo tạo tài liệu khi Google lỗi, không có code", async () => {
+    mocks.createFile.mockResolvedValue({ ok: false, reason: "drive_error" });
+    const response = await POST(postRequest(VALID_BODY));
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({
+      data: null,
+      error: {
+        message:
+          "Không tạo được tài liệu trên Google Drive. Tài liệu có thể đã được tạo — hãy xem Tài liệu gần đây trước khi thử lại.",
+      },
+    });
+  });
+
+  it("trả 500 thông báo chung khi hàm server ném, không lộ message", async () => {
+    mocks.createFile.mockRejectedValue(new Error("PrismaClientKnownRequestError: secret table"));
+    const response = await POST(postRequest(VALID_BODY));
+    expect(response.status).toBe(500);
+    const text = await response.text();
+    expect(text).not.toContain("Prisma");
+    expect(text).not.toContain("secret");
+    expect(JSON.parse(text).data).toBeNull();
+    expect(console.error).toHaveBeenCalledWith("POST /api/files", expect.anything());
   });
 });

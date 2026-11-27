@@ -4,7 +4,8 @@ import { dueDateToDb, projectFromRecord, type ProjectRecord } from "@/domain/pro
 import type { Project, ProjectStatus } from "@/domain/types";
 import type { CreateProjectInput, UpdateProjectInput } from "@/domain/validation";
 import { prisma } from "@/server/db";
-import { provisionProjectFolder, provisionSpaceFolder } from "@/server/google/drive-provision";
+import { ensureSpaceFolderId, saveDriveFolderId } from "@/server/drive-folder-sync";
+import { provisionProjectFolder } from "@/server/google/drive-provision";
 
 // Chỉ đọc các cột `ProjectRecord` cần; không trả userId, order, driveFolderId, createdAt.
 const projectSelect = {
@@ -72,59 +73,7 @@ function findOwnedSpace(
   });
 }
 
-type DriveLogContext = { userId: string; spaceId: string; projectId: string };
-
-/** Log lỗi DB phần Drive: chỉ tên lỗi, không `message` (có thể chứa dữ liệu / chi tiết Prisma). */
-function logDriveDbError(message: string, logContext: DriveLogContext, error: unknown): void {
-  console.error(message, { ...logContext, error: error instanceof Error ? error.name : "unknown" });
-}
-
-/**
- * Ghi một id thư mục Drive (best-effort): lỗi chỉ log an toàn và không ném — dự án đã tạo xong,
- * Drive chỉ là phần phụ.
- */
-async function saveDriveFolderId(write: () => Promise<unknown>, logContext: DriveLogContext): Promise<void> {
-  try {
-    await write();
-  } catch (error) {
-    logDriveDbError("[projects] Không lưu được driveFolderId", logContext, error);
-  }
-}
-
-/**
- * Thư mục cha cho thư mục dự án. Không gian chưa có thư mục → tạo bù, ghi có điều kiện
- * (`driveFolderId: null`, không đè id ghi đồng thời) rồi đọc lại id đã lưu: request thua cuộc đua
- * dùng thư mục của request thắng (thư mục của nó thành thư mục rỗng mồ côi — chấp nhận), để
- * `Project.driveFolderId` luôn nằm trong thư mục mà `Space.driveFolderId` trỏ tới.
- * `null` khi không có thư mục, đọc lại lỗi hoặc không gian đã bị xoá.
- */
-async function resolveSpaceFolderId(
-  userId: string,
-  space: { id: string; name: string; driveFolderId: string | null },
-  logContext: DriveLogContext,
-): Promise<string | null> {
-  if (space.driveFolderId) return space.driveFolderId;
-  const created = await provisionSpaceFolder(userId, { id: space.id, name: space.name });
-  if (!created) return null;
-  await saveDriveFolderId(
-    () =>
-      prisma.space.updateMany({
-        where: { id: space.id, userId, driveFolderId: null },
-        data: { driveFolderId: created },
-      }),
-    logContext,
-  );
-  try {
-    const stored = await prisma.space.findFirst({
-      where: { id: space.id, userId },
-      select: { driveFolderId: true },
-    });
-    return stored?.driveFolderId ?? null;
-  } catch (error) {
-    logDriveDbError("[projects] Không đọc lại được driveFolderId của không gian", logContext, error);
-    return null;
-  }
-}
+const PROJECTS_LOG = { prefix: "[projects]" } as const;
 
 /**
  * Tạo thư mục Drive cho dự án vừa tạo (trong thư mục không gian) rồi lưu id. Các hàm
@@ -136,7 +85,11 @@ async function provisionAndSaveFolders(
   project: { id: string; name: string },
 ): Promise<void> {
   const logContext = { userId, spaceId: space.id, projectId: project.id };
-  const parentFolderId = await resolveSpaceFolderId(userId, space, logContext);
+  // Không gian chưa có thư mục → tạo bù, ghi có điều kiện rồi đọc lại (xem `ensureSpaceFolderId`).
+  const parentFolderId = await ensureSpaceFolderId(userId, space, {
+    ...PROJECTS_LOG,
+    context: { projectId: project.id },
+  });
   if (!parentFolderId) return;
   const projectFolderId = await provisionProjectFolder(userId, { spaceId: space.id, parentFolderId, project });
   if (!projectFolderId) return;
@@ -146,6 +99,7 @@ async function provisionAndSaveFolders(
         where: { id: project.id, userId },
         data: { driveFolderId: projectFolderId },
       }),
+    PROJECTS_LOG,
     logContext,
   );
 }

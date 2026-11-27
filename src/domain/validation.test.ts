@@ -21,6 +21,7 @@ import {
   SPACE_NAME_MAX,
   TASK_DESCRIPTION_MAX,
   TASK_TITLE_MAX,
+  createFileInputSchema,
   createProjectInputSchema,
   createSpaceInputSchema,
   createTaskInputSchema,
@@ -694,5 +695,70 @@ describe("listFilesQuerySchema", () => {
     const query = { limit: "10", spaceId: "s1" };
     listFilesQuerySchema.parse(query);
     expect(query).toEqual({ limit: "10", spaceId: "s1" });
+  });
+});
+
+describe("createFileInputSchema", () => {
+  const valid = { name: " Biên bản họp ", kind: "doc", spaceId: "sp-1", projectId: "p-1" };
+
+  it("accepts valid input and trims the name", () => {
+    expect(createFileInputSchema.parse(valid)).toEqual({ ...valid, name: "Biên bản họp" });
+  });
+
+  it("does not mutate the input object", () => {
+    const input = { ...valid };
+    createFileInputSchema.parse(input);
+    expect(input).toEqual(valid);
+  });
+
+  it("accepts every doc kind", () => {
+    for (const kind of ["doc", "sheet", "slide"]) {
+      expect(createFileInputSchema.safeParse({ ...valid, kind }).success).toBe(true);
+    }
+  });
+
+  it("rejects an empty or whitespace-only name", () => {
+    expect(createFileInputSchema.safeParse({ ...valid, name: "" }).success).toBe(false);
+    expect(createFileInputSchema.safeParse({ ...valid, name: "   " }).success).toBe(false);
+  });
+
+  it("limits the name to SPACE_NAME_MAX characters after trim", () => {
+    expect(createFileInputSchema.safeParse({ ...valid, name: "a".repeat(SPACE_NAME_MAX) }).success).toBe(true);
+    expect(createFileInputSchema.safeParse({ ...valid, name: ` ${"a".repeat(SPACE_NAME_MAX)} ` }).success).toBe(true);
+    expect(createFileInputSchema.safeParse({ ...valid, name: "a".repeat(SPACE_NAME_MAX + 1) }).success).toBe(false);
+  });
+
+  it("rejects an unknown or missing kind", () => {
+    expect(createFileInputSchema.safeParse({ ...valid, kind: "pdf" }).success).toBe(false);
+    const rest: Partial<typeof valid> = { ...valid };
+    delete rest.kind;
+    expect(createFileInputSchema.safeParse(rest).success).toBe(false);
+  });
+
+  it("requires a valid spaceId", () => {
+    const rest: Partial<typeof valid> = { ...valid };
+    delete rest.spaceId;
+    expect(createFileInputSchema.safeParse(rest).success).toBe(false);
+    expect(createFileInputSchema.safeParse({ ...valid, spaceId: "" }).success).toBe(false);
+    expect(createFileInputSchema.safeParse({ ...valid, spaceId: "x".repeat(ID_MAX_LENGTH + 1) }).success).toBe(false);
+    expect(createFileInputSchema.safeParse({ ...valid, spaceId: "a\u0000b" }).success).toBe(false);
+  });
+
+  it("treats an empty or missing projectId as undefined", () => {
+    const parsed = createFileInputSchema.parse({ ...valid, projectId: "" });
+    expect(parsed.projectId).toBeUndefined();
+    const rest: Partial<typeof valid> = { ...valid };
+    delete rest.projectId;
+    expect(createFileInputSchema.parse(rest).projectId).toBeUndefined();
+  });
+
+  it("rejects an invalid projectId", () => {
+    expect(createFileInputSchema.safeParse({ ...valid, projectId: "x".repeat(ID_MAX_LENGTH + 1) }).success).toBe(false);
+    expect(createFileInputSchema.safeParse({ ...valid, projectId: 5 }).success).toBe(false);
+  });
+
+  it("rejects unknown keys", () => {
+    expect(createFileInputSchema.safeParse({ ...valid, driveFolderId: "f-1" }).success).toBe(false);
+    expect(createFileInputSchema.safeParse({ ...valid, userId: "u-1" }).success).toBe(false);
   });
 });
