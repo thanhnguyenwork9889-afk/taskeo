@@ -3,15 +3,24 @@ import "server-only";
 // Phạm vi nạp như `drive-provision.ts`: `./client` và `googleapis` chỉ được import động trong
 // `defaultDeps.getDrive`, sau khi đã thấy scope `drive.file`. Module này chỉ được nạp (động) từ
 // tầng truy vấn ở chế độ `configured`.
-import { DOC_KIND_MIME, DRIVE_FILE_CREATE_FIELDS, type RawDriveFile } from "@/domain/drive-files";
+import {
+  DOC_KIND_MIME,
+  DRIVE_FILE_CREATE_FIELDS,
+  pickRawDriveFile,
+  type RawDriveFile,
+} from "@/domain/drive-files";
 import type { DocKind } from "@/domain/types";
 
 import { runWithDeadline } from "./deadline";
 import { classifyDriveError, driveErrorLogFields, isSilentDriveError } from "./drive-errors";
 import { DRIVE_TOTAL_TIMEOUT_MS, defaultDeps, type DriveProvisionDeps } from "./drive-provision";
 
-/** Chỉ các trường cần để ánh xạ sang `DriveFileItem` (xem `toDriveFileItem`). */
-export const DRIVE_LIST_FIELDS = "files(id,name,mimeType,modifiedTime,webViewLink,parents)";
+/**
+ * Chỉ các trường cần để ánh xạ sang `DriveFileItem` (xem `toDriveFileItem`); `shortcutDetails` để
+ * phân giải lối tắt về file đích.
+ */
+export const DRIVE_LIST_FIELDS =
+  "files(id,name,mimeType,modifiedTime,webViewLink,parents,shortcutDetails(targetId,targetMimeType))";
 
 const LOG_MESSAGE = "[google/drive] Không liệt kê được file Drive";
 const CREATE_LOG_MESSAGE = "[google/drive] Không tạo được file Drive";
@@ -20,18 +29,6 @@ export type DriveListResult =
   | { status: "ok"; files: RawDriveFile[] }
   | { status: "not_connected" }
   | { status: "error" };
-
-/** Chỉ giữ đúng các trường đã xin trong `fields`, kể cả khi Drive trả thêm. */
-function toRawDriveFile(file: RawDriveFile): RawDriveFile {
-  return {
-    id: file.id,
-    name: file.name,
-    mimeType: file.mimeType,
-    modifiedTime: file.modifiedTime,
-    webViewLink: file.webViewLink,
-    parents: file.parents,
-  };
-}
 
 /**
  * Liệt kê file Drive cho từng chuỗi `q` (song song), nối kết quả theo thứ tự `queries`.
@@ -72,7 +69,7 @@ export async function listDriveFiles(
           ),
         ),
       );
-      return pages.flatMap((page) => (page.data.files ?? []).map(toRawDriveFile));
+      return pages.flatMap((page) => (page.data.files ?? []).map(pickRawDriveFile));
     },
     deps.totalTimeoutMs ?? DRIVE_TOTAL_TIMEOUT_MS,
     "Quá hạn liệt kê file Drive",
@@ -136,7 +133,7 @@ export async function createDriveFile(
         { signal },
       );
       if (!res.data.id) throw new DriveFileMissingIdError();
-      return toRawDriveFile(res.data);
+      return pickRawDriveFile(res.data);
     },
     deps.totalTimeoutMs ?? DRIVE_TOTAL_TIMEOUT_MS,
     "Quá hạn tạo file Drive",
