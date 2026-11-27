@@ -16,6 +16,7 @@ src/
 │   ├── projects.ts       Truy vấn dự án: lọc userId, kiểm không gian thuộc user, trùng tên không phân biệt hoa thường; tạo dự án + activity project_created trong một transaction
 │   ├── tasks.ts          Truy vấn công việc: lọc userId, kiểm dự án / không gian trong body thuộc user, spaceId theo dự án, completedAt; ghi activity task_created / task_done trong cùng transaction
 │   ├── activities.ts     Đọc nhật ký hoạt động của user, mới nhất trước
+│   ├── drive-files.ts    listFiles: file Drive trong thư mục không gian / dự án của user (lọc userId, chia khối parents, lọc trong bộ nhớ cho Tài liệu gần đây)
 │   ├── auth/
 │   │   ├── auth.ts       Cấu hình Auth.js
 │   │   ├── google-tokens.ts  Tham số đăng nhập Google (offline, consent) + tham số xin thêm scope · mã hoá token trước linkAccount · dữ liệu cập nhật token khi đăng nhập lại (hàm thuần, có test)
@@ -30,6 +31,8 @@ src/
 │       ├── granted-scopes.ts  Scope user đã cấp (Account.scope): hasGoogleScope, requireGoogleScope, GoogleScopeMissingError · GOOGLE_ACCOUNT_ORDER (thứ tự chọn Account google, dùng chung với client.ts)
 │       ├── drive-folders.ts  Drive cấp thấp: ensureRootFolder (thư mục gốc "Taskeo" tìm qua appProperties), createFolder, DriveFilesClient (chỉ import type googleapis)
 │       ├── drive-provision.ts  provisionSpaceFolder / provisionProjectFolder: best-effort, hạn tổng 10 s, không bao giờ ném, chỉ import động client + googleapis khi đã có drive.file
+│       ├── drive-files.ts  listDriveFiles: files.list song song theo từng q, kiểm scope trước, hạn tổng 10 s, log an toàn
+│       ├── deadline.ts   runWithDeadline: hạn tổng + AbortController, bỏ kết quả muộn (dùng chung cho drive-provision / drive-files)
 │       ├── drive-query.ts  Thoát chuỗi q của Drive, rootFolderQuery, DRIVE_FOLDER_MIME
 │       ├── drive-errors.ts  classifyDriveError / driveErrorLogFields: phân loại lỗi Drive, chỉ đọc name / code / status
 │       ├── revoke.ts     Thu hồi quyền Google (POST /revoke, token trong body, timeout) · chọn token · phân loại kết quả · dữ liệu Account sau khi ngắt
@@ -41,6 +44,7 @@ src/
 │   ├── project-record.ts        Bản ghi DB → Project phía client, dueDate ↔ YYYY-MM-DD theo UTC
 │   ├── task-record.ts           Bản ghi DB → Task phía client
 │   ├── drive-folder-name.ts     toDriveFolderName: tên không gian / dự án → tên thư mục Drive
+│   ├── drive-files.ts           mimeType ↔ DocKind, chuỗi q liệt kê file, ánh xạ parents → không gian / dự án, gộp Tài liệu gần đây, escapeDriveQueryValue
 │   ├── task-completion.ts       completedAtFor: quy tắc completedAt dùng chung cho server và store demo
 │   ├── activity-record.ts       Bản ghi DB → Activity phía client; taskActivityTypes, activityRows (dòng activity cần ghi)
 │   ├── workspace-actions.ts     Thao tác dữ liệu dạng hàm thuần
@@ -51,9 +55,10 @@ src/
 │   └── workspace-store.ts       Store chế độ demo (localStorage)
 ├── components/        5. UI dùng chung
 │   ├── ui/                      Badge, modal, checkbox, SpaceIcon, SpaceStylePicker... + styles.ts
-│   └── layout/                  App shell: sidebar (kèm công tắc Google Drive: drive-switch.tsx), topbar, mobile nav, hộp thoại tạo mới, UI context, drive-status.ts, drive-notice.ts (thông báo ?drive=wrong-account | disconnected | disconnect-failed)
+│   └── layout/                  App shell (bọc QueryProvider: query-provider.tsx): sidebar (kèm công tắc Google Drive: drive-switch.tsx), topbar, mobile nav, hộp thoại tạo mới, UI context, drive-status.ts, drive-notice.ts (thông báo ?drive=wrong-account | disconnected | disconnect-failed)
 ├── features/          6. Màn hình theo nghiệp vụ
 │   ├── dashboard/  tasks/  spaces/  projects/  docs/  calendar/
+│   │   (docs/: drive-files-api.ts gọi /api/files, use-drive-files.ts hook TanStack Query, drive-files-state.ts chọn trạng thái demo / connect / loading / error / empty / list)
 ├── app/               7. Chỉ routing (Next.js App Router), mỏng nhất có thể
 │   ├── (auth)/login/            Trang đăng nhập
 │   ├── (app)/                   Layout có sidebar + các trang
@@ -63,7 +68,8 @@ src/
 │   ├── api/projects/[id]/       Xem / sửa / xoá một dự án
 │   ├── api/tasks/               Danh sách (lọc qua query) + tạo công việc (gọi server/tasks)
 │   ├── api/tasks/[id]/          Xem / sửa / xoá một công việc
-│   └── api/activities/          Nhật ký hoạt động (gọi server/activities)
+│   ├── api/activities/          Nhật ký hoạt động (gọi server/activities)
+│   └── api/files/               Liệt kê file Drive (gọi server/drive-files)
 └── proxy.ts           Chuyển về /login khi chưa có cookie phiên (chỉ khi bật auth)
 ```
 

@@ -1,6 +1,6 @@
 import "server-only";
 
-// Phạm vi nạp: module này chỉ được import từ `@/server/spaces` và `@/server/projects`, mà hai
+// Phạm vi nạp: module này chỉ được import từ `@/server/spaces`, `@/server/projects` và `./drive-files`, mà các
 // module đó chỉ được route import động ở chế độ `configured` — chế độ demo không bao giờ nạp nó.
 // Import tĩnh duy nhất có I/O là `./granted-scopes` (Prisma). `./client` và `googleapis` KHÔNG
 // được import tĩnh: chúng chỉ được import động trong `defaultDeps.getDrive`, sau khi đã thấy

@@ -103,6 +103,15 @@ Taskeo/                      appProperties.taskeoRole = "root"
 - Không đồng bộ khi sửa / xoá: đổi tên không gian / dự án không đổi tên thư mục; xoá không xoá thư mục trên Drive (không xoá dữ liệu của người dùng).
 - Refresh xong sau khi người dùng đã ngắt kết nối không ghi lại token: listener `"tokens"` trong `client.ts` chỉ cập nhật dòng Account còn `refresh_token`.
 
+### Liệt kê file Drive (T015)
+
+- `GET /api/files` → `listFiles` (`src/server/drive-files.ts`) đọc không gian / dự án của user (một truy vấn Prisma, lọc `userId`), dựng chuỗi `q` bằng `buildDriveFilesQuery` (`src/domain/drive-files.ts`): 3 mimeType Google (Docs / Sheets / Slides) hoặc một loại, `trashed=false`, thêm `('<id>' in parents or …)` khi lọc theo không gian / dự án. Gọi `listDriveFiles` (`src/server/google/drive-files.ts`): `files.list` với `orderBy: modifiedTime desc`, `fields` chỉ `id, name, mimeType, modifiedTime, webViewLink, parents`.
+- **Với `drive.file`, app chỉ thấy file chính nó tạo hoặc người dùng mở bằng app.** File người dùng tự tạo trong thư mục Taskeo trên Drive **không** hiện. Trước khi có T32 (tạo Doc/Sheet/Slide), kiểm thật bằng script dev `node --env-file=.env.local scripts/dev-create-doc.mjs <email> <spaceId> [doc|sheet|slide] [tên]` (tạo file trống trong thư mục không gian; chỉ dùng ở dev, không ghi lại token).
+- Gắn file với không gian / dự án qua `parents` khớp `driveFolderId` (thư mục dự án thắng thư mục không gian). File ngoài thư mục Taskeo của user bị bỏ.
+- Tài liệu gần đây (không lọc): một lần `files.list` 100 file mới nhất rồi lọc trong bộ nhớ (200 × 200 thư mục không vừa một chuỗi `q`). Nếu app thấy hơn 100 file ngoài thư mục Taskeo, danh sách có thể ngắn hơn `limit` (chưa phân trang). Theo không gian: thư mục không gian + thư mục dự án, 40 thư mục mỗi `q`, gọi song song.
+- Chưa có `drive.file` / chưa kết nối → 403 `code: "drive_not_connected"`, không gọi Google, không nạp `googleapis`. Google lỗi / quá hạn (10 s tổng, `runWithDeadline` trong `deadline.ts`, dùng chung với tạo thư mục) → 502, log một dòng `userId` + tên lỗi đã phân loại + mã HTTP.
+- Giao diện: thẻ "Tài liệu gần đây" và trang `/docs` dùng dữ liệu thật ở chế độ `configured` (TanStack Query, `staleTime` 60 s). Tab Tài liệu ở trang không gian / dự án vẫn đọc store demo cho tới T59 (ID store khác ID DB).
+
 ## Bảo mật token
 
 - Token Google được mã hoá AES-256-GCM (`src/server/crypto.ts`) trước khi ghi DB, bằng cách bọc `linkAccount` của Prisma adapter.
