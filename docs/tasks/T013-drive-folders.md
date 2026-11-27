@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T013-drive-folders` |
 | Tạo từ | `develop` @ `0c0ce60` |
-| Trạng thái | 3-build |
+| Trạng thái | 4-review |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T31** "tạo thư mục Drive khi tạo không gian / dự án" (giai đoạn 3 · Google Drive, backlog B5 phần sau). Phụ thuộc T30 (scope `drive.file`, xong ở T010), T011 (một tài khoản Google mỗi user), T012 (kết nối / ngắt kết nối). Mở đường cho sheet T33.
@@ -101,7 +101,17 @@ Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-27, 
 
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
-| P1 | | | | | | |
+| P1 | `d5328e5` | 13 (`drive-folder-name.test.ts`) | ✅ | ✅ | ✅ | ✅ |
+| P2 | `5681864` | 45 (`drive-query` 9, `drive-errors` 36) | ✅ | ✅ | ✅ | ✅ |
+| P3 | `a03614e` | +4 mới, sửa test cũ (`client.test.ts` 13) | ✅ | ✅ | ✅ | ✅ |
+| P8 | `c61f60f` | — (chữ tĩnh) | ✅ | ✅ | ✅ 998/998 (đợt 1) | ✅ |
+| P4 | `8027436` | 14 (`drive-folders.test.ts`, kèm kiểm kiểu `drive_v3.Drive` → `DriveFilesClient`) | ✅ | ✅ | ✅ 1012/1012 | ✅ |
+| P5 | `27b8852` | 23 (`drive-provision.test.ts`) | ✅ | ✅ | ✅ 1035/1035 | ✅ |
+| P6 | `37f578d` | 6 (`spaces.test.ts`) | ✅ | ✅ | ✅ | ✅ |
+| P7 | `d9ee681` | 8 + kiểm "không provision" ở các nhánh lỗi (`projects.test.ts`) | ✅ | ✅ | ✅ 1049/1049 (P6+P7) | ✅ |
+| P9 | `c411772` | — (docs 02, 04, 06) | — | — | — | — |
+
+Ghi chú: refresh token có timeout 10 s mỗi lần thử nhưng google-auth-library vẫn retry refresh, nên hạn tổng 10 s của `drive-provision.ts` mới là giới hạn thật. Kiểm thật trên dev (cần bật Google Drive API) làm ở bước 7.
 
 ## 4. Review code
 
