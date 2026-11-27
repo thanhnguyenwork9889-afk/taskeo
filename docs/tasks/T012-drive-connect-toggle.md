@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T012-drive-connect-toggle` |
 | Tạo từ | `develop` @ `6291f11` |
-| Trạng thái | 7-final |
+| Trạng thái | done |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: người dùng đề nghị sau T011 (2026-11-27): kết nối Drive ngay khi đăng nhập, và nút Kết nối Drive ở sidebar hoạt động như toggle, tắt được. Không có dòng riêng trong sheet (liên quan sheet T30, đã xong ở T010).
@@ -34,14 +34,14 @@ Nguồn: người dùng đề nghị sau T011 (2026-11-27): kết nối Drive ng
 - Trang cài đặt tài khoản riêng.
 
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
-- [ ] Test: `signInWithGoogle` với `connectDrive=on` gửi `scope` có `drive.file` + `offline` / `consent` / `include_granted_scopes`; không có hoặc giá trị khác → tham số đăng nhập cũ; demo / misconfigured không gọi `signIn`.
-- [ ] Test hàm thuần: chọn refresh token trước access token, không có token → không gọi Google; `invalid_token` coi là đã thu hồi; lỗi mạng / 5xx là lỗi; dữ liệu cập nhật xoá 3 trường token, `scope` chỉ còn scope đăng nhập.
-- [ ] Test `disconnectGoogleDrive`: demo / misconfigured → `/`; chưa đăng nhập → `/login`; thu hồi thành công → DB cập nhật đúng, chuyển về trang cũ kèm `drive=disconnected`; lỗi → DB không đổi, `drive=disconnect-failed`; token không xuất hiện trong log; `redirectTo` ngoài → `/`.
-- [ ] Sidebar: công tắc có `role="switch"` + `aria-checked` đúng trạng thái, bấm bằng bàn phím được; tắt có hộp xác nhận, huỷ thì không làm gì; demo không hiện (kiểm trong trình duyệt + test hàm thuần nếu có).
-- [ ] Trang đăng nhập có ô tick, mặc định bật, có nhãn bấm được.
-- [ ] Kiểm thật trên dev cùng người dùng: đăng nhập có tick → `Account.scope` có `drive.file`; tắt công tắc → Google thu hồi (thử gọi Drive API thất bại), DB không còn token, sidebar về "tắt", vẫn đăng nhập; bật lại → kết nối lại được.
-- [ ] 4 lệnh typecheck / lint / test / build xanh; chế độ demo không đổi.
-- [ ] Docs 02, 04 cập nhật.
+- [x] Test: `signInWithGoogle` với `connectDrive=on` gửi `scope` có `drive.file` + `offline` / `consent` / `include_granted_scopes`; không có hoặc giá trị khác → tham số đăng nhập cũ; demo / misconfigured không gọi `signIn`.
+- [x] Test hàm thuần: chọn refresh token trước access token, không có token → không gọi Google; `invalid_token` coi là đã thu hồi; lỗi mạng / 5xx là lỗi; dữ liệu cập nhật xoá 3 trường token, `scope` chỉ còn scope đăng nhập.
+- [x] Test `disconnectGoogleDrive`: demo / misconfigured → `/`; chưa đăng nhập → `/login`; thu hồi thành công → DB cập nhật đúng, chuyển về trang cũ kèm `drive=disconnected`; lỗi → DB không đổi, `drive=disconnect-failed`; token không xuất hiện trong log; `redirectTo` ngoài → `/`.
+- [x] Sidebar: công tắc có `role="switch"` + `aria-checked` đúng trạng thái, bấm bằng bàn phím được; tắt có hộp xác nhận, huỷ thì không làm gì; demo không hiện (kiểm trong trình duyệt + test hàm thuần nếu có).
+- [x] Trang đăng nhập có ô tick, mặc định bật, có nhãn bấm được.
+- [x] Kiểm thật trên dev cùng người dùng: đăng nhập có tick → `Account.scope` có `drive.file`; tắt công tắc → Google thu hồi (thử gọi Drive API thất bại), DB không còn token, sidebar về "tắt", vẫn đăng nhập; bật lại → kết nối lại được.
+- [x] 4 lệnh typecheck / lint / test / build xanh; chế độ demo không đổi.
+- [x] Docs 02, 04 cập nhật.
 
 **Tài liệu bị ảnh hưởng:** 02 Google · 04 kiến trúc.
 
@@ -169,13 +169,18 @@ Vòng 2 (`git diff e157096..c38ee21`, R15): sửa ở `c38ee21` — `revokeAndCl
 
 ## 7. Final
 
-**Tóm tắt:**
+**Tóm tắt:** Trang đăng nhập có ô tick "Kết nối Google Drive luôn" (mặc định bật): tick thì đăng nhập xin luôn `drive.file`. Sidebar có công tắc **Google Drive** (`role="switch"`): bật chạy `connectGoogleDrive`; tắt mở hộp xác nhận (portal, focus nút Huỷ, không đóng được khi đang gửi) rồi chạy `disconnectGoogleDrive`. Action ngắt kết nối gọi `POST https://oauth2.googleapis.com/revoke` (token trong body, timeout 10 s, không log token), thành công / token đã hết hiệu lực / không còn token → xoá 3 trường token và đưa `scope` về scope đăng nhập; token không giải mã được → xoá DB, báo `disconnected-local`; lỗi khác → không đổi DB. Kết quả hiện qua `?drive=disconnected | disconnected-local | disconnect-failed`. `toSafeRedirectPath` giờ chuẩn hoá đường dẫn (chặn `/.//host`). Thêm 146 test (791 trước T011 … 842 sau T011 → 937 sau T012, tức +95 trong T012). 4 lệnh lần cuối (@ `c38ee21`, sau đó chỉ đổi docs): typecheck ✅ · lint ✅ · test ✅ 937/937 · build ✅.
 
-**Tiêu chí nghiệm thu:** (đánh dấu ở mục 1)
+**Tiêu chí nghiệm thu:** đánh dấu cả 8 ở mục 1, kèm ghi chú:
+- *Sidebar / hộp xác nhận:* người dùng đã dùng thật ở P9, nhưng đó là **trước** bản sửa R1, R2, R6, R8. Sau bản sửa chỉ được kiểm bằng code + review; người dùng chọn bỏ qua bước xem lại trên trình duyệt và merge luôn (2026-11-27).
+- *Kiểm thật:* trạng thái cuối trong DB (token cấp lại, có `drive.file`, Drive API gọi được) khớp luồng tắt → bật lại; bước "ngắt kết nối" và "đăng nhập không tick" không còn dấu vết trong DB, dựa trên báo cáo người dùng + test.
 
-**Tài liệu đã cập nhật:**
+**Tài liệu đã cập nhật:** `docs/02-google-cloud.md` (ô tick đăng nhập, công tắc, mục "Ngắt kết nối Drive": thu hồi theo cả tài khoản, các nhánh kết quả, mã `?drive=`), `docs/04-architecture.md` (`revoke.ts`, `drive-switch.tsx`, `withQueryParam`), `docs/tasks/README.md`.
 
-**Merge vào develop:** commit `<hash>`, ngày
+**Merge vào develop:** commit `<hash>`, 2026-11-27
 
 **Việc để sau:**
--
+- Xem lại trên trình duyệt công tắc + hộp xác nhận sau bản sửa: focus vào "Huỷ", Tab không thoát hộp, đang gửi không đóng được, ngắt thất bại thì hộp đóng và thông báo hiện.
+- Ghi đè đồng thời: request khác đang refresh token có thể ghi token lại ngay sau khi ngắt (listener `"tokens"` trong `client.ts`) — xem lại khi T31 bắt đầu gọi Drive API.
+- LOW: R10 `errorName` lặp, R13 nhãn UI, R17 focus rơi về `body` khi đang gửi, R19 test cho `discardBody` / log `auth.ts`.
+- Tiếp theo: sheet T31 (tạo thư mục Drive khi tạo không gian / dự án), rồi T33.
