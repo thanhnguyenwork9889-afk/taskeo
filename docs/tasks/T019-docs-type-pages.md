@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T019-docs-type-pages` |
 | Tạo từ | `develop` @ `6e27ed2` |
-| Trạng thái | 4-review |
+| Trạng thái | 5-fix |
 | Ngày tạo | 2026-11-28 |
 
 Nguồn: sheet nhiệm vụ, dòng **T36** "Trang Soạn thảo / Bảng tính / Trình chiếu lọc theo loại file" (đã ở `Đang làm`).
@@ -119,11 +119,25 @@ Khi nào nội dung trang render được ở server (giai đoạn 2, dữ liệ
 
 ## 4. Review code
 
-Reviewer đã chạy:
+Reviewer đã chạy (song song trên `git diff develop...HEAD`): `layer-reviewer`, `typescript-reviewer`, `security-reviewer` (chạy vì diff đọc input người dùng từ URL `?type=`).
+
+**Không có phát hiện CRITICAL hay HIGH từ cả ba.** `security-reviewer` không có phát hiện ở bất kỳ mức nào.
 
 | # | Mức | File:dòng | Vấn đề | Reviewer |
 |---|---|---|---|---|
-| R1 | | | | |
+| R1 | MEDIUM | `docs/04-architecture.md:66, 69, 101` | Tài liệu chưa khớp code mới: thiếu `docs-params.ts` ở nhánh `features/docs/`, thiếu `DynamicMarker` ở nhánh `(app)/`, và bảng "Đặt file mới ở đâu" vẫn ghi trang "chỉ import một view từ `features/`" | layer |
+| R2 | LOW | `src/app/(app)/docs/page.tsx:2` | Trang đầu tiên trong repo import một module không phải view từ `features/` (`docs-params`). Không vi phạm ranh giới lớp (`app → features` hợp lệ, ESLint không cấm), nhưng nới quy ước ghi ở `04-architecture.md:101` | layer |
+| R3 | LOW | `src/components/layout/navigation.ts:17` | Chuỗi `"Kho lưu trữ"` còn viết cứng ở nhãn sidebar, trùng nghĩa với `DOCS_LIBRARY_TITLE`. Không dùng chung được vì `components/layout` bị ESLint cấm import `features/` | layer |
+| R4 | LOW | `src/app/(app)/layout.tsx:5–9` | `Connection` là arrow async không có kiểu trả về tường minh, lệch khuôn `export async function` của repo (vd. `login-auth-panel.tsx`) | layer + typescript |
+| R5 | LOW | `src/features/docs/docs-params.ts:20` | `value[0]` an toàn nhờ `typeof raw !== "string"` chứ không nhờ `noUncheckedIndexedAccess` (cờ này không bật trong `tsconfig.json`) | typescript |
+| R6 | LOW | `src/app/(app)/docs/page.tsx:15` | `PageProps<"/docs">` là kiểu global do Next sinh ở `.next/types`; CI chạy trên cây sạch cần `next build` / `next typegen` trước `tsc` | typescript |
+| R7 | LOW | `src/features/docs/docs-params.test.ts` | Thiếu vài ca: mảng một phần tử có khoảng trắng `["  doc  "]`, mảng một phần tử không hợp lệ `["xyz"]`; gợi ý thêm ca đầu vào ác ý `"</title><script>"`, `"doc\u0000"`, `"​doc"` | typescript + security |
+
+**Đã tự kiểm chứng lại bằng cách đọc code (không nhận nguyên báo cáo của agent):**
+- `grep` xác nhận `docs-view.tsx` không còn import thừa: `DOC_KIND_LABEL` vẫn dùng ở dòng 44 và 132, `DocKind` vẫn dùng ở prop của `DocsBody` / `DemoDocsList` / `DriveDocsList` / `DriveDocsEmpty`.
+- `grep "Kho lưu trữ" src/` chỉ còn `navigation.ts:17` (R3) và một comment ở `docs-view.tsx:20`; không có chỗ viết cứng nào khác.
+- Đọc `docs/04-architecture.md:95–110` xác nhận dòng 101 đúng là chỗ cần nới (R1, R2).
+- R6 không phải do T019 gây ra: `LayoutProps<"/">` đã được dùng ở `src/app/layout.tsx` và `(app)/layout.tsx` từ trước, nên cây sạch vốn đã cần typegen. Repo cũng chưa có CI (T52 / backlog B9 chưa làm).
 
 ## 5. Fix bug
 
