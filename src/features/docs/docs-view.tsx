@@ -7,11 +7,11 @@ import { matchesQuery, useUI, useViewer } from "@/components/layout/ui-context";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DOC_KIND_LABEL } from "@/domain/labels";
 import type { DocKind } from "@/domain/types";
-import { docKindSchema } from "@/domain/validation";
 import { APP_NAME } from "@/config/app";
 import { useWorkspace } from "@/store/workspace-store";
 import { card, cx, primaryButton } from "@/components/ui/styles";
 import { AttachDriveButton } from "./attach-drive-button";
+import { docsPageTitle, parseDocKindParam } from "./docs-params";
 import { DriveConnectPrompt, DriveFilesError, DriveFilesSkeleton } from "./drive-files-states";
 import { driveFileSubtitle } from "./drive-files-state";
 import { FileRow } from "./file-row";
@@ -24,9 +24,10 @@ const listCard = cx(card, "px-5 pb-3 pt-2");
 
 export function DocsView() {
   const { openCreate } = useUI();
-  const parsed = docKindSchema.safeParse(useSearchParams().get("type"));
-  const kind: DocKind | null = parsed.success ? parsed.data : null;
-  const title = kind ? DOC_KIND_LABEL[kind] : "Kho lưu trữ";
+  // getAll (không phải get): `generateMetadata` phía server thấy cả mảng khi `?type=doc&type=sheet`,
+  // nên client cũng phải đưa cả mảng vào parser để <title> không lệch <h1>.
+  const kind = parseDocKindParam(useSearchParams().getAll("type"));
+  const title = docsPageTitle(kind);
   const create = () => openCreate({ kind: "doc", docKind: kind ?? undefined });
   return (
     <div className="space-y-6">
@@ -34,7 +35,7 @@ export function DocsView() {
         <div>
           <p className="mb-2 text-xs text-muted">{APP_NAME} / {title}</p>
           <h1 className="text-[28px] font-semibold tracking-tight">{title}</h1>
-          <p className="mt-2 text-sm text-muted">Tài liệu Google của bạn, sắp xếp theo từng không gian.</p>
+          <p className="mt-2 text-sm text-muted">Tài liệu Google của bạn, mới sửa gần nhất xếp trước.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <AttachDriveButton />
