@@ -192,7 +192,7 @@ Phát sinh kỹ thuật đáng ghi nhớ: với `cacheComponents: true`, đọc 
 
 **Tài liệu đã cập nhật:** `docs/04-architecture.md` (dòng 66 `docs-params.ts`, dòng 69 `DynamicMarker` kèm lý do, dòng 101 nới quy ước "trang chỉ import một view", thêm hàng quy ước tiêu đề tab). `docs/tasks/README.md`. Không đụng 01, 02, 03, 06 — T019 không thêm route, biến môi trường hay scope nào.
 
-**Merge vào develop:** commit `<hash>`, ngày 2026-11-28
+**Merge vào develop:** commit `6366974`, ngày 2026-11-28
 
 **Sheet nhiệm vụ:** dòng T36 chuyển `Xong` sau merge (bước 7, mục 8; kết quả nêu trong báo cáo).
 
