@@ -88,7 +88,7 @@ Rủi ro / phụ thuộc:
 - **Người dùng tự làm trước kiểm thật:** tạo API key trong cùng project với OAuth client (giới hạn Google Picker API + referrer `http://localhost:3000/*` và domain production); lấy **project number**; đặt `GOOGLE_PICKER_API_KEY`, `GOOGLE_CLOUD_PROJECT_NUMBER` vào `.env.local`, khởi động lại dev.
 - Sai appId → Picker chọn được nhưng `files.get` 404 / 403 → `invalid_target` (log riêng 403, docs 02 ghi cách xử lý).
 - Token đưa ra trình duyệt mang **mọi scope đã cấp** (sau này cả Calendar). Giảm thiểu: `no-store`, không log, sống ~1 giờ, chỉ lấy khi bấm.
-- `q` kết hợp `appProperties has` + `or` + `shortcutDetails.targetId` cần xác nhận khi kiểm thật; dự phòng: liệt kê lối tắt trong thư mục rồi lọc trong code. `q` dài hơn khi lọc 40 thư mục cha → giảm `DRIVE_PARENTS_PER_QUERY` nếu Drive báo lỗi.
+- `q` kết hợp `appProperties has` + `or` + `shortcutDetails.targetId` cần xác nhận khi kiểm thật (2026-11-28: `has` + `or` chạy được; `shortcutDetails.targetId` + `in parents` bị 400 → R16); dự phòng: liệt kê lối tắt trong thư mục rồi lọc trong code. `q` dài hơn khi lọc 40 thư mục cha → giảm `DRIVE_PARENTS_PER_QUERY` nếu Drive báo lỗi.
 - Tên lối tắt không tự đổi khi file gốc đổi tên; `modifiedAt` là giờ gắn.
 - Refresh token bị thu hồi → route token 502 (như T017). Gắn tối đa ~30 s, client hạn 45 s; quá hạn sau `create` → gắn lại báo 409.
 - Trình chặn quảng cáo có thể chặn `apis.google.com` → `script_load_failed`. CSP để T73.
@@ -154,8 +154,11 @@ Reviewer đã chạy: `layer-reviewer`, `typescript-reviewer`, `security-reviewe
 | R13 | bỏ qua: cả hai trường hợp đều 404 đúng, câu đủ rõ | — |
 | R14 | bỏ qua: cùng tiền lệ `FileRow`, ESLint không cấm | — |
 | R15 | đã sửa ở P12: docs 02 có mục tạo + giới hạn API key | `84ad8f2` |
+| R16 (kiểm thật) | đã sửa: gắn file ngoài Taskeo → 502. Drive trả 400 `Invalid Value` (`location: q`) khi gộp `shortcutDetails.targetId` với `'<thư mục>' in parents` (tái hiện bằng Drive REST trên dev 2026-11-28). Lookup giờ chỉ lọc `targetId` + `trashed=false`, lấy `parents` rồi lọc trong code; log lỗi thêm `step` (get / lookup / create) và reason 400. Đã xác nhận `files.create` lối tắt kèm `appProperties` và truy vấn `has` + `or` chạy được | `c7b08ae` |
 
 Kết quả 4 lệnh sau khi sửa: typecheck ✅ · lint ✅ · test ✅ 1914 · build ✅
+
+Sau R16 (`c7b08ae`): typecheck ✅ · lint ✅ · test ✅ 1926 · build ✅
 
 ## 6. Review lại
 
