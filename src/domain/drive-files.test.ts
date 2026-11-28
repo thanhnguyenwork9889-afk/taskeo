@@ -399,16 +399,19 @@ describe("driveEditUrl", () => {
 });
 
 describe("buildShortcutLookupQuery", () => {
-  it("looks up shortcuts to the target in the folder", () => {
-    expect(buildShortcutLookupQuery(TARGET_ID, "folder1")).toBe(
-      `mimeType='${SHORTCUT_MIME}' and shortcutDetails.targetId='${TARGET_ID}' and 'folder1' in parents and trashed=false`,
+  it("looks up non-trashed shortcuts to the target", () => {
+    expect(buildShortcutLookupQuery(TARGET_ID)).toBe(
+      `mimeType='${SHORTCUT_MIME}' and shortcutDetails.targetId='${TARGET_ID}' and trashed=false`,
     );
   });
 
-  it("escapes ' and \\ in both values", () => {
-    const q = buildShortcutLookupQuery("a'b\\c", "x' or 'y\\");
-    expect(q).toBe(
-      `mimeType='${SHORTCUT_MIME}' and shortcutDetails.targetId='a\\'b\\\\c' and 'x\\' or \\'y\\\\' in parents and trashed=false`,
+  it("does not combine with an `in parents` clause (Drive returns 400 Invalid Value)", () => {
+    expect(buildShortcutLookupQuery(TARGET_ID)).not.toContain("in parents");
+  });
+
+  it("escapes ' and \\ in the target id", () => {
+    expect(buildShortcutLookupQuery("a'b\\c")).toBe(
+      `mimeType='${SHORTCUT_MIME}' and shortcutDetails.targetId='a\\'b\\\\c' and trashed=false`,
     );
   });
 });

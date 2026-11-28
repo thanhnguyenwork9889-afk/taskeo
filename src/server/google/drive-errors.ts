@@ -78,6 +78,9 @@ export function isSilentDriveError(kind: DriveErrorKind): boolean {
 /** `reason` 403 do quyền truy cập file (với `drive.file`: file chưa được cấp cho app). */
 const DRIVE_PERMISSION_REASONS = ["forbidden", "insufficientFilePermissions", "appNotAuthorizedToFile"] as const;
 
+/** `reason` của lỗi 400 (request sai): chỉ để chẩn đoán trong log. */
+const DRIVE_BAD_REQUEST_REASONS = ["badRequest", "invalid", "invalidParameter", "required", "fieldNotWritable"] as const;
+
 /** `reason` do giới hạn tốc độ / hạn mức: lỗi tạm thời, không phải lỗi của file đích. */
 const DRIVE_RATE_LIMIT_REASONS = [
   "rateLimitExceeded",
@@ -89,9 +92,10 @@ const DRIVE_RATE_LIMIT_REASONS = [
 
 export type DriveErrorReason =
   | (typeof DRIVE_PERMISSION_REASONS)[number]
-  | (typeof DRIVE_RATE_LIMIT_REASONS)[number];
+  | (typeof DRIVE_RATE_LIMIT_REASONS)[number]
+  | (typeof DRIVE_BAD_REQUEST_REASONS)[number];
 
-const KNOWN_REASONS: ReadonlySet<string> = new Set([...DRIVE_PERMISSION_REASONS, ...DRIVE_RATE_LIMIT_REASONS]);
+const KNOWN_REASONS: ReadonlySet<string> = new Set([...DRIVE_PERMISSION_REASONS, ...DRIVE_RATE_LIMIT_REASONS, ...DRIVE_BAD_REQUEST_REASONS]);
 const RATE_LIMIT_REASONS: ReadonlySet<string> = new Set(DRIVE_RATE_LIMIT_REASONS);
 
 function isKnownReason(value: unknown): value is DriveErrorReason {

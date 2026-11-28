@@ -106,12 +106,17 @@ export function buildDriveFilesQuery({ kind, parentIds = [] }: { kind?: DocKind;
   return clauses.join(" and ");
 }
 
-/** Chuỗi `q` tìm lối tắt tới `targetId` nằm trong thư mục `parentId` (chưa vào thùng rác). */
-export function buildShortcutLookupQuery(targetId: string, parentId: string): string {
+/**
+ * Chuỗi `q` tìm lối tắt (chưa vào thùng rác) tới `targetId`, ở bất kỳ thư mục nào.
+ *
+ * Cố ý KHÔNG gộp `'<parentId>' in parents`: Drive API trả 400 `Invalid Value` (`reason: "invalid"`,
+ * `location: "q"`) khi `shortcutDetails.targetId` đi cùng điều kiện `in parents`. Nơi gọi xin
+ * `fields: "files(id,parents)"` rồi tự lọc theo thư mục cha trong code.
+ */
+export function buildShortcutLookupQuery(targetId: string): string {
   return [
     mimeEquals(DRIVE_SHORTCUT_MIME),
     `shortcutDetails.targetId='${escapeDriveQueryValue(targetId)}'`,
-    `'${escapeDriveQueryValue(parentId)}' in parents`,
     "trashed=false",
   ].join(" and ");
 }

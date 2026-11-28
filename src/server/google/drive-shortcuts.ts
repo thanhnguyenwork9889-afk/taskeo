@@ -29,6 +29,11 @@ import { DRIVE_TOTAL_TIMEOUT_MS, defaultDeps, type DriveProvisionDeps } from "./
 const LOG_MESSAGE = "[google/drive] Không gắn được lối tắt Drive";
 const FORBIDDEN_LOG_MESSAGE = "[google/drive] Không đọc được file đích (403, kiểm tra appId Google Picker)";
 
+/** Trường xin khi tìm lối tắt có sẵn: cần `parents` để lọc theo thư mục trong code. */
+const SHORTCUT_LOOKUP_FIELDS = "files(id,parents)";
+/** Số lối tắt tối đa tới cùng một đích đọc về trong một lần (đủ cho thực tế, không phân trang). */
+const SHORTCUT_LOOKUP_PAGE_SIZE = 100;
+
 const HTTP_FORBIDDEN = 403;
 const HTTP_NOT_FOUND = 404;
 
@@ -115,11 +120,12 @@ async function checkTarget(
  * 2. `GoogleNotConnectedError` / `GoogleScopeMissingError` → `not_connected`, không log.
  * 3. Đích 404 / 403 do quyền, đã vào thùng rác hoặc không phải 3 loại Google → `invalid_target`
  *    (403 do rate limit / hạn mức → `error`, xem `checkTarget`).
- * 4. Đích đã nằm trong thư mục, hoặc đã có lối tắt tới nó trong thư mục → `already_attached`.
+ * 4. Đích đã nằm trong thư mục, hoặc đã có lối tắt tới nó trong thư mục → `already_attached`
+ *    (tìm lối tắt theo `targetId` rồi lọc `parents` trong code, tối đa `SHORTCUT_LOOKUP_PAGE_SIZE`).
  * 5. Tạo lối tắt (gắn `appProperties.taskeoTargetKind` để lọc theo loại); thiếu `id` → `error`.
  *
  * Lỗi khác hoặc quá hạn → `error`, log đúng một dòng gồm `userId`, tên lỗi đã phân loại, mã HTTP,
- * `reason` nếu thuộc danh sách cố định (không token / URL / header / message / tên file). Không bao giờ ném. Kiểm-rồi-tạo không nguyên tử: hai
+ * `reason` nếu thuộc danh sách cố định, `step` (`get` / `lookup` / `create`) nếu lỗi ở bước gọi Drive (không token / URL / header / message / tên file). Không bao giờ ném. Kiểm-rồi-tạo không nguyên tử: hai
  * request đồng thời có thể tạo hai lối tắt.
  */
 export async function attachDriveShortcut(
@@ -127,6 +133,8 @@ export async function attachDriveShortcut(
   { targetId, parentId }: DriveShortcutInput,
   deps: DriveProvisionDeps = defaultDeps,
 ): Promise<DriveShortcutResult> {
+  // Bước Drive đang chạy khi lỗi: ghi vào log để biết 400 / 403 đến từ get, lookup hay create.
+  let step: "get" | "lookup" | "create" | undefined;
   const outcome = await runWithDeadline(
     async (signal): Promise<DriveShortcutResult> => {
       if (!(await deps.hasDriveScope(userId))) return { status: "not_connected" };
@@ -134,18 +142,28 @@ export async function attachDriveShortcut(
       const drive = await deps.getDrive(userId);
       signal.throwIfAborted();
 
+      step = "get";
       const target = await checkTarget(drive, targetId, signal, userId);
       if (target.status !== "ok") return target;
       if (target.parents.includes(parentId)) return { status: "already_attached" };
       signal.throwIfAborted();
 
+      step = "lookup";
+      // Drive trả 400 nếu gộp `shortcutDetails.targetId` với `in parents` trong `q`: lọc thư mục ở đây.
       const existing = await drive.files.list(
-        { q: buildShortcutLookupQuery(targetId, parentId), pageSize: 1, fields: "files(id)", spaces: "drive" },
+        {
+          q: buildShortcutLookupQuery(targetId),
+          pageSize: SHORTCUT_LOOKUP_PAGE_SIZE,
+          fields: SHORTCUT_LOOKUP_FIELDS,
+          spaces: "drive",
+        },
         { signal },
       );
-      if ((existing.data.files ?? []).length > 0) return { status: "already_attached" };
+      const inParent = (existing.data.files ?? []).some((file) => (file.parents ?? []).includes(parentId));
+      if (inParent) return { status: "already_attached" };
       signal.throwIfAborted();
 
+      step = "create";
       const res = await drive.files.create(
         {
           requestBody: {
@@ -168,6 +186,6 @@ export async function attachDriveShortcut(
 
   if (outcome.ok) return outcome.value;
   if (isSilentDriveError(classifyDriveError(outcome.error).kind)) return { status: "not_connected" };
-  console.error(LOG_MESSAGE, logFields(userId, outcome.error));
+  console.error(LOG_MESSAGE, step ? { ...logFields(userId, outcome.error), step } : logFields(userId, outcome.error));
   return { status: "error" };
 }

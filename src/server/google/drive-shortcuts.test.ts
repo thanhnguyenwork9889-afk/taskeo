@@ -165,7 +165,7 @@ describe("attachDriveShortcut — tạo lối tắt", () => {
       { signal: expect.any(AbortSignal) },
     );
     expect(list).toHaveBeenCalledWith(
-      { q: buildShortcutLookupQuery(TARGET, PARENT), pageSize: 1, fields: "files(id)", spaces: "drive" },
+      { q: buildShortcutLookupQuery(TARGET), pageSize: 100, fields: "files(id,parents)", spaces: "drive" },
       { signal: expect.any(AbortSignal) },
     );
     expect(create).toHaveBeenCalledWith(
@@ -208,7 +208,7 @@ describe("attachDriveShortcut — tạo lối tắt", () => {
     const { deps } = fakeDeps(drive);
 
     await expect(attachDriveShortcut(USER, input, deps)).resolves.toEqual({ status: "error" });
-    expectSafeSingleLog({ userId: USER, error: "DriveShortcutMissingIdError" });
+    expectSafeSingleLog({ userId: USER, error: "DriveShortcutMissingIdError", step: "create" });
   });
 
   it("create lỗi gaxios mang Authorization / URL → error, log sạch", async () => {
@@ -217,7 +217,7 @@ describe("attachDriveShortcut — tạo lối tắt", () => {
     const { deps } = fakeDeps(drive);
 
     await expect(attachDriveShortcut(USER, input, deps)).resolves.toEqual({ status: "error" });
-    expectSafeSingleLog({ userId: USER, error: "GaxiosError", status: 500 });
+    expectSafeSingleLog({ userId: USER, error: "GaxiosError", status: 500, step: "create" });
   });
 });
 
@@ -293,7 +293,7 @@ describe("attachDriveShortcut — đích không hợp lệ", () => {
       await expect(attachDriveShortcut(USER, input, deps)).resolves.toEqual({ status: "error" });
       expect(list).not.toHaveBeenCalled();
       expect(create).not.toHaveBeenCalled();
-      expectSafeSingleLog({ userId: USER, error: "GaxiosError", status: 403, reason });
+      expectSafeSingleLog({ userId: USER, error: "GaxiosError", status: 403, reason, step: "get" });
     },
   );
 
@@ -304,7 +304,7 @@ describe("attachDriveShortcut — đích không hợp lệ", () => {
 
     await expect(attachDriveShortcut(USER, input, deps)).resolves.toEqual({ status: "error" });
     expect(create).not.toHaveBeenCalled();
-    expectSafeSingleLog({ userId: USER, error: "GaxiosError", status: 500 });
+    expectSafeSingleLog({ userId: USER, error: "GaxiosError", status: 500, step: "get" });
   });
 
   it("lỗi không phải gaxios có status 404 không bị coi là invalid_target", async () => {
@@ -313,7 +313,7 @@ describe("attachDriveShortcut — đích không hợp lệ", () => {
     const { deps } = fakeDeps(drive);
 
     await expect(attachDriveShortcut(USER, input, deps)).resolves.toEqual({ status: "error" });
-    expectSafeSingleLog({ userId: USER, error: "TypeError" });
+    expectSafeSingleLog({ userId: USER, error: "TypeError", step: "get" });
   });
 });
 
@@ -331,12 +331,50 @@ describe("attachDriveShortcut — đã gắn", () => {
 
   it("đã có lối tắt trong thư mục → already_attached, không create", async () => {
     const { drive, list, create } = fakeDrive();
-    list.mockResolvedValue({ data: { files: [{ id: "existing_shortcut" }] } });
+    list.mockResolvedValue({
+      data: { files: [{ id: "elsewhere", parents: ["other"] }, { id: "existing_shortcut", parents: ["x", PARENT] }] },
+    });
     const { deps } = fakeDeps(drive);
 
     await expect(attachDriveShortcut(USER, input, deps)).resolves.toEqual({ status: "already_attached" });
     expect(create).not.toHaveBeenCalled();
     expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it("lookup: q không gộp `in parents` (Drive trả 400), lọc thư mục cha trong code", async () => {
+    const { drive, list } = fakeDrive();
+    const { deps } = fakeDeps(drive);
+
+    await attachDriveShortcut(USER, input, deps);
+    expect(list).toHaveBeenCalledTimes(1);
+    const params = list.mock.calls[0]?.[0] as { q: string; fields: string; pageSize: number };
+    expect(params.q).toBe(buildShortcutLookupQuery(TARGET));
+    expect(params.q).not.toContain("in parents");
+    expect(params.fields).toBe("files(id,parents)");
+    expect(params.pageSize).toBe(100);
+  });
+
+  it.each([
+    ["ở thư mục khác", [{ id: "s1", parents: ["other_folder"] }]],
+    ["không có parents", [{ id: "s1" }]],
+  ])("lối tắt tới đích %s → không already_attached, vẫn create", async (_label, files) => {
+    const { drive, list, create } = fakeDrive();
+    list.mockResolvedValue({ data: { files } });
+    const { deps } = fakeDeps(drive);
+
+    await expect(attachDriveShortcut(USER, input, deps)).resolves.toEqual({ status: "ok", file: created() });
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it("lookup 400 invalid → error, không create, log step lookup + reason, không message / token", async () => {
+    const { drive, list, create } = fakeDrive();
+    list.mockRejectedValue(fakeGaxiosError(400, "invalid"));
+    const { deps } = fakeDeps(drive);
+
+    await expect(attachDriveShortcut(USER, input, deps)).resolves.toEqual({ status: "error" });
+    expect(create).not.toHaveBeenCalled();
+    expectSafeSingleLog({ userId: USER, error: "GaxiosError", status: 400, reason: "invalid", step: "lookup" });
   });
 
   it("list lỗi → error, không create, log sạch", async () => {
@@ -346,7 +384,7 @@ describe("attachDriveShortcut — đã gắn", () => {
 
     await expect(attachDriveShortcut(USER, input, deps)).resolves.toEqual({ status: "error" });
     expect(create).not.toHaveBeenCalled();
-    expectSafeSingleLog({ userId: USER, error: "GaxiosError", status: 429 });
+    expectSafeSingleLog({ userId: USER, error: "GaxiosError", status: 429, step: "lookup" });
   });
 });
 
@@ -376,7 +414,7 @@ describe("attachDriveShortcut — lỗi khác", () => {
     const signal = get.mock.calls[0]?.[1].signal as AbortSignal;
     expect(signal.aborted).toBe(true);
     expect(create).not.toHaveBeenCalled();
-    expectSafeSingleLog({ userId: USER, error: "TimeoutError" });
+    expectSafeSingleLog({ userId: USER, error: "TimeoutError", step: "get" });
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -393,6 +431,6 @@ describe("attachDriveShortcut — lỗi khác", () => {
     await vi.advanceTimersByTimeAsync(50);
 
     await expect(pending).resolves.toEqual({ status: "error" });
-    expectSafeSingleLog({ userId: USER, error: "TimeoutError" });
+    expectSafeSingleLog({ userId: USER, error: "TimeoutError", step: "get" });
   });
 });

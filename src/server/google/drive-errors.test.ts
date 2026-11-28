@@ -212,6 +212,13 @@ describe("driveErrorReason", () => {
     expect(driveErrorReason(gaxiosWithReason({ responseReason: reason }))).toBe(reason);
   });
 
+  it.each(["badRequest", "invalid", "invalidParameter", "required", "fieldNotWritable"])(
+    "đọc reason 400 %s (chẩn đoán request sai)",
+    (reason) => {
+      expect(driveErrorReason(gaxiosWithReason({ responseReason: reason, status: 400 }))).toBe(reason);
+    },
+  );
+
   it("đọc reason từ error.errors[0] khi response không có", () => {
     expect(driveErrorReason(gaxiosWithReason({ topReason: "userRateLimitExceeded" }))).toBe("userRateLimitExceeded");
   });
@@ -276,7 +283,7 @@ describe("isDriveRateLimitReason", () => {
     },
   );
 
-  it.each(["forbidden", "insufficientFilePermissions", "appNotAuthorizedToFile", undefined] as const)("%s → false", (reason) => {
+  it.each(["forbidden", "insufficientFilePermissions", "appNotAuthorizedToFile", "invalid", "badRequest", undefined] as const)("%s → false", (reason) => {
     expect(isDriveRateLimitReason(reason)).toBe(false);
   });
 });
