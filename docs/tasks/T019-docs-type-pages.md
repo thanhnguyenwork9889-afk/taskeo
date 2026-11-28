@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T019-docs-type-pages` |
 | Tạo từ | `develop` @ `6e27ed2` |
-| Trạng thái | 7-final |
+| Trạng thái | done |
 | Ngày tạo | 2026-11-28 |
 
 Nguồn: sheet nhiệm vụ, dòng **T36** "Trang Soạn thảo / Bảng tính / Trình chiếu lọc theo loại file" (đã ở `Đang làm`).
@@ -33,14 +33,14 @@ Lịch sử phạm vi (2026-11-28):
 - `sidebar.tsx:33` đọc `?type=` thô nên `?type=xyz` không làm sáng mục nào — ghi vào "việc để sau".
 
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
-- [ ] `/docs?type=doc` có `<title>` "Soạn thảo · Taskeo" (dev: "… · Taskeo · Dev"); `?type=sheet` → "Bảng tính · …"; `?type=slide` → "Trình chiếu · …"; `/docs` và `/docs?type=xyz` → "Kho lưu trữ · …".
-- [ ] Các trang khác (`/`, `/tasks`, `/calendar`, `/spaces`) giữ nguyên tiêu đề "Taskeo" (dev: "Taskeo · Dev") qua `title.default`.
-- [ ] `/docs?type=doc&type=sheet`: `<title>` và `<h1>` cùng là "Kho lưu trữ", không lệch nhau.
-- [ ] `/docs?type=xyz` hiện Kho lưu trữ, không lỗi ở console, không vòng lặp điều hướng.
-- [ ] Danh sách vẫn lọc đúng loại và vẫn gọi `GET /api/files` **có** `kind` (không có bước lùi về giới hạn 100 file mỗi loại).
-- [ ] Không còn câu "sắp xếp theo từng không gian" ở trang tài liệu.
-- [ ] Có test cho hàm thuần đếm theo loại và chọn tab đang hoạt động (gồm `?type=` sai và ô tìm kiếm).
-- [ ] 4 lệnh `typecheck` / `lint` / `test` / `build` xanh.
+- [x] `/docs?type=doc` có `<title>` "Soạn thảo · Taskeo" (dev: "… · Taskeo · Dev"); `?type=sheet` → "Bảng tính · …"; `?type=slide` → "Trình chiếu · …"; `/docs` và `/docs?type=xyz` → "Kho lưu trữ · …".
+- [x] Các trang khác (`/`, `/tasks`, `/calendar`, `/spaces`) giữ nguyên tiêu đề "Taskeo" (dev: "Taskeo · Dev") qua `title.default`.
+- [x] `/docs?type=doc&type=sheet`: `<title>` và `<h1>` cùng là "Kho lưu trữ", không lệch nhau.
+- [x] `/docs?type=xyz` hiện Kho lưu trữ, không lỗi ở console, không vòng lặp điều hướng.
+- [x] Danh sách vẫn lọc đúng loại và vẫn gọi `GET /api/files` **có** `kind` (không có bước lùi về giới hạn 100 file mỗi loại).
+- [x] Không còn câu "sắp xếp theo từng không gian" ở trang tài liệu.
+- [x] Có test cho hàm thuần parse `?type=` và dựng tiêu đề, gồm `?type=` sai, `?type=` lặp, khoảng trắng và đầu vào ác ý.
+- [x] 4 lệnh `typecheck` / `lint` / `test` / `build` xanh.
 
 **Tài liệu bị ảnh hưởng:** 04 kiến trúc (mô tả `features/docs` và trang `/docs`). Không đụng 01, 02, 03, 06.
 
@@ -176,13 +176,31 @@ Sau R8 + R9: typecheck xanh · lint xanh · test xanh **1960** (thêm ca no-brea
 
 **Tóm tắt:**
 
-**Tiêu chí nghiệm thu:** (đánh dấu ở mục 1)
+Dòng T36 của sheet ("Trang Soạn thảo / Bảng tính / Trình chiếu lọc theo loại file") thực ra đã xong từ T015 / T017 / T018 — ba mục sidebar ra `/docs?type=doc|sheet|slide`, lọc đúng loại trên dữ liệu Drive thật. T019 làm nốt hai thứ còn thiếu và đóng dòng đó:
 
-**Tài liệu đã cập nhật:**
+1. **Tiêu đề tab trình duyệt theo loại.** `title.template` + `title.default` ở `src/app/layout.tsx`, `generateMetadata` ở `src/app/(app)/docs/page.tsx`. Ba trang giờ phân biệt được khi mở nhiều tab.
+2. **Một parser `?type=` dùng chung** (`src/features/docs/docs-params.ts`) cho server (`searchParams`: `string | string[]`) và client (`useSearchParams().getAll`), nên `<title>` không bao giờ lệch `<h1>` — kể cả `?type=doc&type=sheet`.
+3. **Sửa câu mô tả sai**: "sắp xếp theo từng không gian" → "mới sửa gần nhất xếp trước" (danh sách vốn phẳng, không nhóm).
 
-**Merge vào develop:** commit `<hash>`, ngày
+Phạm vi ban đầu còn có thanh tab chuyển loại kèm số đếm. **Đã bỏ giữa chừng** sau khi soát lại giá trị: nó trùng việc sidebar đang làm, và số đếm buộc gọi `/api/files` không lọc `kind`, làm giới hạn 100 đổi từ "mỗi loại" thành "cả ba loại" — một bước lùi để đổi lấy tiện lợi đã có sẵn. Người dùng đồng ý thu hẹp.
 
-**Sheet nhiệm vụ:** dòng T36 sẽ chuyển `Xong` sau merge (bước 7, mục 8; kết quả nêu trong báo cáo)
+Khi soát lại cũng kiểm chứng được một điều đáng chú ý ngoài phạm vi: **chỉ `/docs` và thẻ "Tài liệu gần đây" đang đọc dữ liệu thật**; Công việc / Không gian / Dự án / Lịch và các thẻ Tổng quan còn lại đều đọc store demo (`useWorkspace`, không có nhánh `isDemo`), nên đăng nhập Google thật vẫn thấy dữ liệu mẫu. Việc mở khoá nằm ở T59.
+
+Phát sinh kỹ thuật đáng ghi nhớ: với `cacheComponents: true`, đọc `searchParams` trong `generateMetadata` làm `next build` lỗi `blocking-prerender-metadata-runtime`. Cách tài liệu Next hướng dẫn (đặt marker `connection()` trong chính trang) **không dùng được** ở app này vì `AppShell` trả `ShellSkeleton` và không render `children` lúc prerender. Marker đặt ở `src/app/(app)/layout.tsx` — ranh giới hẹp nhất còn tác dụng; đặt ở root layout cũng chạy nhưng kéo `/_not-found` khỏi `○ Static`.
+
+**Tiêu chí nghiệm thu:** 8/8 đạt (đánh dấu ở mục 1). Đo bằng `next start` trên bản production (10/10 URL đúng tiêu đề) và mở thật bằng trình duyệt ở chế độ configured: `?type=xyz` và `?type=doc&type=sheet` đều ra "Kho lưu trữ" ở cả `<title>` lẫn `<h1>`, `?type=sheet` lọc đúng một Sheet, console không có lỗi.
+
+**Tài liệu đã cập nhật:** `docs/04-architecture.md` (dòng 66 `docs-params.ts`, dòng 69 `DynamicMarker` kèm lý do, dòng 101 nới quy ước "trang chỉ import một view", thêm hàng quy ước tiêu đề tab). `docs/tasks/README.md`. Không đụng 01, 02, 03, 06 — T019 không thêm route, biến môi trường hay scope nào.
+
+**Merge vào develop:** commit `<hash>`, ngày 2026-11-28
+
+**Sheet nhiệm vụ:** dòng T36 chuyển `Xong` sau merge (bước 7, mục 8; kết quả nêu trong báo cáo).
 
 **Việc để sau:**
--
+- R3: `"Kho lưu trữ"` viết cứng ở `src/components/layout/navigation.ts:17`, trùng nghĩa `DOCS_LIBRARY_TITLE` nhưng không dùng chung được (ESLint cấm `components/layout` import `features/`). Muốn một nguồn duy nhất thì dời hằng xuống `domain/labels.ts`.
+- R6: `PageProps<"/docs">` và `LayoutProps<"/">` cần Next sinh kiểu, nên CI chạy trên cây sạch phải có `next build` / `next typegen` trước `tsc`. Nhớ khi làm T52 (CI).
+- `src/components/layout/sidebar.tsx:33` đọc `?type=` thô chưa qua parser, nên `/docs?type=xyz` không làm sáng mục nào ở sidebar (trang thì đúng). Sửa bằng `parseDocKindParam` sẽ vướng luật `components/layout` không import `features/` — cùng gốc với R3.
+- Nút trên trang tài liệu hiện chữ "Tạo soạn thảo" (`docs-view.tsx:44`), câu hơi ngang.
+- Thanh tab chuyển loại + số đếm theo loại: đã bỏ có chủ đích. Nếu dùng trên điện thoại thấy bí (bottom nav không có mục tài liệu) thì cân nhắc lại — lúc đó nên làm không kèm số đếm để khỏi đụng giới hạn 100.
+- Khi T59 đưa dữ liệu lên server và trang render được ở server, chuyển `DynamicMarker` từ `(app)/layout.tsx` về đúng `(app)/docs/page.tsx` như tài liệu Next hướng dẫn.
+- Thêm `metadata` cho các trang còn lại (`/tasks`, `/calendar`, `/spaces`, `/projects/[id]`) — hạ tầng `title.template` đã sẵn, mỗi trang chỉ cần một dòng `title`.
