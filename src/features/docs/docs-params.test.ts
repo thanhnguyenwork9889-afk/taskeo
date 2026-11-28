@@ -3,6 +3,18 @@ import { DOC_KIND_LABEL } from "@/domain/labels";
 import type { DocKind } from "@/domain/types";
 import { DOCS_LIBRARY_TITLE, docsPageTitle, parseDocKindParam } from "./docs-params";
 
+/**
+ * Đầu vào ác ý / ký tự lạ trong `?type=`. Dùng chung cho hai describe bên dưới: parser phải trả
+ * `null`, và tiêu đề trang phải vẫn là một trong bốn chuỗi cố định — giá trị thô của người dùng
+ * không bao giờ ra tới `<title>`.
+ */
+const HOSTILE_TYPE_PARAMS: Array<[label: string, value: string]> = [
+  ["thử thoát khỏi thẻ title", "</title><script>alert(1)</script>"],
+  ["null byte dính đuôi", "doc\u0000"],
+  ["zero-width space ở đầu (trim() không bỏ ký tự này)", "\u200bdoc"],
+  ["chuỗi rất dài", "d".repeat(10000)],
+];
+
 describe("parseDocKindParam", () => {
   it.each<[string, DocKind]>([
     ["doc", "doc"],
@@ -35,12 +47,27 @@ describe("parseDocKindParam", () => {
     expect(parseDocKindParam(["doc"])).toBe("doc");
   });
 
+  it("mảng một phần tử cũng được cắt khoảng trắng hai đầu", () => {
+    expect(parseDocKindParam(["  doc  "])).toBe("doc");
+  });
+
+  it("mảng một phần tử không hợp lệ → null", () => {
+    expect(parseDocKindParam(["xyz"])).toBeNull();
+  });
+
   it.each<[string, string[]]>([
     ["hai loại khác nhau", ["doc", "sheet"]],
     ["cùng một loại lặp lại", ["doc", "doc"]],
   ])("?type= lặp nhiều lần (%s) → null, coi như không lọc", (_label, value) => {
     expect(parseDocKindParam(value)).toBeNull();
   });
+
+  it.each(HOSTILE_TYPE_PARAMS)(
+    "đầu vào ác ý (%s) → null, giá trị thô không lọt qua parser",
+    (_label, value) => {
+      expect(parseDocKindParam(value)).toBeNull();
+    },
+  );
 });
 
 describe("docsPageTitle", () => {
@@ -64,4 +91,11 @@ describe("docsPageTitle(parseDocKindParam(...))", () => {
   ])("?type=%s → tiêu đề %s", (value, expected) => {
     expect(docsPageTitle(parseDocKindParam(value))).toBe(expected);
   });
+
+  it.each(HOSTILE_TYPE_PARAMS)(
+    "đầu vào ác ý (%s) → tiêu đề vẫn là chuỗi cố định, không chứa giá trị thô",
+    (_label, value) => {
+      expect(docsPageTitle(parseDocKindParam(value))).toBe(DOCS_LIBRARY_TITLE);
+    },
+  );
 });

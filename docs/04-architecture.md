@@ -63,10 +63,10 @@ src/
 │   └── layout/                  App shell (bọc QueryProvider: query-provider.tsx): sidebar (kèm công tắc Google Drive: drive-switch.tsx), topbar, mobile nav, hộp thoại tạo mới, UI context, drive-status.ts, drive-notice.ts (thông báo ?drive=wrong-account | disconnected | disconnect-failed), khối dung lượng Google dưới công tắc Drive (drive-storage-meter.tsx; drive-storage-api.ts gọi /api/drive/storage, drive-storage-query.ts tuỳ chọn TanStack Query, use-drive-storage.ts, drive-storage-state.ts chọn trạng thái hidden / loading / error / ready), hộp thoại tạo tài liệu chế độ configured (create-doc-dialog.tsx; create-doc-api.ts gọi /api/spaces, /api/spaces/[id]/projects, POST /api/files với hạn 45 s; create-doc-state.ts chọn trạng thái + thông báo lỗi + requestedProjectWait; use-create-doc-data.ts, use-create-doc-submit.ts; pending-tab.ts mở tab trước để tránh chặn popup; doc-kind-field.tsx dùng chung với form demo), query-keys.ts (khoá TanStack Query dùng chung, DRIVE_FILES_QUERY_KEY), drive-connect-prompt.tsx (lời mời kết nối Drive, features/docs re-export), ô chọn không gian / dự án dùng chung (drive-placement-fields.tsx, use-drive-placement.ts), hộp thoại gắn file bằng Google Picker chế độ configured (attach-doc-dialog.tsx, use-attach-doc.ts; google-picker.ts nạp script apis.google.com khi bấm, dựng / mở Picker, parse kết quả; attach-doc-api.ts gọi /api/drive/picker-token và POST /api/files/attach; attach-doc-state.ts trạng thái + thông báo lỗi), mở qua openCreate({ kind: "attach" })
 ├── features/          6. Màn hình theo nghiệp vụ
 │   ├── dashboard/  tasks/  spaces/  projects/  docs/  calendar/
-│   │   (docs/: drive-files-api.ts gọi /api/files, use-drive-files.ts hook TanStack Query, drive-files-state.ts chọn trạng thái demo / connect / loading / error / empty / list, drive-files-states.tsx lời mời kết nối Drive / khung chờ / khối lỗi; attach-drive-button.tsx + attach-entry.ts nút "Gắn file từ Drive": demo mở hộp thoại dán liên kết, configured mở hộp thoại Picker)
+│   │   (docs/: drive-files-api.ts gọi /api/files, use-drive-files.ts hook TanStack Query, drive-files-state.ts chọn trạng thái demo / connect / loading / error / empty / list, drive-files-states.tsx lời mời kết nối Drive / khung chờ / khối lỗi; attach-drive-button.tsx + attach-entry.ts nút "Gắn file từ Drive": demo mở hộp thoại dán liên kết, configured mở hộp thoại Picker; docs-params.ts parseDocKindParam / docsPageTitle / DOCS_LIBRARY_TITLE — parser `?type=` và tiêu đề trang, hàm thuần có test, dùng chung cho server (generateMetadata ở app/(app)/docs/page.tsx đọc searchParams ra string | string[]) và client (docs-view.tsx đọc useSearchParams().getAll) để <title> không lệch <h1>, nên không "use client" cũng không server-only)
 ├── app/               7. Chỉ routing (Next.js App Router), mỏng nhất có thể
 │   ├── (auth)/login/            Trang đăng nhập
-│   ├── (app)/                   Layout có sidebar + các trang
+│   ├── (app)/                   Layout có sidebar + các trang; layout còn render DynamicMarker (await connection() trong <Suspense fallback={null}>) để khai các route trong nhóm có dữ liệu theo từng request — cacheComponents đòi điều này vì /docs đọc ?type= trong generateMetadata, và marker không đặt được trong trang vì AppShell trả ShellSkeleton, không render children lúc prerender
 │   ├── api/auth/[...nextauth]/  Auth.js
 │   ├── api/spaces/              CRUD không gian (route chỉ parse input, gọi server/spaces)
 │   ├── api/spaces/[id]/projects/ Danh sách + tạo dự án trong không gian (gọi server/projects)
@@ -98,7 +98,8 @@ Lớp trên được import lớp dưới, **không có chiều ngược lại**
 
 | Bạn viết… | Đặt vào |
 |---|---|
-| Trang / route mới | `src/app/…/page.tsx`, chỉ import một view từ `features/` |
+| Trang / route mới | `src/app/…/page.tsx`, chỉ import một view từ `features/` — ngoại lệ: được import thêm hàm thuần của chính feature đó để dựng `generateMetadata` (vd. `docs/page.tsx` dùng `docs-params.ts`) |
+| Tiêu đề tab trình duyệt theo trang | `generateMetadata` ở `page.tsx` trả phần đầu; đuôi ` · Taskeo` do `title.template` ở `src/app/layout.tsx` (template chỉ áp cho segment con, nên phải khai ở root layout, kèm `title.default`) |
 | Màn hình, card, bảng cho một nghiệp vụ | `src/features/<nghiệp-vụ>/` |
 | Component dùng ở nhiều feature, không biết gì về nghiệp vụ | `src/components/ui/` |
 | Hàm tính toán, lọc, validate | `src/domain/` (kèm `*.test.ts`) |

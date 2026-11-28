@@ -3,10 +3,10 @@ import { connection } from "next/server";
 import { AppShell } from "@/components/layout/app-shell";
 import { getViewer } from "@/server/auth/session";
 
-const Connection = async () => {
+async function Connection(): Promise<null> {
   await connection();
   return null;
-};
+}
 
 /**
  * Marker "nhóm (app) có nội dung theo từng request" (mẫu trong node_modules/next/dist/docs/
