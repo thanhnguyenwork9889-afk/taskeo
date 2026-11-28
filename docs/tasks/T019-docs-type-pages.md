@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T019-docs-type-pages` |
 | Tạo từ | `develop` @ `6e27ed2` |
-| Trạng thái | 3-build |
+| Trạng thái | 4-review |
 | Ngày tạo | 2026-11-28 |
 
 Nguồn: sheet nhiệm vụ, dòng **T36** "Trang Soạn thảo / Bảng tính / Trình chiếu lọc theo loại file" (đã ở `Đang làm`).
@@ -74,7 +74,48 @@ Duyệt kế hoạch: ☐ chờ · ☑ người dùng đã duyệt (2026-11-28, 
 
 | Phần | Commit | Test thêm | typecheck | lint | test | build |
 |---|---|---|---|---|---|---|
-| P1 | | | | | | |
+| P1 | `727f89c` | 23 (`docs-params.test.ts`) | xanh | xanh | xanh 1949 | — |
+| P2 | `5223d35` | — | xanh | xanh | xanh 1949 | xanh |
+| P3 | `a2f120d` | — | xanh | xanh | xanh 1949 | — |
+| P4 | gộp vào `5223d35` | — | xanh | xanh | xanh 1949 | xanh |
+
+`verifier` chạy lại cả bốn lệnh trên working tree cuối: typecheck / lint / test (71 file, 1949 test) / build đều xanh. Bảng route: `/docs` = `◐ Partial Prerender`, `/_not-found` = `○ Static`.
+
+**P4 — kết luận về `cacheComponents` (rủi ro R1 đã xảy ra đúng như dự đoán).**
+
+`npm run build` báo đúng lỗi đã lường trước:
+
+```
+Route "/docs": Next.js encountered uncached or runtime data in `generateMetadata()`.
+This route's metadata is blocked, but the rest of its content can be prerendered.
+  - [dynamic] Render a marker component that calls `await connection()` inside <Suspense> on the page
+blocking-prerender-metadata-runtime
+```
+
+Nhưng cách tài liệu Next hướng dẫn — đặt `DynamicMarker` **trong chính trang** `(app)/docs/page.tsx` — **vô tác dụng ở app này**. Lý do: `src/components/layout/app-shell.tsx:90` trả `<ShellSkeleton />` khi `workspace` còn `null` (dữ liệu ở localStorage nên trên server luôn `null`), tức AppShell **không render `children`**; không một thứ gì trong `src/app/(app)/**` được render ra HTML lúc prerender, kể cả marker. Kiểm chứng dứt điểm: đặt `await connection()` thẳng trong thân `DocsPage` (không `<Suspense>`) cũng không bị Next ghi nhận — nếu subtree của trang có tham gia prerender thì Next đã phải báo lỗi "accessed outside of `<Suspense>`".
+
+Marker vì vậy phải nằm **trên** AppShell. Hai chỗ khả dĩ, đã đo cả hai bằng bảng route của `next build`:
+
+| Chỗ đặt marker | `/_not-found` | `/login` | các route `(app)` |
+|---|---|---|---|
+| `src/app/layout.tsx` (root) | `◐` | `◐` | `◐` |
+| **`src/app/(app)/layout.tsx`** (đã chọn) | **`○ Static`** | `◐` | `◐` |
+
+Chọn `(app)/layout.tsx`: ranh giới hẹp nhất còn tác dụng, chỉ bao nhóm có trang đọc `searchParams`. `/login` vẫn `◐` vì lý do riêng của nó (panel đăng nhập / phiên), không liên quan marker. Không dùng `'use cache'` (không áp dụng được cho `searchParams`), không dùng `dynamic = "force-dynamic"` (đã bị bỏ khi bật `cacheComponents`).
+
+Khi nào nội dung trang render được ở server (giai đoạn 2, dữ liệu lên Prisma — T59) thì chuyển marker về đúng `(app)/docs/page.tsx` như tài liệu; điều kiện này đã ghi trong comment của `(app)/layout.tsx`.
+
+**Đã kiểm `<title>` thật** bằng `next start` (bản dev nên có hậu tố `· Dev`):
+
+| URL | `<title>` |
+|---|---|
+| `/docs?type=doc` | `Soạn thảo · Taskeo · Dev` |
+| `/docs?type=sheet` | `Bảng tính · Taskeo · Dev` |
+| `/docs?type=slide` | `Trình chiếu · Taskeo · Dev` |
+| `/docs` | `Kho lưu trữ · Taskeo · Dev` |
+| `/docs?type=xyz` | `Kho lưu trữ · Taskeo · Dev` |
+| `/docs?type=doc&type=sheet` | `Kho lưu trữ · Taskeo · Dev` |
+| `/`, `/tasks`, `/calendar`, `/spaces` | `Taskeo · Dev` (qua `title.default`) |
 
 ## 4. Review code
 
