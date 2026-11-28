@@ -178,7 +178,7 @@ Vòng 2 (`c7b08ae`, sửa R16 sau kiểm thật): `typescript-reviewer` (kèm kh
 
 **Tài liệu đã cập nhật:** 01 (2 biến Picker), 02 (mục Google Picker: tạo / giới hạn API key, project number, lối tắt, truy vấn, giới hạn đã biết; token mang mọi scope), 04 (file mới), 06 (`POST /api/files/attach`, `GET /api/drive/picker-token`, `shortcut` trong `GET /api/files`, mã lỗi mới). `.env.example`, `.env.production.example`.
 
-**Merge vào develop:** commit `<hash>`, 2026-11-28
+**Merge vào develop:** commit `f970e4b`, 2026-11-28
 
 **Sheet nhiệm vụ:** dòng T34 sẽ chuyển `Xong` sau merge (bước 7, mục 8; kết quả nêu trong báo cáo)
 
