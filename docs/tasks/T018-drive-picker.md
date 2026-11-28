@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T018-drive-picker` |
 | Tạo từ | `develop` @ `9a22909` |
-| Trạng thái | 7-final |
+| Trạng thái | done |
 | Ngày tạo | 2026-11-27 |
 
 Nguồn: sheet nhiệm vụ, dòng **T34** "Google Picker: gắn file có sẵn trên Drive vào dự án" (giai đoạn 4 · Google Drive, phụ thuộc T30 = T010). Sheet đã ở `Đang làm` khi khởi tạo, giữ nguyên.
@@ -44,16 +44,16 @@ Nguồn: sheet nhiệm vụ, dòng **T34** "Google Picker: gắn file có sẵn 
 - Tạo API key trên Google Cloud Console: **người dùng tự làm** (hướng dẫn trong docs 02) trước bước kiểm thật.
 
 **Tiêu chí nghiệm thu** (mỗi dòng kiểm tra được):
-- [ ] Test route token: 401; 503 demo (không import động); 503 `picker_not_configured` khi thiếu một trong hai biến; 403 `drive_not_connected` không đụng token; 502 khi lấy token lỗi / quá hạn; 200 đúng hình dạng + `Cache-Control: no-store`; log không chứa token.
-- [ ] Test hàm Drive tạo lối tắt (client giả): không scope → không gọi Drive; đọc đích rồi `files.create` đúng `mimeType` shortcut, `parents`, `shortcutDetails.targetId`, tên = tên file đích, có `signal`; đích là thư mục / PDF / đã vào thùng rác / 404 → `invalid_target`, không tạo; lỗi Gaxios → log sạch; quá hạn → `error`.
-- [ ] Test `attachFile`: không gian / dự án của user khác → `not_found`; dự án khác không gian → `not_found`; thư mục dự án được chọn; thư mục null → tạo bù; tạo bù lỗi → `drive_error`, không tạo lối tắt; đã gắn → `already_attached`, không tạo; trả `DriveFileItem` đúng tên không gian / dự án, cờ lối tắt.
-- [ ] Test liệt kê: `q` có mimeType shortcut; lối tắt tới Docs / Sheets / Slides → item với `kind` theo đích và `url` mở đích; lối tắt tới loại khác → bỏ; lọc `kind` đúng với lối tắt; test cũ của `GET /api/files` còn xanh.
-- [ ] Test route `POST` gắn: 401, 503, 400 (thiếu / sai `driveFileId`, khoá lạ, JSON hỏng), 404, 403, 409, 502, 201.
-- [ ] Test hàm thuần phía client: nạp script một lần (loader với `document` giả), dựng cấu hình Picker từ token, xử lý kết quả Picker (picked / cancel / không có file), thông báo lỗi theo mã.
-- [ ] Chế độ demo: "Gắn file từ Drive" vẫn là dán liên kết, không gọi `/api/drive/picker-token` / `/api/files/attach`, không nạp script Google.
-- [ ] Kiểm thật trên dev cùng người dùng (sau khi người dùng tạo API key + đặt 2 biến): chọn một Doc có sẵn ngoài thư mục Taskeo → lối tắt nằm đúng thư mục dự án trên Drive, file gốc không đổi chỗ, mục mới hiện ở "Tài liệu gần đây" và `/docs` (đúng bộ lọc loại) với nhãn "Đã gắn", bấm mở đúng file gốc; gắn lại cùng file → báo đã gắn.
-- [ ] 4 lệnh typecheck / lint / test / build xanh.
-- [ ] Docs 01, 02, 04, 06 cập nhật.
+- [x] Test route token: 401; 503 demo (không import động); 503 `picker_not_configured` khi thiếu một trong hai biến; 403 `drive_not_connected` không đụng token; 502 khi lấy token lỗi / quá hạn; 200 đúng hình dạng + `Cache-Control: no-store`; log không chứa token.
+- [x] Test hàm Drive tạo lối tắt (client giả): không scope → không gọi Drive; đọc đích rồi `files.create` đúng `mimeType` shortcut, `parents`, `shortcutDetails.targetId`, tên = tên file đích, có `signal`; đích là thư mục / PDF / đã vào thùng rác / 404 → `invalid_target`, không tạo; lỗi Gaxios → log sạch; quá hạn → `error`.
+- [x] Test `attachFile`: không gian / dự án của user khác → `not_found`; dự án khác không gian → `not_found`; thư mục dự án được chọn; thư mục null → tạo bù; tạo bù lỗi → `drive_error`, không tạo lối tắt; đã gắn → `already_attached`, không tạo; trả `DriveFileItem` đúng tên không gian / dự án, cờ lối tắt.
+- [x] Test liệt kê: `q` có mimeType shortcut; lối tắt tới Docs / Sheets / Slides → item với `kind` theo đích và `url` mở đích; lối tắt tới loại khác → bỏ; lọc `kind` đúng với lối tắt; test cũ của `GET /api/files` còn xanh.
+- [x] Test route `POST` gắn: 401, 503, 400 (thiếu / sai `driveFileId`, khoá lạ, JSON hỏng), 404, 403, 409, 502, 201.
+- [x] Test hàm thuần phía client: nạp script một lần (loader với `document` giả), dựng cấu hình Picker từ token, xử lý kết quả Picker (picked / cancel / không có file), thông báo lỗi theo mã.
+- [x] Chế độ demo: "Gắn file từ Drive" vẫn là dán liên kết, không gọi `/api/drive/picker-token` / `/api/files/attach`, không nạp script Google. (Kiểm qua code + review: `attachEntryAction` demo → hộp thoại dán liên kết hoặc ẩn; `AttachBranch` demo → `null`; script / token / attach chỉ chạy trong `useAttachDoc.choose`; hai route trả 503 trước import động. Chưa chạy tay ở chế độ demo vì `.env.local` đang configured.)
+- [x] Kiểm thật trên dev cùng người dùng (sau khi người dùng tạo API key + đặt 2 biến): chọn một Doc có sẵn ngoài thư mục Taskeo → lối tắt nằm đúng thư mục dự án trên Drive, file gốc không đổi chỗ, mục mới hiện ở "Tài liệu gần đây" và `/docs` (đúng bộ lọc loại) với nhãn "Đã gắn", bấm mở đúng file gốc; gắn lại cùng file → báo đã gắn. (2026-11-28: route token 200 + `no-store`; Picker chỉ hiện Docs / Sheets / Slides; gắn file đã nằm trong thư mục ("T015 test doc A") → 409 "đã được gắn vào đây"; gắn "Thanh Note" (ngoài Taskeo) vào T013 test A / T013 dự án 1 lần đầu lỗi 502 → sửa R16, thử lại thành công, người dùng xác nhận. Trước đó kiểm 503 `picker_not_configured` khi chưa đặt biến.)
+- [x] 4 lệnh typecheck / lint / test / build xanh. (sau `c7b08ae`: 1926 test, build xanh)
+- [x] Docs 01, 02, 04, 06 cập nhật.
 
 **Tài liệu bị ảnh hưởng:** 01 môi trường · 02 Google · 04 kiến trúc · 06 API.
 
@@ -172,15 +172,21 @@ Vòng 2 (`c7b08ae`, sửa R16 sau kiểm thật): `typescript-reviewer` (kèm kh
 
 ## 7. Final
 
-**Tóm tắt:**
+**Tóm tắt:** Ở chế độ `configured`, nút "Gắn file từ Drive" (trang dự án, `/docs`) mở hộp thoại chọn không gian / dự án (từ API), nạp Google Picker khi bấm (token qua `GET /api/drive/picker-token`, `no-store`), chọn một file Docs / Sheets / Slides → `POST /api/files/attach` tạo **lối tắt Drive** trong thư mục `Taskeo / <không gian> [/ <dự án>]` (file gốc giữ nguyên chỗ, gắn `appProperties.taskeoTargetKind`); đã gắn → 409. `GET /api/files` liệt kê cả lối tắt (`shortcut: true`, `kind` / `url` theo file đích), giao diện có nhãn "Đã gắn". Demo giữ hộp thoại dán liên kết. Hai biến tuỳ chọn `GOOGLE_PICKER_API_KEY`, `GOOGLE_CLOUD_PROJECT_NUMBER` (thiếu → 503 `picker_not_configured`). Không thêm bảng DB, không thêm scope. Kiểm thật phát hiện R16 (Drive từ chối gộp `shortcutDetails.targetId` với `in parents`), đã sửa. 1926 test (từ 1575).
 
-**Tiêu chí nghiệm thu:** (đánh dấu ở mục 1)
+**Tiêu chí nghiệm thu:** đạt cả 10 (mục 1).
 
-**Tài liệu đã cập nhật:**
+**Tài liệu đã cập nhật:** 01 (2 biến Picker), 02 (mục Google Picker: tạo / giới hạn API key, project number, lối tắt, truy vấn, giới hạn đã biết; token mang mọi scope), 04 (file mới), 06 (`POST /api/files/attach`, `GET /api/drive/picker-token`, `shortcut` trong `GET /api/files`, mã lỗi mới). `.env.example`, `.env.production.example`.
 
-**Merge vào develop:** commit `<hash>`, ngày
+**Merge vào develop:** commit `<hash>`, 2026-11-28
 
 **Sheet nhiệm vụ:** dòng T34 sẽ chuyển `Xong` sau merge (bước 7, mục 8; kết quả nêu trong báo cáo)
 
 **Việc để sau:**
--
+- Đặt `GOOGLE_PICKER_API_KEY` / `GOOGLE_CLOUD_PROJECT_NUMBER` trên Vercel Production + thêm referrer `https://taskeo-zeta.vercel.app/*` cho key (người dùng tự làm khi deploy).
+- CSP cho `apis.google.com` / `www.gstatic.com` / `docs.google.com` và rate limit route token / attach (T73).
+- Lối tắt có file gốc đã xoá / mất quyền vẫn hiện; tên lối tắt không đổi theo file gốc; gỡ lối tắt (bỏ gắn).
+- Lookup "đã gắn" không phân trang (>100 lối tắt cùng đích có thể tạo trùng); gắn đồng thời có thể trùng.
+- Pha Picker đang mở không có hạn / không đóng được nếu iframe lỗi.
+- Trang dự án / không gian vẫn đọc store demo (ID khác DB) → nối ở T59; gắn file vào công việc ở T60.
+- Kiểm tay chế độ demo (chưa chạy vì `.env.local` configured).
