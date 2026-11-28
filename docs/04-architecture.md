@@ -99,7 +99,7 @@ Lớp trên được import lớp dưới, **không có chiều ngược lại**
 | Bạn viết… | Đặt vào |
 |---|---|
 | Trang / route mới | `src/app/…/page.tsx`, chỉ import một view từ `features/` — ngoại lệ: được import thêm hàm thuần của chính feature đó để dựng `generateMetadata` (vd. `docs/page.tsx` dùng `docs-params.ts`) |
-| Tiêu đề tab trình duyệt theo trang | `generateMetadata` ở `page.tsx` trả phần đầu; đuôi ` · Taskeo` do `title.template` ở `src/app/layout.tsx` (template chỉ áp cho segment con, nên phải khai ở root layout, kèm `title.default`) |
+| Tiêu đề tab trình duyệt theo trang | `generateMetadata` ở `page.tsx` trả phần đầu; phần đuôi (tên app kèm nhãn môi trường, vd. `Taskeo` hoặc `Taskeo · Dev`) do `title.template` ở `src/app/layout.tsx` dựng từ `appTitle(getAppEnv())`, không viết cứng — template chỉ áp cho segment con nên phải khai ở root layout, kèm `title.default` |
 | Màn hình, card, bảng cho một nghiệp vụ | `src/features/<nghiệp-vụ>/` |
 | Component dùng ở nhiều feature, không biết gì về nghiệp vụ | `src/components/ui/` |
 | Hàm tính toán, lọc, validate | `src/domain/` (kèm `*.test.ts`) |

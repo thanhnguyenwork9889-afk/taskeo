@@ -51,6 +51,13 @@ describe("parseDocKindParam", () => {
     expect(parseDocKindParam(["  doc  "])).toBe("doc");
   });
 
+  // Ghi lại hành vi thật của String.trim(): nó bỏ no-break space (U+00A0) nhưng giữ
+  // zero-width space (U+200B). Vô hại vì đầu ra vẫn là nhãn cố định, nhưng nếu sau này đổi
+  // cách chuẩn hoá thì hai ca này báo ngay.
+  it("no-break space bị trim bỏ → vẫn nhận ra loại", () => {
+    expect(parseDocKindParam(" doc ")).toBe("doc");
+  });
+
   it("mảng một phần tử không hợp lệ → null", () => {
     expect(parseDocKindParam(["xyz"])).toBeNull();
   });

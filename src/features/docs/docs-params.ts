@@ -4,9 +4,10 @@ import { docKindSchema } from "@/domain/validation";
 
 // Parser `?type=` của trang /docs, dùng chung cho server và client (T019): `generateMetadata`
 // trong app/(app)/docs/page.tsx đọc `searchParams` được `string | string[] | undefined`, còn
-// docs-view.tsx đọc `useSearchParams().get("type")` được `string | null`. Hai bên cùng gọi hàm
-// này để `<title>` không lệch `<h1>` (vd. `?type=doc&type=sheet`: server thấy mảng, client chỉ
-// thấy "doc"). Vì vậy file không có JSX và không "use client".
+// docs-view.tsx đọc `useSearchParams().getAll("type")` được `string[]`. Hai bên cùng gọi hàm này
+// để `<title>` không lệch `<h1>`: với `?type=doc&type=sheet` cả hai đều thấy mảng hai phần tử và
+// cùng coi là không lọc (dùng `.get()` ở client sẽ chỉ thấy "doc" và lệch với server). Vì vậy
+// file không có JSX và không "use client".
 
 /** Tiêu đề khi không lọc theo loại (không có `?type=` hoặc `?type=` không hợp lệ). */
 export const DOCS_LIBRARY_TITLE = "Kho lưu trữ";

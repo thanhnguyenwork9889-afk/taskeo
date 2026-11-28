@@ -23,7 +23,7 @@ Quy trình: [07-workflow.md](../07-workflow.md). Mẫu: [_template.md](_template
 | T016 | [Hiển thị dung lượng Google Drive ở sidebar](T016-drive-storage-quota.md) | `feat/T016-drive-storage-quota` | done | `bd26a0f` |
 | T017 | [Tạo Doc / Sheet / Slide trong thư mục Drive, mở tab mới](T017-drive-create-file.md) | `feat/T017-drive-create-file` | done | `a4b9f71` |
 | T018 | [Google Picker: gắn file có sẵn trên Drive vào dự án](T018-drive-picker.md) | `feat/T018-drive-picker` | done | `f970e4b` |
-| T019 | [Tiêu đề trang theo loại tài liệu (đóng dòng T36)](T019-docs-type-pages.md) | `feat/T019-docs-type-pages` | 5-fix | — |
+| T019 | [Tiêu đề trang theo loại tài liệu (đóng dòng T36)](T019-docs-type-pages.md) | `feat/T019-docs-type-pages` | 7-final | — |
 
 ## Việc chờ làm (backlog)
 

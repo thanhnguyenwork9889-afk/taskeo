@@ -4,7 +4,7 @@
 |---|---|
 | Nhánh | `feat/T019-docs-type-pages` |
 | Tạo từ | `develop` @ `6e27ed2` |
-| Trạng thái | 5-fix |
+| Trạng thái | 7-final |
 | Ngày tạo | 2026-11-28 |
 
 Nguồn: sheet nhiệm vụ, dòng **T36** "Trang Soạn thảo / Bảng tính / Trình chiếu lọc theo loại file" (đã ở `Đang làm`).
@@ -143,13 +143,34 @@ Reviewer đã chạy (song song trên `git diff develop...HEAD`): `layer-reviewe
 
 | Phát hiện | Xử lý | Commit |
 |---|---|---|
-| R1 | đã sửa / bỏ qua: lý do | |
+| R1 (MEDIUM) | đã sửa: `docs/04-architecture.md` dòng 66 thêm `docs-params.ts`, dòng 69 thêm `DynamicMarker` kèm lý do, dòng 101 nới quy ước "trang chỉ import một view" | `6d7602e` |
+| R2 (LOW) | đã sửa cùng R1: ghi rõ ngoại lệ "trang được import hàm thuần của chính feature để dựng `generateMetadata`", thêm một hàng mới về quy ước tiêu đề tab | `6d7602e` |
+| R3 (LOW) | **bỏ qua**: `"Kho lưu trữ"` ở `navigation.ts:17` không dùng chung được với `DOCS_LIBRARY_TITLE` vì ESLint cấm `components/layout` import `features/`. Gộp một nguồn duy nhất phải dời hằng xuống `domain/labels.ts` — ngoài phạm vi T019, ghi vào "việc để sau" | — |
+| R4 (LOW) | đã sửa: `Connection` → `async function Connection(): Promise<null>`, khớp khuôn `login-auth-panel.tsx` | `6d7602e` |
+| R5 (LOW) | **bỏ qua**: `value[0]` đã an toàn nhờ `typeof raw !== "string"` che cả `null` lẫn `undefined`, đúng cả khi sau này bật `noUncheckedIndexedAccess`. Reviewer cũng ghi "không bắt buộc sửa" | — |
+| R6 (LOW) | **bỏ qua**: không do T019 gây ra — `LayoutProps<"/">` đã dùng ở `src/app/layout.tsx` và `(app)/layout.tsx` từ trước, nên cây sạch vốn đã cần Next sinh kiểu. Repo cũng chưa có CI (T52 / backlog B9 chưa làm). Ghi vào "việc để sau" | — |
+| R7 (LOW) | đã sửa: thêm 10 test — `["  doc  "]`, `["xyz"]`, và nhóm đầu vào ác ý (`</title><script>`, null byte, zero-width space, chuỗi 10k) kiểm cả ở tầng parser lẫn tầng tiêu đề | `6d7602e` |
 
-Kết quả 4 lệnh sau khi sửa:
+Kết quả 4 lệnh sau khi sửa (`verifier`): typecheck xanh · lint xanh · test xanh **1959** · build xanh. `/docs` = `◐ Partial Prerender`, `/_not-found` = `○ Static`.
 
 ## 6. Review lại
 
-Vòng 1:
+Vòng 1: chạy lại cả ba reviewer của bước 4 trên `git diff 4443193..HEAD`.
+
+**Không còn CRITICAL / HIGH.** `typescript-reviewer` kết luận "Approve"; `security-reviewer` không có phát hiện mới ở mọi mức; `layer-reviewer` tìm ra hai điểm chữ nghĩa lạc hậu, đã sửa luôn trong vòng này:
+
+| # | Mức | File:dòng | Vấn đề | Xử lý |
+|---|---|---|---|---|
+| R8 | MEDIUM | `docs/04-architecture.md:102` | Hàng mới do chính bước 5 thêm viết đuôi tiêu đề là `· Taskeo` như hằng số, trong khi code dựng từ `appTitle(getAppEnv())` nên ở dev là `· Taskeo · Dev`; đồng thời đi ngược hàng "Hiện tên app, không viết cứng Taskeo" ở ngay bảng đó | đã sửa: ghi "phần đuôi (tên app kèm nhãn môi trường…) dựng từ `appTitle(getAppEnv())`, không viết cứng" |
+| R9 | LOW | `src/features/docs/docs-params.ts:5–8` | Comment đầu file vẫn mô tả client đọc `useSearchParams().get("type")` (`string \| null`), trong khi P3 đã đổi sang `.getAll("type")`; ví dụ "client chỉ thấy doc" không còn đúng | đã sửa: comment mô tả `.getAll` và nói rõ vì sao không dùng `.get` |
+
+Ngoài ra, hai điểm **tự kiểm chứng bằng cách chạy code** chứ không nhận báo cáo của agent:
+- `"​doc".trim()` giữ nguyên zero-width space → ca test kỳ vọng `null` là đúng.
+- `" doc".trim()` **ra `"doc"`** (no-break space bị trim bỏ) → đã thêm một ca test ghi lại hành vi này. Vô hại vì đầu ra vẫn là nhãn cố định, nhưng nếu sau này đổi cách chuẩn hoá thì test báo ngay.
+
+Gợi ý của reviewer **không** làm, có lý do: test gọi thẳng `generateMetadata` của `page.tsx` (phải import một Server Component vào vitest môi trường node, chi phí cao hơn giá trị; bất biến "giá trị thô không ra `<title>`" đã đúng theo kiểu dữ liệu vì `docsPageTitle` chỉ nhận `DocKind | null`), và vài ca ác ý dạng mảng (`["</title>"]`) đi đúng cùng một nhánh code với ca chuỗi đã có.
+
+Sau R8 + R9: typecheck xanh · lint xanh · test xanh **1960** (thêm ca no-break space).
 
 ## 7. Final
 
