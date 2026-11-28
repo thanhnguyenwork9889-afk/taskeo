@@ -1,27 +1,45 @@
 import { describe, expect, it } from "vitest";
 import {
+  ALREADY_ATTACHED_CODE,
   DEFAULT_DRIVE_FILE_NAME,
   DOC_KIND_MIME,
   DRIVE_FILE_CREATE_FIELDS,
+  DRIVE_SHORTCUT_CREATE_FIELDS,
+  DRIVE_SHORTCUT_MIME,
+  DRIVE_TARGET_FIELDS,
   DRIVE_FILE_UNNAMED,
   DRIVE_NOT_CONNECTED_CODE,
   DRIVE_PARENTS_PER_QUERY,
+  INVALID_TARGET_CODE,
+  PICKER_NOT_CONFIGURED_CODE,
+  SHORTCUT_KIND_PROPERTY,
   buildDriveFilesQuery,
+  buildShortcutLookupQuery,
   buildFolderIndex,
   chunk,
   docKindFromMime,
+  driveEditUrl,
   escapeDriveQueryValue,
+  isDriveFileItem,
   mergeRecent,
+  pickRawDriveFile,
   toDriveFileItem,
   toDriveFileName,
   type FolderSpace,
 } from "./drive-files";
-import type { DriveFileItem } from "./types";
+import type { DocKind, DriveFileItem } from "./types";
+import { isDriveUrl } from "./validation";
 
 const DOC_MIME = "application/vnd.google-apps.document";
 const SHEET_MIME = "application/vnd.google-apps.spreadsheet";
 const SLIDE_MIME = "application/vnd.google-apps.presentation";
-const ALL_KINDS = `(mimeType='${DOC_MIME}' or mimeType='${SHEET_MIME}' or mimeType='${SLIDE_MIME}')`;
+const SHORTCUT_MIME = "application/vnd.google-apps.shortcut";
+const ALL_KINDS = `(mimeType='${DOC_MIME}' or mimeType='${SHEET_MIME}' or mimeType='${SLIDE_MIME}' or mimeType='${SHORTCUT_MIME}')`;
+const TARGET_ID = "1AbC_def-GHIjkl";
+
+function kindClause(kind: DocKind, mime: string): string {
+  return `(mimeType='${mime}' or (mimeType='${SHORTCUT_MIME}' and appProperties has { key='taskeoTargetKind' and value='${kind}' }))`;
+}
 
 const SPACES: FolderSpace[] = [
   {
@@ -59,7 +77,19 @@ function item(id: string, modifiedAt: string): DriveFileItem {
     projectId: null,
     spaceName: "Học tập",
     projectName: null,
+    shortcut: false,
   };
+}
+
+function shortcut(overrides: Record<string, unknown> = {}) {
+  return raw({
+    id: "sc1",
+    name: "Báo cáo gốc",
+    mimeType: SHORTCUT_MIME,
+    webViewLink: "https://drive.google.com/file/d/sc1/view",
+    shortcutDetails: { targetId: TARGET_ID, targetMimeType: DOC_MIME },
+    ...overrides,
+  });
 }
 
 describe("constants", () => {
@@ -70,6 +100,13 @@ describe("constants", () => {
     expect(DRIVE_FILE_UNNAMED).toBe("Không có tên");
     expect(DEFAULT_DRIVE_FILE_NAME).toBe("Tài liệu không tên");
     expect(DRIVE_FILE_CREATE_FIELDS).toBe("id,name,mimeType,modifiedTime,webViewLink,parents");
+    expect(DRIVE_SHORTCUT_MIME).toBe(SHORTCUT_MIME);
+    expect(SHORTCUT_KIND_PROPERTY).toBe("taskeoTargetKind");
+    expect(ALREADY_ATTACHED_CODE).toBe("already_attached");
+    expect(INVALID_TARGET_CODE).toBe("invalid_target");
+    expect(PICKER_NOT_CONFIGURED_CODE).toBe("picker_not_configured");
+    expect(DRIVE_SHORTCUT_CREATE_FIELDS).toBe(`${DRIVE_FILE_CREATE_FIELDS},shortcutDetails(targetId,targetMimeType)`);
+    expect(DRIVE_TARGET_FIELDS).toBe("id,name,mimeType,trashed,parents");
   });
 });
 
@@ -127,7 +164,19 @@ describe("buildDriveFilesQuery", () => {
   });
 
   it("filters one kind", () => {
-    expect(buildDriveFilesQuery({ kind: "sheet" })).toBe(`mimeType='${SHEET_MIME}' and trashed=false`);
+    expect(buildDriveFilesQuery({ kind: "sheet" })).toBe(`${kindClause("sheet", SHEET_MIME)} and trashed=false`);
+  });
+
+  it("accepts shortcuts tagged with the kind when filtering by kind", () => {
+    for (const [kind, mime] of [["doc", DOC_MIME], ["sheet", SHEET_MIME], ["slide", SLIDE_MIME]] as const) {
+      const q = buildDriveFilesQuery({ kind });
+      expect(q).toContain(`mimeType='${SHORTCUT_MIME}' and appProperties has { key='taskeoTargetKind' and value='${kind}' }`);
+      expect(q.startsWith(`(mimeType='${mime}' or (`)).toBe(true);
+    }
+  });
+
+  it("accepts every shortcut when no kind is given", () => {
+    expect(buildDriveFilesQuery({})).toContain(`or mimeType='${SHORTCUT_MIME}')`);
   });
 
   it("ignores an empty parent list", () => {
@@ -136,7 +185,7 @@ describe("buildDriveFilesQuery", () => {
 
   it("adds one parent", () => {
     expect(buildDriveFilesQuery({ kind: "doc", parentIds: ["a"] })).toBe(
-      `mimeType='${DOC_MIME}' and trashed=false and ('a' in parents)`,
+      `${kindClause("doc", DOC_MIME)} and trashed=false and ('a' in parents)`,
     );
   });
 
@@ -220,6 +269,7 @@ describe("toDriveFileItem", () => {
       projectId: null,
       spaceName: "Học tập",
       projectName: null,
+      shortcut: false,
     });
   });
 
@@ -326,5 +376,160 @@ describe("toDriveFileName", () => {
 
   it("cuts long names to 200 code points", () => {
     expect(Array.from(toDriveFileName("😀".repeat(250)))).toHaveLength(200);
+  });
+});
+
+describe("driveEditUrl", () => {
+  it.each([
+    ["doc", `https://docs.google.com/document/d/${TARGET_ID}/edit`],
+    ["sheet", `https://docs.google.com/spreadsheets/d/${TARGET_ID}/edit`],
+    ["slide", `https://docs.google.com/presentation/d/${TARGET_ID}/edit`],
+  ] as const)("builds the edit URL for %s", (kind, expected) => {
+    const url = driveEditUrl(kind, TARGET_ID);
+    expect(url).toBe(expected);
+    expect(isDriveUrl(url ?? "")).toBe(true);
+  });
+
+  it.each([[""], ["   "], ["short"], ["a/b/c/d/e/f/g"], ["abcdefghij?x=1"], ["abcdefghij#x"], ["abc def ghij"], ["x".repeat(129)], ["abcdefghij\u0000"]])(
+    "returns null for id %j",
+    (id) => {
+      expect(driveEditUrl("doc", id)).toBeNull();
+    },
+  );
+});
+
+describe("buildShortcutLookupQuery", () => {
+  it("looks up non-trashed shortcuts to the target", () => {
+    expect(buildShortcutLookupQuery(TARGET_ID)).toBe(
+      `mimeType='${SHORTCUT_MIME}' and shortcutDetails.targetId='${TARGET_ID}' and trashed=false`,
+    );
+  });
+
+  it("does not combine with an `in parents` clause (Drive returns 400 Invalid Value)", () => {
+    expect(buildShortcutLookupQuery(TARGET_ID)).not.toContain("in parents");
+  });
+
+  it("escapes ' and \\ in the target id", () => {
+    expect(buildShortcutLookupQuery("a'b\\c")).toBe(
+      `mimeType='${SHORTCUT_MIME}' and shortcutDetails.targetId='a\\'b\\\\c' and trashed=false`,
+    );
+  });
+});
+
+describe("pickRawDriveFile", () => {
+  it("keeps only the requested fields", () => {
+    const file = {
+      ...shortcut(),
+      kind: "drive#file",
+      owners: [{ emailAddress: "a@example.com" }],
+      shortcutDetails: { targetId: TARGET_ID, targetMimeType: DOC_MIME, targetResourceKey: "rk" },
+    };
+    expect(pickRawDriveFile(file)).toEqual({
+      id: "sc1",
+      name: "Báo cáo gốc",
+      mimeType: SHORTCUT_MIME,
+      modifiedTime: "2026-11-27T08:00:00.000Z",
+      webViewLink: "https://drive.google.com/file/d/sc1/view",
+      parents: ["fs1"],
+      shortcutDetails: { targetId: TARGET_ID, targetMimeType: DOC_MIME },
+    });
+  });
+
+  it("omits shortcutDetails for a normal file", () => {
+    const picked = pickRawDriveFile({ ...raw(), size: "123" } as never);
+    expect(picked).toEqual(raw());
+    expect("shortcutDetails" in picked).toBe(false);
+  });
+
+  it("does not modify the input", () => {
+    const details = { targetId: TARGET_ID, targetMimeType: DOC_MIME };
+    const file = shortcut({ shortcutDetails: details });
+    const copy = structuredClone(file);
+    const picked = pickRawDriveFile(file);
+    expect(file).toEqual(copy);
+    expect(picked.shortcutDetails).not.toBe(details);
+  });
+});
+
+describe("toDriveFileItem with shortcuts", () => {
+  const index = buildFolderIndex(SPACES);
+
+  it.each([
+    ["doc", DOC_MIME],
+    ["sheet", SHEET_MIME],
+    ["slide", SLIDE_MIME],
+  ] as const)("maps a shortcut to a %s by target mime", (kind, targetMimeType) => {
+    const result = toDriveFileItem(shortcut({ shortcutDetails: { targetId: TARGET_ID, targetMimeType } }), index);
+    expect(result).toEqual({
+      id: "sc1",
+      name: "Báo cáo gốc",
+      kind,
+      url: driveEditUrl(kind, TARGET_ID),
+      modifiedAt: "2026-11-27T08:00:00.000Z",
+      spaceId: "s1",
+      projectId: null,
+      spaceName: "Học tập",
+      projectName: null,
+      shortcut: true,
+    });
+    expect(isDriveUrl(result?.url ?? "")).toBe(true);
+  });
+
+  it("does not use the shortcut webViewLink", () => {
+    expect(toDriveFileItem(shortcut(), index)?.url).toBe(`https://docs.google.com/document/d/${TARGET_ID}/edit`);
+  });
+
+  it.each([
+    ["PDF target", { shortcutDetails: { targetId: TARGET_ID, targetMimeType: "application/pdf" } }],
+    ["folder target", { shortcutDetails: { targetId: TARGET_ID, targetMimeType: "application/vnd.google-apps.folder" } }],
+    ["shortcut target", { shortcutDetails: { targetId: TARGET_ID, targetMimeType: SHORTCUT_MIME } }],
+    ["missing target mime", { shortcutDetails: { targetId: TARGET_ID } }],
+    ["missing shortcutDetails", { shortcutDetails: undefined }],
+    ["null shortcutDetails", { shortcutDetails: null }],
+    ["outside Taskeo", { parents: ["other"] }],
+  ])("returns null for %s", (_label, overrides) => {
+    expect(toDriveFileItem(shortcut(overrides), index)).toBeNull();
+  });
+
+  it.each([[undefined], [""], ["bad/id"], ["short"]])("sets url null for target id %j", (targetId) => {
+    const result = toDriveFileItem(shortcut({ shortcutDetails: { targetId, targetMimeType: SHEET_MIME } }), index);
+    expect(result).toMatchObject({ kind: "sheet", url: null, shortcut: true });
+  });
+
+  it("ignores shortcutDetails on a normal file", () => {
+    const result = toDriveFileItem(raw({ shortcutDetails: { targetId: TARGET_ID, targetMimeType: SHEET_MIME } }), index);
+    expect(result).toMatchObject({ kind: "doc", url: "https://docs.google.com/document/d/f1/edit", shortcut: false });
+  });
+});
+
+describe("isDriveFileItem", () => {
+  const valid = { ...item("a", "2026-11-01T00:00:00.000Z"), url: "https://docs.google.com/document/d/a/edit" };
+
+  it("accepts a valid item, with or without url / project", () => {
+    expect(isDriveFileItem(valid)).toBe(true);
+    expect(isDriveFileItem({ ...valid, url: null, shortcut: true })).toBe(true);
+    expect(isDriveFileItem({ ...valid, projectId: "p1", projectName: "Luận văn" })).toBe(true);
+  });
+
+  it.each([[null], [undefined], ["x"], [1], [[]]])("rejects non-object %j", (value) => {
+    expect(isDriveFileItem(value)).toBe(false);
+  });
+
+  it.each([
+    ["missing shortcut", { shortcut: undefined }],
+    ["string shortcut", { shortcut: "false" }],
+    ["unknown kind", { kind: "pdf" }],
+    ["inherited kind", { kind: "toString" }],
+    ["non-Drive url", { url: "javascript:alert(1)" }],
+    ["http url", { url: "http://docs.google.com/document/d/a" }],
+    ["numeric id", { id: 1 }],
+    ["missing name", { name: undefined }],
+    ["missing modifiedAt", { modifiedAt: undefined }],
+    ["missing spaceId", { spaceId: undefined }],
+    ["missing spaceName", { spaceName: undefined }],
+    ["undefined projectId", { projectId: undefined }],
+    ["numeric projectName", { projectName: 2 }],
+  ])("rejects %s", (_label, overrides) => {
+    expect(isDriveFileItem({ ...valid, ...overrides })).toBe(false);
   });
 });

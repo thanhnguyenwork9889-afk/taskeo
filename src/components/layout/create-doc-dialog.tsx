@@ -2,28 +2,26 @@
 
 import { useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { AlertTriangle, RotateCw } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import type { DocKind } from "@/domain/types";
 import { SPACE_NAME_MAX } from "@/domain/validation";
 import { control, cx, field, primaryButton, secondaryButton } from "@/components/ui/styles";
 import { buildCreateFileBody, postDriveFile, type CreateFileBody, type CreateFileFormValues, type NamedOption } from "./create-doc-api";
-import { createDocDialogState, initialProjectId, initialSpaceId, requestedProjectWait, type CreateDocDialogState } from "./create-doc-state";
+import { createDocDialogState, type CreateDocDialogState } from "./create-doc-state";
 import { DocKindField } from "./doc-kind-field";
 import { DriveConnectPrompt } from "./drive-connect-prompt";
+import { DrivePlacementFields, LoadingSkeleton, SpacesError, placementStatusClass } from "./drive-placement-fields";
 import { useViewer, type CreateRequest } from "./ui-context";
-import { useApiProjects, useApiSpaces } from "./use-create-doc-data";
+import { useApiSpaces } from "./use-create-doc-data";
 import { useCreateDocSubmit, type CreatedFile, type CreateFileMutation } from "./use-create-doc-submit";
+import { useDrivePlacement } from "./use-drive-placement";
 
 // Hộp thoại tạo Doc / Sheet / Slide trong thư mục Drive (T017, chế độ configured). Không gian / dự án
 // lấy từ API vì ID store demo chưa khớp DB (T59). Component gọi `useViewer()` → phải nằm trong <Suspense>.
 
 type DocRequest = Extract<CreateRequest, { kind: "doc" }>;
-/** Giá trị tạm của ô dự án khi tải dự án được yêu cầu lỗi: buộc người dùng chọn một lựa chọn thật. */
-const CHOOSE_PROJECT_VALUE = "__choose__";
 
 const TITLE = "Tạo tài liệu mới";
-const statusClass = "flex flex-col items-center px-2 py-6 text-center";
 const cancelClass = cx(control, "border border-[#E5E3ED] px-4 text-sm disabled:cursor-not-allowed disabled:opacity-60");
 
 interface DriveCreateDocDialogProps {
@@ -75,7 +73,7 @@ function DialogStatus({ state, retrying, onRetry, onClose }: DialogStatusProps) 
   if (state === "loading") return <LoadingSkeleton />;
   if (state === "error") return <SpacesError retrying={retrying} onRetry={onRetry} />;
   return (
-    <div className={statusClass}>
+    <div className={placementStatusClass}>
       <p className="text-sm font-medium">Bạn chưa có không gian nào</p>
       <p className="mb-5 mt-2 max-w-sm text-sm leading-6 text-muted">
         Tài liệu được lưu trong thư mục Drive của một không gian. Hãy tạo không gian trước, rồi quay lại tạo tài liệu.
@@ -87,59 +85,13 @@ function DialogStatus({ state, retrying, onRetry, onClose }: DialogStatusProps) 
   );
 }
 
-function LoadingSkeleton() {
-  return (
-    <div role="status" aria-label="Đang tải danh sách không gian" className="space-y-5">
-      {[0, 1, 2, 3].map((index) => (
-        <div key={index} aria-hidden className="space-y-2">
-          <span className="block h-3 w-24 animate-pulse rounded bg-brand-faint" />
-          <span className="block h-11 w-full animate-pulse rounded-lg bg-brand-faint" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function SpacesError({ retrying, onRetry }: { retrying: boolean; onRetry: () => void }) {
-  return (
-    <div role="alert" className={statusClass}>
-      <AlertTriangle className="mb-3 h-8 w-8 text-red-700" aria-hidden />
-      <p className="text-sm font-medium">Không tải được danh sách không gian</p>
-      <p className="mb-5 mt-2 max-w-sm text-sm leading-6 text-muted">Kiểm tra kết nối mạng rồi thử lại.</p>
-      <button type="button" onClick={onRetry} disabled={retrying} className={cx(secondaryButton, "disabled:cursor-wait disabled:opacity-60")}>
-        <RotateCw className={cx("h-4 w-4", retrying && "animate-spin")} aria-hidden />
-        {retrying ? "Đang thử lại…" : "Thử lại"}
-      </button>
-    </div>
-  );
-}
-
-/**
- * State của form. Dự án: `projectChoice === null` = người dùng chưa chọn → dùng `initialProjectId` khi danh sách
- * dự án của không gian ban đầu đã tải; đổi không gian → reset về "Không gắn dự án".
- */
+/** State của form: tên, loại, và chỗ đặt (không gian / dự án) từ `useDrivePlacement`. */
 function useDocForm(request: DocRequest, spaces: NamedOption[]) {
   const [name, setName] = useState("");
   const [kind, setKind] = useState<DocKind>(request.docKind ?? "doc");
-  const [startSpaceId] = useState(() => initialSpaceId(request.spaceId, spaces));
-  const [spaceId, setSpaceId] = useState(startSpaceId);
-  const [projectChoice, setProjectChoice] = useState<string | null>(null);
-  const projectsQuery = useApiProjects(spaceId, { enabled: true });
-  const projects = projectsQuery.data ?? [];
-  const inStartSpace = spaceId === startSpaceId;
-  const defaultProjectId = inStartSpace ? initialProjectId(request.projectId, projects) : "";
-  const values: CreateFileFormValues = { name, kind, spaceId, projectId: projectChoice ?? defaultProjectId };
-  const projectWait = requestedProjectWait({
-    requestedProjectId: request.projectId,
-    projectChoice,
-    inStartSpace,
-    projectsStatus: projectsQuery.status,
-  });
-  const changeSpace = (id: string) => {
-    setSpaceId(id);
-    setProjectChoice("");
-  };
-  return { values, projects, projectsQuery, projectWait, setName, setKind, changeSpace, setProjectId: setProjectChoice };
+  const placement = useDrivePlacement(request, spaces);
+  const values: CreateFileFormValues = { name, kind, spaceId: placement.spaceId, projectId: placement.projectId };
+  return { values, placement, setName, setKind };
 }
 
 interface CreateDocFormProps {
@@ -154,7 +106,8 @@ interface CreateDocFormProps {
 
 function CreateDocForm({ request, spaces, mutation, onCancel, onDone }: CreateDocFormProps) {
   const form = useDocForm(request, spaces);
-  const { values, projectsQuery, projectWait } = form;
+  const { values } = form;
+  const { projectWait } = form.placement;
   const { submit, error, created } = useCreateDocSubmit({ mutation, onDone });
   const busy = mutation.isPending;
 
@@ -172,18 +125,7 @@ function CreateDocForm({ request, spaces, mutation, onCancel, onDone }: CreateDo
     <form onSubmit={handleSubmit} className="space-y-5">
       <DocKindField value={values.kind} onChange={form.setKind} disabled={busy} />
       <NameField value={values.name} onChange={form.setName} disabled={busy} />
-      <SpaceSelect spaces={spaces} value={values.spaceId} onChange={form.changeSpace} disabled={busy} />
-      <ProjectSelect
-        projects={form.projects}
-        value={projectWait === "error" ? CHOOSE_PROJECT_VALUE : values.projectId}
-        onChange={form.setProjectId}
-        loading={projectsQuery.isPending}
-        failed={projectsQuery.isError}
-        waitFailed={projectWait === "error"}
-        retrying={projectsQuery.isFetching}
-        onRetry={() => void projectsQuery.refetch()}
-        disabled={busy}
-      />
+      <DrivePlacementFields spaces={spaces} placement={form.placement} disabled={busy} />
       {error && (
         <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm leading-6 text-red-800">
           {error}
@@ -215,86 +157,6 @@ function NameField({ value, onChange, disabled }: TextFieldProps) {
         className={cx(field, "mt-2 disabled:opacity-60")}
       />
     </label>
-  );
-}
-
-interface SpaceSelectProps extends TextFieldProps {
-  spaces: NamedOption[];
-}
-
-function SpaceSelect({ spaces, value, onChange, disabled }: SpaceSelectProps) {
-  return (
-    <label className="block text-sm font-medium">
-      Không gian
-      <select value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)} className={cx(field, "mt-2 disabled:opacity-60")}>
-        {spaces.map((space) => (
-          <option key={space.id} value={space.id}>
-            {space.name}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-interface ProjectSelectProps extends TextFieldProps {
-  projects: NamedOption[];
-  loading: boolean;
-  failed: boolean;
-  /** Tải dự án được yêu cầu lỗi: chặn gửi tới khi người dùng tự chọn hoặc tải lại được. */
-  waitFailed: boolean;
-  retrying: boolean;
-  onRetry: () => void;
-}
-
-function ProjectSelect({ projects, value, onChange, loading, failed, waitFailed, retrying, onRetry, disabled }: ProjectSelectProps) {
-  return (
-    <div>
-      <label className="block text-sm font-medium">
-        Dự án
-        <select
-          value={value}
-          disabled={disabled || loading}
-          aria-busy={loading}
-          onChange={(event) => onChange(event.target.value)}
-          className={cx(field, "mt-2 disabled:opacity-60")}
-        >
-          {waitFailed && (
-            <option value={CHOOSE_PROJECT_VALUE} disabled>
-              Chọn dự án…
-            </option>
-          )}
-          <option value="">{loading ? "Đang tải dự án…" : "Không gắn dự án"}</option>
-          {projects.map((project) => (
-            <option key={project.id} value={project.id}>
-              {project.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      {waitFailed && <ProjectsRetry retrying={retrying} onRetry={onRetry} />}
-      {failed && !waitFailed && (
-        <span className="mt-1 block text-xs text-muted">Không tải được danh sách dự án; tài liệu sẽ nằm trong thư mục không gian.</span>
-      )}
-    </div>
-  );
-}
-
-/** Mở từ trang dự án mà tải dự án lỗi: thử lại, hoặc người dùng tự chọn trong ô Dự án. */
-function ProjectsRetry({ retrying, onRetry }: { retrying: boolean; onRetry: () => void }) {
-  return (
-    <div role="alert" className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm leading-6 text-red-800">
-      <span>Không tải được dự án đã chọn. Hãy thử lại hoặc chọn một lựa chọn trong ô Dự án.</span>
-      <button
-        type="button"
-        onClick={onRetry}
-        disabled={retrying}
-        className="inline-flex shrink-0 items-center gap-1 font-medium underline disabled:cursor-wait disabled:opacity-60"
-      >
-        <RotateCw className={cx("h-4 w-4", retrying && "animate-spin")} aria-hidden />
-        {retrying ? "Đang thử lại…" : "Thử lại"}
-      </button>
-    </div>
   );
 }
 

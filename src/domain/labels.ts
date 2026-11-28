@@ -71,6 +71,10 @@ export const DOC_KIND_LABEL: Record<DocKind, string> = {
   slide: "Trình chiếu",
 };
 
+/** Nhãn lối tắt Drive (file gốc nằm chỗ khác, được gắn vào thư mục Taskeo) — T018. */
+export const ATTACHED_LABEL = "Đã gắn";
+export const ATTACHED_TITLE = "Lối tắt tới file gốc trên Drive, được gắn vào thư mục Taskeo";
+
 export const DOC_KIND_STYLE: Record<DocKind, string> = {
   doc: "bg-blue-50 text-blue-600",
   sheet: "bg-emerald-50 text-emerald-700",

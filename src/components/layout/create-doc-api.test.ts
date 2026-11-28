@@ -8,7 +8,9 @@ import {
   buildCreateFileBody,
   fetchApiProjects,
   fetchApiSpaces,
+  fileFromBody,
   postDriveFile,
+  requestJson,
   shouldRetryCreateDocQuery,
 } from "./create-doc-api";
 
@@ -22,6 +24,7 @@ const FILE: DriveFileItem = {
   projectId: null,
   spaceName: "Marketing",
   projectName: null,
+  shortcut: false,
 };
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -205,5 +208,62 @@ describe("shouldRetryCreateDocQuery", () => {
     expect(shouldRetryCreateDocQuery(0, new CreateDocRequestError("x", 502))).toBe(true);
     expect(shouldRetryCreateDocQuery(0, new TypeError("network"))).toBe(true);
     expect(shouldRetryCreateDocQuery(1, new TypeError("network"))).toBe(false);
+  });
+});
+
+describe("fileFromBody", () => {
+  it("trả file khi đúng hình dạng, giữ cờ shortcut", () => {
+    expect(fileFromBody({ data: { file: FILE } })).toEqual(FILE);
+    expect(fileFromBody({ data: { file: { ...FILE, shortcut: true } } })?.shortcut).toBe(true);
+  });
+
+  it("thiếu shortcut → null", () => {
+    const rest: Partial<DriveFileItem> = { ...FILE };
+    delete rest.shortcut;
+    expect(fileFromBody({ data: { file: rest } })).toBeNull();
+  });
+
+  it("shortcut không phải boolean → null", () => {
+    expect(fileFromBody({ data: { file: { ...FILE, shortcut: "true" } } })).toBeNull();
+    expect(fileFromBody({ data: { file: { ...FILE, shortcut: 1 } } })).toBeNull();
+    expect(fileFromBody({ data: { file: { ...FILE, shortcut: null } } })).toBeNull();
+  });
+
+  it("url không phải Drive → null, không sửa body gốc", () => {
+    const file = { ...FILE, url: "javascript:alert(1)" };
+    expect(fileFromBody({ data: { file } })?.url).toBeNull();
+    expect(file.url).toBe("javascript:alert(1)");
+  });
+
+  it("url không phải chuỗi / null → null", () => {
+    expect(fileFromBody({ data: { file: { ...FILE, url: 42 } } })).toBeNull();
+  });
+
+  it("sai envelope → null", () => {
+    expect(fileFromBody(null)).toBeNull();
+    expect(fileFromBody({ data: FILE })).toBeNull();
+    expect(fileFromBody({ data: { file: "x" } })).toBeNull();
+  });
+});
+
+describe("requestJson", () => {
+  it("gửi Accept JSON, trả giá trị đã parse", async () => {
+    const fake = stubFetch(jsonResponse({ ok: 1 }));
+    await expect(requestJson("/x", {}, (body) => body)).resolves.toEqual({ ok: 1 });
+    expect(fake.mock.calls[0][1]?.headers).toMatchObject({ Accept: "application/json" });
+  });
+
+  it("parse trả null → lỗi phản hồi không hợp lệ kèm status", async () => {
+    stubFetch(jsonResponse({ ok: 1 }));
+    const error = await rejection(requestJson("/x", {}, () => null));
+    expect(error.status).toBe(200);
+  });
+
+  it("mã không OK → lỗi từ envelope", async () => {
+    stubFetch(jsonResponse({ data: null, error: { message: "Không có", code: "nope" } }, 404));
+    const error = await rejection(requestJson("/x", {}, (body) => body));
+    expect(error.status).toBe(404);
+    expect(error.code).toBe("nope");
+    expect(error.message).toBe("Không có");
   });
 });

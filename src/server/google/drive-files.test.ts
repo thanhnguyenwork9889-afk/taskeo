@@ -12,7 +12,7 @@ vi.mock("./granted-scopes", () => ({ hasGoogleScope: mocks.hasGoogleScope }));
 vi.mock("googleapis", () => ({ google: { drive: mocks.googleDrive } }));
 vi.mock("./client", () => ({ getGoogleAuth: mocks.getGoogleAuth }));
 
-import { DOC_KIND_MIME, DRIVE_FILE_CREATE_FIELDS } from "@/domain/drive-files";
+import { DOC_KIND_MIME, DRIVE_FILE_CREATE_FIELDS, DRIVE_SHORTCUT_MIME } from "@/domain/drive-files";
 import type { DocKind } from "@/domain/types";
 
 import { DRIVE_LIST_FIELDS, createDriveFile, listDriveFiles } from "./drive-files";
@@ -157,7 +157,10 @@ describe("listDriveFiles", () => {
       files: [file("f1")],
     });
     expect(getDrive).toHaveBeenCalledWith(USER);
-    expect(DRIVE_LIST_FIELDS).toBe("files(id,name,mimeType,modifiedTime,webViewLink,parents)");
+    expect(DRIVE_LIST_FIELDS).toBe(
+      "files(id,name,mimeType,modifiedTime,webViewLink,parents,shortcutDetails(targetId,targetMimeType))",
+    );
+    expect(list.mock.calls[0]?.[0].fields).toContain("shortcutDetails(targetId,targetMimeType)");
     expect(list).toHaveBeenCalledTimes(1);
     expect(list).toHaveBeenCalledWith(
       {
@@ -182,6 +185,44 @@ describe("listDriveFiles", () => {
 
     const result = await listDriveFiles(USER, [Q1, Q2], 20, deps);
     expect(result).toEqual({ status: "ok", files: [file("f1")] });
+  });
+
+  it("lối tắt giữ shortcutDetails; cắt trường thừa ở file và trong shortcutDetails", async () => {
+    const { drive, list } = fakeDrive();
+    const shortcutDetails = {
+      targetId: "target-1",
+      targetMimeType: "application/vnd.google-apps.spreadsheet",
+    };
+    const shortcut = file("s1", { mimeType: DRIVE_SHORTCUT_MIME, shortcutDetails });
+    list.mockResolvedValue({
+      data: {
+        files: [
+          {
+            ...shortcut,
+            owners: [{ emailAddress: "x@y" }],
+            shortcutDetails: { ...shortcutDetails, targetResourceKey: "rk-secret" },
+          },
+          file("f1"),
+        ],
+      },
+    });
+    const { deps } = fakeDeps(drive);
+
+    const result = await listDriveFiles(USER, [Q1], 20, deps);
+    expect(result).toEqual({ status: "ok", files: [shortcut, file("f1")] });
+    expect(JSON.stringify(result)).not.toContain("rk-secret");
+    expect(JSON.stringify(result)).not.toContain("owners");
+  });
+
+  it("file thường không có shortcutDetails → không thêm khoá shortcutDetails", async () => {
+    const { drive, list } = fakeDrive();
+    list.mockResolvedValue({ data: { files: [file("f1", { shortcutDetails: null })] } });
+    const { deps } = fakeDeps(drive);
+
+    const result = await listDriveFiles(USER, [Q1], 20, deps);
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.files[0]).not.toHaveProperty("shortcutDetails");
   });
 
   it("nhiều q → gọi song song (cùng signal), nối kết quả theo thứ tự queries", async () => {

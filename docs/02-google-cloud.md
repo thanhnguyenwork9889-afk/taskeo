@@ -105,7 +105,7 @@ Taskeo/                      appProperties.taskeoRole = "root"
 
 ### Liệt kê file Drive (T015)
 
-- `GET /api/files` → `listFiles` (`src/server/drive-files.ts`) đọc không gian / dự án của user (một truy vấn Prisma, lọc `userId`), dựng chuỗi `q` bằng `buildDriveFilesQuery` (`src/domain/drive-files.ts`): 3 mimeType Google (Docs / Sheets / Slides) hoặc một loại, `trashed=false`, thêm `('<id>' in parents or …)` khi lọc theo không gian / dự án. Gọi `listDriveFiles` (`src/server/google/drive-files.ts`): `files.list` với `orderBy: modifiedTime desc`, `fields` chỉ `id, name, mimeType, modifiedTime, webViewLink, parents`.
+- `GET /api/files` → `listFiles` (`src/server/drive-files.ts`) đọc không gian / dự án của user (một truy vấn Prisma, lọc `userId`), dựng chuỗi `q` bằng `buildDriveFilesQuery` (`src/domain/drive-files.ts`): 3 mimeType Google (Docs / Sheets / Slides) hoặc một loại, `trashed=false`, thêm `('<id>' in parents or …)` khi lọc theo không gian / dự án. Gọi `listDriveFiles` (`src/server/google/drive-files.ts`): `files.list` với `orderBy: modifiedTime desc`, `fields` chỉ `id, name, mimeType, modifiedTime, webViewLink, parents, shortcutDetails(targetId,targetMimeType)` (lối tắt T018: xem mục Google Picker).
 - **Với `drive.file`, app chỉ thấy file chính nó tạo hoặc người dùng mở bằng app.** File người dùng tự tạo trong thư mục Taskeo trên Drive **không** hiện. File tạo bằng nút "Tạo tài liệu" (T017) thì app thấy ngay. Script dev cũ (không còn cần cho kiểm thật) `ALLOW_DEV_SCRIPT=1 node --env-file=.env.local scripts/dev-create-doc.mjs <email> <spaceId> [doc|sheet|slide] [tên]` (tạo file trống trong thư mục không gian; chỉ dùng ở dev, không ghi lại token; từ chối chạy khi `NODE_ENV` / `VERCEL_ENV` = production, và với DB không phải localhost nếu thiếu `ALLOW_DEV_SCRIPT=1`).
 - Gắn file với không gian / dự án qua `parents` khớp `driveFolderId` (thư mục dự án thắng thư mục không gian). File ngoài thư mục Taskeo của user bị bỏ.
 - Tài liệu gần đây (không lọc): một lần `files.list` 100 file mới nhất rồi lọc trong bộ nhớ (200 × 200 thư mục không vừa một chuỗi `q`). Nếu app thấy hơn 100 file ngoài thư mục Taskeo, danh sách có thể ngắn hơn `limit` (chưa phân trang). Theo không gian: thư mục không gian + thư mục dự án, 40 thư mục mỗi `q`, gọi song song.
@@ -127,7 +127,27 @@ Taskeo/                      appProperties.taskeoRole = "root"
 - Cùng khuôn với liệt kê file: kiểm scope trước (chưa có → 403 `drive_not_connected`, không nạp `googleapis`), hạn tổng 10 s, lỗi / quá hạn / `storageQuota` sai → 502, log một dòng an toàn.
 - Giao diện: khối dưới công tắc Google Drive (`src/components/layout/drive-storage-meter.tsx`), chỉ khi `configured` + đã kết nối; TanStack Query `staleTime` 5 phút. Mỗi lần tải lại trang (quá 5 phút hoặc QueryClient mới) là một lần `about.get`; rate limit / cache phía server để T73.
 
+### Gắn file có sẵn bằng Google Picker (T018)
+
+**Người dùng tự làm một lần (mỗi môi trường):**
+
+1. Cloud Console, **cùng project với OAuth client** → APIs & Services → Library: Google Picker API đã bật (T03).
+2. APIs & Services → Credentials → **Create credentials → API key**. Sửa key:
+   - *API restrictions* → Restrict key → chỉ **Google Picker API**.
+   - *Application restrictions* → **Websites (HTTP referrers)** → `http://localhost:3000/*` (dev) · `https://taskeo-zeta.vercel.app/*` (production). Key được gửi ra trình duyệt, không giới hạn thì ai cũng dùng được quota của project.
+3. Trang tổng quan project (Dashboard / Project info) → **Project number** (dãy chữ số, không phải project ID).
+4. Đặt `GOOGLE_PICKER_API_KEY` và `GOOGLE_CLOUD_PROJECT_NUMBER` vào `.env.local` (dev) / Vercel Production, khởi động lại / deploy lại. Thiếu một trong hai → `GET /api/drive/picker-token` trả 503 `code: "picker_not_configured"`, hộp thoại báo chưa cấu hình; phần còn lại của app không đổi.
+
+**Cách chạy:**
+
+- `GET /api/drive/picker-token` → `getPickerAccessToken` (`src/server/google/picker-token.ts`): kiểm `drive.file` trước (chưa có → 403 `drive_not_connected`, không đụng token), `getGoogleAuth().getAccessToken()` (thư viện tự refresh, listener lưu token mới), hạn 10 s, lỗi → 502. Trả `{ accessToken, expiresAt, developerKey, appId }`; mọi phản hồi `no-store`.
+- Trình duyệt nạp `https://apis.google.com/js/api.js` **chỉ khi bấm** (không bao giờ ở demo), `gapi.load("picker")`, mở `DocsView` chỉ Docs / Sheets / Slides, không thư mục, một file, `setOAuthToken` + `setDeveloperKey` + **`setAppId(project number)`**. Với `drive.file`, file người dùng chọn qua Picker được cấp quyền cho app; `appId` sai thì Picker vẫn chọn được nhưng server đọc file bị 403 / 404 → 404 `invalid_target` (403 có log riêng để dễ nhận ra).
+- `POST /api/files/attach` → `attachFile` (`src/server/drive-files.ts`) → `attachDriveShortcut` (`src/server/google/drive-shortcuts.ts`), một hạn 10 s: `files.get` file đích (`supportsAllDrives`) → phải là Docs / Sheets / Slides chưa vào thùng rác → đã nằm trong thư mục đích, hoặc đã có lối tắt cùng `targetId` trong thư mục (`files.list` với `mimeType=<shortcut> and shortcutDetails.targetId='…' and trashed=false`, `fields=files(id,parents)`, rồi lọc `parents` trong code: Drive trả 400 `Invalid Value` nếu gộp `shortcutDetails.targetId` với `'<thư mục>' in parents` trong cùng `q`, đã kiểm thật 2026-11-28) → 409 `already_attached` → `files.create` lối tắt (`mimeType` `application/vnd.google-apps.shortcut`, `shortcutDetails.targetId`, `parents: [thư mục dự án | không gian]`, tên = tên file đích, `appProperties.taskeoTargetKind = doc|sheet|slide`). Thư mục còn null thì tạo bù như T017.
+- **File gốc giữ nguyên chỗ**, Taskeo không đổi quyền chia sẻ. Lối tắt nằm trong thư mục Taskeo nên cũng thấy trên Drive.
+- Liệt kê: Drive `q` không lọc được theo `shortcutDetails.targetMimeType`, nên lọc loại dùng `appProperties.taskeoTargetKind` (với `drive.file`, mọi lối tắt app thấy đều do app tạo): `(mimeType='<loại>' or (mimeType='<shortcut>' and appProperties has { key='taskeoTargetKind' and value='<loại>' }))`; server lọc lại theo `targetMimeType` sau khi ánh xạ. URL mở = `docs.google.com/{document|spreadsheets|presentation}/d/<targetId>/edit`; item có `shortcut: true`, `modifiedAt` là lúc gắn. Giao diện ghi nhãn "Đã gắn".
+- Giới hạn đã biết: tên lối tắt không đổi theo file gốc; hai lần gắn đồng thời có thể tạo trùng; quá hạn sau khi đã tạo → gắn lại báo 409; trình chặn quảng cáo chặn `apis.google.com` → thông báo không tải được Picker. CSP cho `apis.google.com` / `docs.google.com` làm cùng T73.
+
 ## Bảo mật token
 
 - Token Google được mã hoá AES-256-GCM (`src/server/crypto.ts`) trước khi ghi DB, bằng cách bọc `linkAccount` của Prisma adapter.
-- Client không cầm token. Ngoại lệ có chủ đích: Google Picker (giai đoạn 3) chạy trên trình duyệt nên cần một route trả access token ngắn hạn chỉ có scope `drive.file`.
+- Client không cầm token. Ngoại lệ có chủ đích (T018): Google Picker chạy trên trình duyệt nên `GET /api/drive/picker-token` trả access token hiện tại (~1 giờ). Token này mang **mọi scope đã cấp** cho app (hiện `openid email profile drive.file`; khi thêm Calendar thì có cả Calendar), không chỉ `drive.file`. Giảm thiểu: chỉ cấp khi đã có `drive.file`, chỉ lấy khi người dùng bấm "Chọn từ Google Drive", `Cache-Control: no-store`, không log, không lưu phía client.

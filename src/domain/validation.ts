@@ -257,6 +257,21 @@ export const createFileInputSchema = z.strictObject({
 
 export type CreateFileInput = z.infer<typeof createFileInputSchema>;
 
+/** ID file Google Drive: chữ, số, `_`, `-`, dài 10–128 (chặn `/`, `'`, NUL, khoảng trắng...). */
+export const DRIVE_FILE_ID_PATTERN = /^[A-Za-z0-9_-]{10,128}$/;
+
+export const driveFileIdSchema = z.string().regex(DRIVE_FILE_ID_PATTERN, "ID file Drive không hợp lệ");
+
+// Input gắn file Drive có sẵn vào không gian / dự án (POST /api/files/attach). Strict như
+// createFileInputSchema; `projectId` rỗng coi như không gửi.
+export const attachFileInputSchema = z.strictObject({
+  driveFileId: driveFileIdSchema,
+  spaceId: entityIdSchema,
+  projectId: emptyToUndefined(entityIdSchema),
+});
+
+export type AttachFileInput = z.infer<typeof attachFileInputSchema>;
+
 export type QueryObjectResult = { ok: true; value: Record<string, string> } | { ok: false; key: string };
 
 /**

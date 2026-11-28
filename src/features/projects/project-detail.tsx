@@ -3,8 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
-import { CalendarDays, FileText, FolderOpen, Link2, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
+import { CalendarDays, FileText, FolderOpen, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { matchesQuery, useUI } from "@/components/layout/ui-context";
+import { AttachDriveButton } from "@/features/docs/attach-drive-button";
 import { FileRow } from "@/features/docs/file-row";
 import { percentOf, ProgressBar } from "@/components/ui/progress-bar";
 import { PROJECT_STATUS_LABEL, PROJECT_STATUSES } from "@/domain/labels";
@@ -143,10 +144,7 @@ export function ProjectDetail() {
                 <Plus className="h-4 w-4" aria-hidden />
                 Tạo tài liệu
               </button>
-              <button type="button" onClick={() => setAttaching(true)} className={secondaryButton}>
-                <Link2 className="h-4 w-4" aria-hidden />
-                Gắn file từ Drive
-              </button>
+              <AttachDriveButton spaceId={project.spaceId} projectId={project.id} onDemoAttach={() => setAttaching(true)} />
             </div>
           </section>
           <div className="flex items-start gap-3 rounded-xl border border-[#E7E0F2] bg-brand-soft p-4">

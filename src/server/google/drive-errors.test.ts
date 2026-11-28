@@ -3,7 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/server/db", () => ({ prisma: {} }));
 
 import { GoogleNotConnectedError } from "./client";
-import { classifyDriveError, driveErrorLogFields, isSilentDriveError } from "./drive-errors";
+import {
+  classifyDriveError,
+  driveErrorLogFields,
+  driveErrorReason,
+  isDriveRateLimitReason,
+  isSilentDriveError,
+} from "./drive-errors";
 import { GoogleScopeMissingError } from "./granted-scopes";
 import { GOOGLE_SCOPES } from "./scopes";
 
@@ -177,5 +183,107 @@ describe("isSilentDriveError", () => {
     expect(isSilentDriveError("timeout")).toBe(false);
     expect(isSilentDriveError("google")).toBe(false);
     expect(isSilentDriveError("unknown")).toBe(false);
+  });
+});
+
+/** Gaxios có symbol, status, và `reason` đặt ở `response.data.error.errors[0]` và/hoặc `errors[0]`. */
+function gaxiosWithReason(opts: { responseReason?: unknown; topReason?: unknown; status?: number }) {
+  const err = gaxiosLike({ status: opts.status ?? 403, symbol: true });
+  if ("responseReason" in opts) {
+    err.response = {
+      status: opts.status ?? 403,
+      data: { error: { message: "SECRET-IN-MESSAGE", errors: [{ reason: opts.responseReason, message: "ya29.SECRET" }] } },
+    };
+  }
+  if ("topReason" in opts) err.errors = [{ reason: opts.topReason, message: "SECRET-IN-MESSAGE" }];
+  return err;
+}
+
+describe("driveErrorReason", () => {
+  it.each([
+    "forbidden",
+    "insufficientFilePermissions",
+    "appNotAuthorizedToFile",
+    "rateLimitExceeded",
+    "userRateLimitExceeded",
+    "dailyLimitExceeded",
+    "quotaExceeded",
+  ])("đọc reason %s từ response.data.error.errors[0]", (reason) => {
+    expect(driveErrorReason(gaxiosWithReason({ responseReason: reason }))).toBe(reason);
+  });
+
+  it.each(["badRequest", "invalid", "invalidParameter", "required", "fieldNotWritable"])(
+    "đọc reason 400 %s (chẩn đoán request sai)",
+    (reason) => {
+      expect(driveErrorReason(gaxiosWithReason({ responseReason: reason, status: 400 }))).toBe(reason);
+    },
+  );
+
+  it("đọc reason từ error.errors[0] khi response không có", () => {
+    expect(driveErrorReason(gaxiosWithReason({ topReason: "userRateLimitExceeded" }))).toBe("userRateLimitExceeded");
+  });
+
+  it("ưu tiên response.data.error.errors[0]", () => {
+    expect(driveErrorReason(gaxiosWithReason({ responseReason: "forbidden", topReason: "rateLimitExceeded" }))).toBe(
+      "forbidden",
+    );
+  });
+
+  it("reason ngoài danh sách cố định → undefined (không đưa chuỗi lạ vào log)", () => {
+    expect(driveErrorReason(gaxiosWithReason({ responseReason: "ya29.SECRET" }))).toBeUndefined();
+    expect(driveErrorReason(gaxiosWithReason({ topReason: "notARealReason" }))).toBeUndefined();
+  });
+
+  it.each([
+    ["không có errors", gaxiosLike({ status: 403, symbol: true })],
+    ["reason không phải chuỗi", gaxiosWithReason({ responseReason: 42 })],
+    ["errors rỗng", Object.assign(gaxiosLike({ status: 403, symbol: true }), { errors: [] })],
+    ["errors không phải mảng", Object.assign(gaxiosLike({ status: 403, symbol: true }), { errors: "forbidden" })],
+  ])("%s → undefined", (_label, err) => {
+    expect(driveErrorReason(err)).toBeUndefined();
+  });
+
+  it("lỗi không phải gaxios → undefined dù có errors[0].reason", () => {
+    const err = Object.assign(new Error("x"), { errors: [{ reason: "forbidden" }] });
+    expect(driveErrorReason(err)).toBeUndefined();
+    expect(driveErrorReason(null)).toBeUndefined();
+    expect(driveErrorReason("forbidden")).toBeUndefined();
+  });
+
+  it("getter ném khi đọc response / errors → undefined, không ném", () => {
+    const err = gaxiosLike({ status: 403, symbol: true });
+    for (const key of ["response", "errors"]) {
+      Object.defineProperty(err, key, {
+        get() {
+          throw new Error(`đọc ${key}`);
+        },
+      });
+    }
+    expect(driveErrorReason(err)).toBeUndefined();
+  });
+
+  it("không đọc message / config", () => {
+    const err = gaxiosWithReason({ responseReason: "forbidden" });
+    for (const key of ["message", "config"]) {
+      Object.defineProperty(err, key, {
+        get() {
+          throw new Error(`đọc ${key}`);
+        },
+      });
+    }
+    expect(driveErrorReason(err)).toBe("forbidden");
+  });
+});
+
+describe("isDriveRateLimitReason", () => {
+  it.each(["rateLimitExceeded", "userRateLimitExceeded", "dailyLimitExceeded", "quotaExceeded", "sharingRateLimitExceeded"] as const)(
+    "%s → true",
+    (reason) => {
+      expect(isDriveRateLimitReason(reason)).toBe(true);
+    },
+  );
+
+  it.each(["forbidden", "insufficientFilePermissions", "appNotAuthorizedToFile", "invalid", "badRequest", undefined] as const)("%s → false", (reason) => {
+    expect(isDriveRateLimitReason(reason)).toBe(false);
   });
 });

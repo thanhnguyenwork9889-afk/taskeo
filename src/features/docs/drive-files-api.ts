@@ -1,5 +1,6 @@
-import { DOC_KIND_MIME } from "@/domain/drive-files";
+import { isDriveFileItem } from "@/domain/drive-files";
 import type { DocKind, DriveFileItem } from "@/domain/types";
+import { isDriveUrl } from "@/domain/validation";
 
 // Gọi `GET /api/files` từ trình duyệt (T015). Không import server/: dạng phản hồi
 // `{ data, error }` được kiểm lại ở đây.
@@ -46,23 +47,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isNullableString(value: unknown): boolean {
-  return value === null || typeof value === "string";
-}
-
-function isDriveFileItem(value: unknown): value is DriveFileItem {
-  if (!isRecord(value)) return false;
-  const { id, name, kind, url, modifiedAt, spaceId, projectId, spaceName, projectName } = value;
-  const strings = [id, name, modifiedAt, spaceId, spaceName].every((field) => typeof field === "string");
-  const kindOk = typeof kind === "string" && Object.hasOwn(DOC_KIND_MIME, kind);
-  return strings && kindOk && [url, projectId, projectName].every(isNullableString);
+/** `url` là chuỗi nhưng không phải Drive → `null` (bản sao); giá trị khác giữ nguyên để `isDriveFileItem` kiểm. */
+function withSafeUrl(file: unknown): unknown {
+  if (!isRecord(file) || typeof file.url !== "string" || isDriveUrl(file.url)) return file;
+  return { ...file, url: null };
 }
 
 /** `{ data: { files: DriveFileItem[] } }` → danh sách file; sai hình dạng → `null`. */
 function filesFromBody(body: unknown): DriveFileItem[] | null {
   if (!isRecord(body) || !isRecord(body.data)) return null;
   const { files } = body.data;
-  return Array.isArray(files) && files.every(isDriveFileItem) ? files : null;
+  if (!Array.isArray(files)) return null;
+  const safe: unknown[] = files.map(withSafeUrl);
+  return safe.every(isDriveFileItem) ? safe : null;
 }
 
 function errorFromBody(body: unknown, status: number): ApiRequestError {

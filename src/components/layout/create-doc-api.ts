@@ -1,4 +1,4 @@
-import { DOC_KIND_MIME } from "@/domain/drive-files";
+import { isDriveFileItem } from "@/domain/drive-files";
 import type { DocKind, DriveFileItem } from "@/domain/types";
 import { isDriveUrl } from "@/domain/validation";
 
@@ -57,18 +57,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isNullableString(value: unknown): boolean {
-  return value === null || typeof value === "string";
-}
-
-function isDriveFileItem(value: unknown): value is DriveFileItem {
-  if (!isRecord(value)) return false;
-  const { id, name, kind, url, modifiedAt, spaceId, projectId, spaceName, projectName } = value;
-  const strings = [id, name, modifiedAt, spaceId, spaceName].every((field) => typeof field === "string");
-  const kindOk = typeof kind === "string" && Object.hasOwn(DOC_KIND_MIME, kind);
-  return strings && kindOk && [url, projectId, projectName].every(isNullableString);
-}
-
 /** `{ data: [{ id, name, ... }] }` → `{ id, name }[]`; sai hình dạng → `null`. */
 function optionsFromBody(body: unknown): NamedOption[] | null {
   if (!isRecord(body) || !Array.isArray(body.data)) return null;
@@ -78,12 +66,20 @@ function optionsFromBody(body: unknown): NamedOption[] | null {
   return (items as NamedOption[]).map(({ id, name }) => ({ id, name }));
 }
 
-/** `{ data: { file } }` → file (url không phải Drive → `null`); sai hình dạng → `null`. */
-function fileFromBody(body: unknown): DriveFileItem | null {
+/** `url` là chuỗi nhưng không phải Drive → `null` (bản sao); giá trị khác giữ nguyên để `isDriveFileItem` kiểm. */
+function withSafeUrl(file: unknown): unknown {
+  if (!isRecord(file) || typeof file.url !== "string" || isDriveUrl(file.url)) return file;
+  return { ...file, url: null };
+}
+
+/**
+ * `{ data: { file } }` → file (url không phải Drive → `null`); sai hình dạng (kể cả thiếu / sai kiểu
+ * `shortcut`) → `null`. Dùng chung cho `POST /api/files` và `POST /api/files/attach`.
+ */
+export function fileFromBody(body: unknown): DriveFileItem | null {
   if (!isRecord(body) || !isRecord(body.data)) return null;
-  const { file } = body.data;
-  if (!isDriveFileItem(file)) return null;
-  return { ...file, url: file.url && isDriveUrl(file.url) ? file.url : null };
+  const file = withSafeUrl(body.data.file);
+  return isDriveFileItem(file) ? file : null;
 }
 
 function errorFromBody(body: unknown, status: number): CreateDocRequestError {
@@ -103,8 +99,11 @@ async function readBody(response: Response, signal?: AbortSignal): Promise<{ ok:
   }
 }
 
-/** Gửi request, đọc envelope; mã không OK / JSON hỏng / `parse` trả `null` → `CreateDocRequestError`. */
-async function request<T>(url: string, init: RequestInit, parse: (body: unknown) => T | null): Promise<T> {
+/**
+ * Gửi request, đọc envelope `{ data, error }`; mã không OK / JSON hỏng / `parse` trả `null` →
+ * `CreateDocRequestError` (status, `error.code` nếu có). Luôn gửi `Accept: application/json`.
+ */
+export async function requestJson<T>(url: string, init: RequestInit, parse: (body: unknown) => T | null): Promise<T> {
   const response = await fetch(url, { ...init, headers: { Accept: "application/json", ...init.headers } });
   const body = await readBody(response, init.signal ?? undefined);
   if (!response.ok) throw errorFromBody(body.ok ? body.value : null, response.status);
@@ -115,12 +114,12 @@ async function request<T>(url: string, init: RequestInit, parse: (body: unknown)
 
 /** Không gian của người dùng từ DB (`GET /api/spaces`). */
 export function fetchApiSpaces(signal?: AbortSignal): Promise<NamedOption[]> {
-  return request(SPACES_PATH, { signal }, optionsFromBody);
+  return requestJson(SPACES_PATH, { signal }, optionsFromBody);
 }
 
 /** Dự án của một không gian (`GET /api/spaces/[id]/projects`). */
 export function fetchApiProjects(spaceId: string, signal?: AbortSignal): Promise<NamedOption[]> {
-  return request(`${SPACES_PATH}/${encodeURIComponent(spaceId)}/projects`, { signal }, optionsFromBody);
+  return requestJson(`${SPACES_PATH}/${encodeURIComponent(spaceId)}/projects`, { signal }, optionsFromBody);
 }
 
 function isTimeout(signal: AbortSignal): boolean {
@@ -143,7 +142,7 @@ export async function postDriveFile(
     signal,
   };
   try {
-    return await request(FILES_PATH, init, fileFromBody);
+    return await requestJson(FILES_PATH, init, fileFromBody);
   } catch (error) {
     if (isTimeout(signal)) throw new CreateDocRequestError(TIMEOUT_MESSAGE, 0, CREATE_DOC_TIMEOUT_CODE);
     throw error;

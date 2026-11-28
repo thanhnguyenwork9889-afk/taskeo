@@ -16,7 +16,9 @@ export type CreateRequest =
   | { kind: "task"; spaceId?: string; projectId?: string }
   | { kind: "space" }
   | { kind: "project"; spaceId: string }
-  | { kind: "doc"; docKind?: DocKind; spaceId?: string; projectId?: string };
+  | { kind: "doc"; docKind?: DocKind; spaceId?: string; projectId?: string }
+  /** Gắn file có sẵn trên Drive qua Google Picker (T018); chỉ chế độ configured, demo không mở qua đây. */
+  | { kind: "attach"; spaceId?: string; projectId?: string };
 
 export interface UIContextValue {
   /** null = đã bật đăng nhập nhưng chưa có phiên (SessionGuard sẽ chuyển về /login). */

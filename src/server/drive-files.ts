@@ -7,19 +7,22 @@ import {
   mergeRecent,
   toDriveFileItem,
   toDriveFileName,
+  type RawDriveFile,
 } from "@/domain/drive-files";
 import type { DocKind, DriveFileItem } from "@/domain/types";
-import { FILE_LIST_MAX, type CreateFileInput } from "@/domain/validation";
+import { FILE_LIST_MAX, type AttachFileInput, type CreateFileInput } from "@/domain/validation";
 import { prisma } from "@/server/db";
 import { ensureProjectFolderId, ensureSpaceFolderId } from "@/server/drive-folder-sync";
 import { createDriveFile, listDriveFiles } from "@/server/google/drive-files";
+import type { attachDriveShortcut } from "@/server/google/drive-shortcuts";
 import { hasGoogleScope } from "@/server/google/granted-scopes";
 import { GOOGLE_SCOPES } from "@/server/google/scopes";
 import { MAX_PROJECTS_PER_SPACE } from "@/server/projects";
 import { MAX_SPACES } from "@/server/spaces";
 
-// Phạm vi nạp: module này chỉ được `GET` / `POST /api/files` import động sau khi đã có phiên (chế độ
-// `configured`), nên chế độ demo không bao giờ nạp `@/server/google/drive-files` / Prisma.
+// Phạm vi nạp: module này chỉ được `GET` / `POST /api/files` (và `POST /api/files/attach`) import động
+// sau khi đã có phiên (chế độ `configured`), nên chế độ demo không bao giờ nạp
+// `@/server/google/drive-files` / Prisma. `./google/drive-shortcuts` chỉ được import động khi gắn.
 
 export interface ListFilesParams {
   spaceId?: string;
@@ -120,9 +123,10 @@ export async function listFiles(
   if (result.status === "not_connected") return { ok: false, reason: "drive_not_connected" };
   if (result.status === "error") return { ok: false, reason: "drive_error" };
 
+  // `kind` lọc lại theo đích: lối tắt được lọc qua `appProperties`, có thể lệch với `targetMimeType`.
   const items = result.files
     .map((file) => toDriveFileItem(file, plan.index))
-    .filter((item): item is DriveFileItem => item !== null);
+    .filter((item): item is DriveFileItem => item !== null && (!params.kind || item.kind === params.kind));
   return { ok: true, files: mergeRecent([items], params.limit) };
 }
 
@@ -130,8 +134,8 @@ export type CreateFileResult =
   | { ok: true; file: DriveFileItem }
   | { ok: false; reason: "not_found" | "drive_not_connected" | "drive_error" };
 
-export interface CreateFileDeps {
-  createDriveFile: typeof createDriveFile;
+/** Phụ thuộc chung để chọn / tạo bù thư mục đích (dùng cho cả tạo file và gắn lối tắt). */
+export interface TargetFolderDeps {
   /** User đã cấp scope `drive.file` chưa — chỉ hỏi khi phải tạo bù thư mục. */
   hasDriveScope(userId: string): Promise<boolean>;
   ensureSpaceFolderId: typeof ensureSpaceFolderId;
@@ -140,12 +144,17 @@ export interface CreateFileDeps {
   now?: () => Date;
 }
 
-const defaultCreateDeps: CreateFileDeps = {
-  createDriveFile,
+export interface CreateFileDeps extends TargetFolderDeps {
+  createDriveFile: typeof createDriveFile;
+}
+
+const defaultFolderDeps: TargetFolderDeps = {
   hasDriveScope: (userId) => hasGoogleScope(userId, GOOGLE_SCOPES.drive),
   ensureSpaceFolderId,
   ensureProjectFolderId,
 };
+
+const defaultCreateDeps: CreateFileDeps = { ...defaultFolderDeps, createDriveFile };
 
 const FILES_LOG = { prefix: "[files]" } as const;
 
@@ -157,7 +166,10 @@ interface CreateTarget {
 }
 
 /** Không gian (và dự án, nếu có) thuộc user; dự án phải nằm trong đúng `spaceId`. `null` → not_found. */
-async function loadCreateTarget(userId: string, input: CreateFileInput): Promise<CreateTarget | null> {
+async function loadCreateTarget(
+  userId: string,
+  input: { spaceId: string; projectId?: string },
+): Promise<CreateTarget | null> {
   const space = await prisma.space.findFirst({ where: { id: input.spaceId, userId }, select: projectSelect });
   if (!space) return null;
   if (!input.projectId) return { space, project: null };
@@ -174,7 +186,7 @@ type FolderOutcome = { ok: true; folderId: string } | { ok: false; reason: "driv
  * Id thư mục đích (dự án nếu có, không gian nếu không). Chưa có → kiểm scope trước để phân biệt
  * 403 / 502 (provision im lặng khi thiếu scope), rồi tạo bù qua `ensure*`.
  */
-async function resolveTargetFolder(userId: string, target: CreateTarget, deps: CreateFileDeps): Promise<FolderOutcome> {
+async function resolveTargetFolder(userId: string, target: CreateTarget, deps: TargetFolderDeps): Promise<FolderOutcome> {
   const existing = target.project ? target.project.driveFolderId : target.space.driveFolderId;
   if (existing) return { ok: true, folderId: existing };
   if (!(await deps.hasDriveScope(userId))) return { ok: false, reason: "drive_not_connected" };
@@ -219,19 +231,89 @@ export async function createFile(
   if (result.status === "not_connected") return { ok: false, reason: "drive_not_connected" };
   if (result.status === "error") return { ok: false, reason: "drive_error" };
 
-  const now = deps.now ?? (() => new Date());
-  const raw = {
-    ...result.file,
-    modifiedTime: result.file.modifiedTime || now().toISOString(),
-    parents: result.file.parents?.length ? result.file.parents : [folder.folderId],
-  };
-  const file = toDriveFileItem(raw, targetIndex(target, folder.folderId));
+  const file = toTargetItem(result.file, target, folder.folderId, deps.now);
   if (file) return { ok: true, file };
-  // File đã nằm trên Drive nhưng không trả được: chỉ log id nội bộ, không tên file / URL.
-  console.error(`${FILES_LOG.prefix} File Drive vừa tạo không ánh xạ được`, {
+  logUnmapped("File Drive vừa tạo không ánh xạ được", userId, target);
+  return { ok: false, reason: "drive_error" };
+}
+
+/**
+ * File / lối tắt Drive vừa tạo trong `folderId` → `DriveFileItem` của đúng không gian / dự án đích.
+ * Drive thiếu `modifiedTime` → `now()`; thiếu `parents` → thư mục đích. `null` khi không ánh xạ được.
+ */
+function toTargetItem(
+  raw: RawDriveFile,
+  target: CreateTarget,
+  folderId: string,
+  now: () => Date = () => new Date(),
+): DriveFileItem | null {
+  const filled = {
+    ...raw,
+    modifiedTime: raw.modifiedTime || now().toISOString(),
+    parents: raw.parents?.length ? raw.parents : [folderId],
+  };
+  return toDriveFileItem(filled, targetIndex(target, folderId));
+}
+
+/** File đã nằm trên Drive nhưng không trả được: chỉ log id nội bộ, không tên file / URL. */
+function logUnmapped(message: string, userId: string, target: CreateTarget): void {
+  console.error(`${FILES_LOG.prefix} ${message}`, {
     userId,
     spaceId: target.space.id,
     projectId: target.project?.id ?? null,
   });
+}
+
+export type AttachFileResult =
+  | { ok: true; file: DriveFileItem }
+  | {
+      ok: false;
+      reason: "not_found" | "invalid_target" | "already_attached" | "drive_not_connected" | "drive_error";
+    };
+
+export interface AttachFileDeps extends TargetFolderDeps {
+  attachShortcut: typeof attachDriveShortcut;
+}
+
+const defaultAttachDeps: AttachFileDeps = {
+  ...defaultFolderDeps,
+  // Import động: chỉ nạp module lối tắt khi thật sự gắn.
+  attachShortcut: async (userId, input) => {
+    const { attachDriveShortcut } = await import("./google/drive-shortcuts");
+    return attachDriveShortcut(userId, input);
+  },
+};
+
+/**
+ * Gắn file Google Docs / Sheets / Slides có sẵn (`driveFileId` từ Google Picker) vào thư mục Drive
+ * của dự án (nếu có `projectId`) hoặc không gian bằng một lối tắt, trả `DriveFileItem` (`shortcut:
+ * true`) cùng hình dạng `GET /api/files`. Thư mục đích chưa có → tạo bù; tạo bù không được →
+ * `drive_error`, không gắn. Không ghi Activity.
+ */
+export async function attachFile(
+  userId: string,
+  input: AttachFileInput,
+  deps: AttachFileDeps = defaultAttachDeps,
+): Promise<AttachFileResult> {
+  const target = await loadCreateTarget(userId, input);
+  if (!target) return { ok: false, reason: "not_found" };
+
+  const folder = await resolveTargetFolder(userId, target, deps);
+  if (!folder.ok) return folder;
+
+  const result = await deps.attachShortcut(userId, { targetId: input.driveFileId, parentId: folder.folderId });
+  switch (result.status) {
+    case "not_connected":
+      return { ok: false, reason: "drive_not_connected" };
+    case "error":
+      return { ok: false, reason: "drive_error" };
+    case "invalid_target":
+    case "already_attached":
+      return { ok: false, reason: result.status };
+  }
+
+  const file = toTargetItem(result.file, target, folder.folderId, deps.now);
+  if (file) return { ok: true, file };
+  logUnmapped("Lối tắt Drive vừa tạo không ánh xạ được", userId, target);
   return { ok: false, reason: "drive_error" };
 }
