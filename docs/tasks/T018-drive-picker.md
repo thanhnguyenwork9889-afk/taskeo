@@ -168,6 +168,8 @@ Vòng 1 (`git diff a16d0ba..HEAD`, sau `2787a46`): `layer-reviewer`, `typescript
 - Referrer API key chưa gồm domain Vercel preview (preview hiện bị chặn truy cập nên không ảnh hưởng).
 - Trình bày: comment dài ở `use-attach-doc.ts:22`, ternary thừa ở `drive-shortcuts.ts` `logFields`.
 
+Vòng 2 (`c7b08ae`, sửa R16 sau kiểm thật): `typescript-reviewer` (kèm khía cạnh bảo mật log) **sạch**. LOW để sau: lookup không phân trang (>100 lối tắt cùng đích có thể tạo trùng, fail-open).
+
 ## 7. Final
 
 **Tóm tắt:**
